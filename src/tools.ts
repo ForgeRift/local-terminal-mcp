@@ -116,7 +116,7 @@ export const TOOLS: Tool[] = [
       type: "object",
       properties: {
         command:       { type: "string",  description: "The command to run." },
-        dry_run:       { type: "boolean", description: "Default true. Set false only after previewing the command." },
+        dry_run:       { description: "Default true. Pass false (or the string 'false') only after previewing the command." },
         justification: { type: "string",  description: "Why the structured tools cannot cover this." },
       },
       required: ["command", "justification"],
@@ -215,7 +215,7 @@ export async function executeTool(
     // ── Tier 3 ──────────────────────────────────────────────────────────────────
     case "run_command": {
       const cmd       = args.command as string;
-      const isDryRun  = (args.dry_run as boolean | undefined) ?? true;
+      const isDryRun  = args.dry_run === false || args.dry_run === "false" ? false : true;
 
       if (isBlocked(cmd)) {
         return { result: `BLOCKED: command matches a hard-blocked pattern and cannot be run.`, tier: "escape_hatch", dryRun: isDryRun };
