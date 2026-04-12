@@ -89,8 +89,9 @@ export const TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        directory: { type: "string", description: "Project directory to run the command in." },
-        command:   { type: "string", description: "npm sub-command e.g. 'install', 'run build', 'list'." },
+        directory:         { type: "string", description: "Project directory to run the command in. Also accepted as 'working_directory'." },
+        working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted." },
+        command:           { type: "string", description: "npm sub-command e.g. 'install', 'run build', 'list'." },
       },
       required: ["directory", "command"],
     },
@@ -101,8 +102,9 @@ export const TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        directory: { type: "string", description: "Git repo directory." },
-        command:   { type: "string", description: "Git sub-command e.g. 'status', 'log --oneline -10', 'diff'." },
+        directory:         { type: "string", description: "Git repo directory. Also accepted as 'working_directory'." },
+        working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted." },
+        command:           { type: "string", description: "Git sub-command e.g. 'status', 'log --oneline -10', 'diff'." },
       },
       required: ["directory", "command"],
     },
@@ -191,7 +193,7 @@ export async function executeTool(
 
     // ── Tier 2 ──────────────────────────────────────────────────────────────────
     case "run_npm_command": {
-      const dir = args.directory as string;
+      const dir = (args.directory ?? args.working_directory) as string;
       const cmd = args.command as string;
       const allowed = /^(install|ci|list|run\s+\w[\w:-]*)$/i;
       if (!allowed.test(cmd.trim())) {
@@ -202,7 +204,7 @@ export async function executeTool(
     }
 
     case "run_git_command": {
-      const dir = args.directory as string;
+      const dir = (args.directory ?? args.working_directory) as string;
       const cmd = args.command as string;
       const allowed = /^(status|log|diff|branch|fetch|remote|show|stash list|tag)/i;
       if (!allowed.test(cmd.trim())) {
