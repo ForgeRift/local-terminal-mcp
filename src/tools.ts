@@ -13,7 +13,7 @@ const BLOCKED_PATTERNS = [
   /rm\s+-rf/i,
   /format\s+[a-z]:/i,
   /del\s+\/[sf]/i,
-  /shutdown/i,
+  /\bshutdown\s+(\/[srhf]|-[srhfPH])/i,   // Windows: shutdown /s /r /h etc. Linux: shutdown -h -r etc.
   /reg\s+delete/i,
   /cipher\s+\/w/i,
   /bcdedit/i,
