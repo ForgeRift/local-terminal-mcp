@@ -10,7 +10,8 @@ import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 // Hard-blocked patterns — rejected regardless of tier
 const BLOCKED_PATTERNS = [
-  /rm\s+-rf/i,
+  /rm\s+-r/i,                              // rm -r, rm -rf (covers both)
+  /\brmdir\b/i,                            // rmdir /s /q etc.
   /format\s+[a-z]:/i,
   /del\s+\/[sf]/i,
   /\bshutdown\s+(\/[srhf]|-[srhfPH])/i,   // Windows: shutdown /s /r /h etc. Linux: shutdown -h -r etc.
@@ -19,6 +20,8 @@ const BLOCKED_PATTERNS = [
   /bcdedit/i,
   /diskpart/i,
   /sc\s+(stop|delete)\s+local-terminal-mcp/i,
+  /powershell.*remove-item/i,              // PowerShell delete bypass
+  /powershell.*rmdir/i,                    // PowerShell rmdir bypass
 ];
 
 function isBlocked(cmd: string): boolean {
@@ -36,6 +39,22 @@ function runCommand(cmd: string, timeoutMs = 10_000): string {
     const e = err as { stdout?: string; stderr?: string; message?: string };
     return `ERROR: ${e.stderr ?? e.stdout ?? e.message ?? "Unknown error"}`.trim();
   }
+}
+
+function sanitizeDir(dir: string): string {
+  if (/["`;|&<>]/.test(dir)) {
+    throw new Error(`Directory path contains shell-unsafe characters.`);
+  }
+  return dir;
+}
+
+const MAX_CMD_OUTPUT_CHARS = 10_000;
+function truncateOutput(output: string): string {
+  if (output.length <= MAX_CMD_OUTPUT_CHARS) return output;
+  return (
+    output.slice(0, MAX_CMD_OUTPUT_CHARS) +
+    `\n\n[TRUNCATED: ${output.length} chars total. Only first ${MAX_CMD_OUTPUT_CHARS} shown.]`
+  );
 }
 
 // ─── Tool Definitions ──────────────────────────────────────────────────────────
@@ -194,7 +213,7 @@ export async function executeTool(
 
     // ── Tier 2 ──────────────────────────────────────────────────────────────────
     case "run_npm_command": {
-      const dir = (args.directory ?? args.working_directory) as string;
+      const dir = sanitizeDir((args.directory ?? args.working_directory) as string);
       const cmd = args.command as string;
       const allowed = /^(install|ci|list|run\s+\w[\w:-]*)$/i;
       if (!allowed.test(cmd.trim())) {
@@ -205,7 +224,7 @@ export async function executeTool(
     }
 
     case "run_git_command": {
-      const dir = (args.directory ?? args.working_directory) as string;
+      const dir = sanitizeDir((args.directory ?? args.working_directory) as string);
       const cmd = args.command as string;
       const allowed = /^(status|log|diff|branch|fetch|remote|show|stash list|tag)/i;
       if (!allowed.test(cmd.trim())) {
@@ -232,7 +251,7 @@ export async function executeTool(
         };
       }
 
-      const result = runCommand(cmd, 30_000);
+      const result = truncateOutput(runCommand(cmd, 30_000));
       return { result, tier: "escape_hatch", dryRun: false };
     }
 
