@@ -18,6 +18,7 @@ const BLOCKED_PATTERNS = [
   /cipher\s+\/w/i,
   /bcdedit/i,
   /diskpart/i,
+  /sc\s+(stop|delete)\s+local-terminal-mcp/i,
 ];
 
 function isBlocked(cmd: string): boolean {
