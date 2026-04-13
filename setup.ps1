@@ -82,6 +82,11 @@ Write-Host "Installing Windows service..." -ForegroundColor Yellow
 & $NssmExe set $ServiceName AppStdout (Join-Path $LogDir "service-out.log")
 & $NssmExe set $ServiceName AppStderr (Join-Path $LogDir "service-err.log")
 
+# -- Configure failure recovery (auto-restart on crash or unexpected stop) --
+& $NssmExe set $ServiceName AppExit Default Restart
+& $NssmExe set $ServiceName AppRestartDelay 3000
+Write-Host "Failure recovery configured (auto-restart after 3s)" -ForegroundColor Green
+
 # -- Start service -------------------------------------------------------
 & $NssmExe start $ServiceName
 Start-Sleep -Seconds 2
