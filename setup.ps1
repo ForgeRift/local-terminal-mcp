@@ -1,6 +1,11 @@
 # local-terminal-mcp Setup Script
 # Run as Administrator: Right-click PowerShell -> Run as Administrator
 # Usage: .\setup.ps1
+#
+# Re-run to update: pull the latest code, then run .\setup.ps1 again.
+# The script stops and removes the existing service before reinstalling,
+# so re-running is safe and is the supported update path.
+# Your .env (auth token) is preserved on re-run.
 
 $ServiceName = "local-terminal-mcp"
 $DisplayName = "Local Terminal MCP Server"
@@ -14,8 +19,12 @@ $NssmDir     = Join-Path $InstallDir "nssm"
 $NssmExe     = Join-Path $NssmDir "nssm-2.24\win64\nssm.exe"
 $LogDir      = Join-Path $InstallDir "logs"
 
+# Read version from package.json
+$PkgJson     = Join-Path $InstallDir "package.json"
+$Version     = if (Test-Path $PkgJson) { (Get-Content $PkgJson | ConvertFrom-Json).version } else { "unknown" }
+
 Write-Host ""
-Write-Host "=== local-terminal-mcp Setup ===" -ForegroundColor Cyan
+Write-Host "=== local-terminal-mcp Setup (v$Version) ===" -ForegroundColor Cyan
 Write-Host ""
 
 # -- Check Node.js -------------------------------------------------------
@@ -63,7 +72,7 @@ if (-not (Test-Path $NssmExe)) {
 # -- Remove existing service ---------------------------------------------
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
-  Write-Host "Removing existing service..." -ForegroundColor Yellow
+  Write-Host "Removing existing service (update in progress)..." -ForegroundColor Yellow
   & $NssmExe stop $ServiceName | Out-Null
   & $NssmExe remove $ServiceName confirm | Out-Null
 }
@@ -94,7 +103,7 @@ Start-Sleep -Seconds 2
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($svc -and $svc.Status -eq "Running") {
   Write-Host ""
-  Write-Host "=== Setup Complete ===" -ForegroundColor Green
+  Write-Host "=== Setup Complete (v$Version) ===" -ForegroundColor Green
   Write-Host "Service running at http://127.0.0.1:$Port" -ForegroundColor Green
   Write-Host ""
   Write-Host "Add this to your claude_desktop_config.json:" -ForegroundColor Cyan
@@ -112,6 +121,8 @@ if ($svc -and $svc.Status -eq "Running") {
   Write-Host "    }"
   Write-Host "  }"
   Write-Host "}"
+  Write-Host ""
+  Write-Host "To update later: git pull, then re-run .\setup.ps1" -ForegroundColor Cyan
 } else {
   Write-Host "WARNING: Service may not have started. Check $LogDir for errors." -ForegroundColor Red
 }
