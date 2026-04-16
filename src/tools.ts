@@ -97,7 +97,7 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
 
   // ── Scheduled Execution ───────────────────────────────────────────────────
   { pattern: /\bcrontab\b/i,                      category: 'scheduled-exec', reason: 'Cron job modification is prohibited.' },
-  { pattern: /(?:^|[;&|])\s*at\s+\d/i,                      category: 'scheduled-exec', reason: 'Scheduled task creation (at) is prohibited.' },
+  { pattern: /(?:^|[;&|])\s*\bat\b\s+\d/i,                      category: 'scheduled-exec', reason: 'Scheduled task creation (at) is prohibited.' },
   { pattern: /\bschtasks\b/i,                     category: 'scheduled-exec', reason: 'Windows Task Scheduler modification is prohibited.' },
   { pattern: /register-scheduledjob/i,            category: 'scheduled-exec', reason: 'PowerShell scheduled job creation is prohibited.' },
   { pattern: /new-scheduledtask/i,                category: 'scheduled-exec', reason: 'PowerShell scheduled task creation is prohibited.' },
