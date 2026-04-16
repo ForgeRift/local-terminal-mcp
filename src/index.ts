@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import dotenv from "dotenv";
-import { PORT, validateConfig } from "./config.js";
+import { PORT, RATE_LIMIT_PER_MIN, validateConfig } from "./config.js";
 import { validateAuth } from "./auth.js";
 import { auditLog } from "./audit.js";
 import { TOOLS, executeTool } from "./tools.js";
@@ -14,10 +14,46 @@ import { TOOLS, executeTool } from "./tools.js";
 dotenv.config();
 validateConfig();
 
+const VERSION = "1.2.0";
+
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const rateLimitBuckets = new Map<string, number[]>();
+
+function checkRateLimit(token: string): boolean {
+  const now = Date.now();
+  const bucket = rateLimitBuckets.get(token) || [];
+  const filtered = bucket.filter(ts => now - ts < RATE_LIMIT_WINDOW_MS);
+  if (filtered.length >= RATE_LIMIT_PER_MIN) return false;
+  filtered.push(now);
+  rateLimitBuckets.set(token, filtered);
+  return true;
+}
+
+// Clean up old rate limit entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, bucket] of rateLimitBuckets.entries()) {
+    const filtered = bucket.filter(ts => now - ts < RATE_LIMIT_WINDOW_MS);
+    if (filtered.length === 0) rateLimitBuckets.delete(token);
+    else rateLimitBuckets.set(token, filtered);
+  }
+}, 5 * 60_000);
+
 // ─── Express App ───────────────────────────────────────────────────────────────
 
 const app = express();
 app.use(express.json());
+
+// CORS headers
+app.use((_req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Mcp-Session-Id');
+  if (_req.method === 'OPTIONS') { res.sendStatus(204); return; }
+  next();
+});
 
 function requireAuth(
   req: express.Request,
@@ -28,6 +64,14 @@ function requireAuth(
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+
+  // Rate limit check
+  const token = (req.headers['authorization'] || '').slice(7);
+  if (!checkRateLimit(token)) {
+    res.status(429).json({ error: "Rate limit exceeded. Try again in a moment." });
+    return;
+  }
+
   next();
 }
 
@@ -37,7 +81,7 @@ const transports = new Map<string, SSEServerTransport>();
 // SSE connection — one fresh Server instance per connection
 app.get("/sse", requireAuth, async (req, res) => {
   const mcpServer = new Server(
-    { name: "local-terminal-mcp", version: "1.0.0" },
+    { name: "local-terminal-mcp", version: VERSION },
     { capabilities: { tools: {} } }
   );
 
@@ -45,8 +89,8 @@ app.get("/sse", requireAuth, async (req, res) => {
 
   mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args = {} } = request.params;
-    const { result, tier, dryRun } = await executeTool(name, args as Record<string, unknown>);
-    auditLog(name, args as Record<string, unknown>, tier, dryRun);
+    const { result, tier, blocked, dryRun } = await executeTool(name, args as Record<string, unknown>);
+    auditLog(name, args as Record<string, unknown>, tier, blocked, dryRun);
     return { content: [{ type: "text", text: result }] };
   });
 
@@ -73,13 +117,14 @@ app.get("/health", (_req, res) => {
     status:    "ok",
     uptime_s:  Math.round(process.uptime()),
     sessions:  transports.size,
-    version:   "1.0.0",
+    version:   VERSION,
   });
 });
 
 // ─── Start — localhost only ────────────────────────────────────────────────────
 
 app.listen(PORT, "127.0.0.1", () => {
-  console.log(`[local-terminal-mcp] Listening on http://127.0.0.1:${PORT}`);
-  console.log(`[local-terminal-mcp] Auth token: SET`);
+  console.log(`[local-terminal-mcp] v${VERSION} listening on http://127.0.0.1:${PORT}`);
+  console.log(`[local-terminal-mcp] Auth: SET | Rate limit: ${RATE_LIMIT_PER_MIN}/min`);
+  console.log(`[local-terminal-mcp] Security: RED/AMBER/GREEN three-tier model active`);
 });
