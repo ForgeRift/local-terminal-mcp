@@ -201,8 +201,14 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
 
   // ── Command Chaining Exploits ─────────────────────────────────────────────
   { pattern: /[;&|]{2}.*\b(rm|del|format|shutdown|kill|taskkill)\b/i, category: 'chaining', reason: 'Command chaining with destructive commands is prohibited.' },
+  { pattern: /;\s*\b(rm|del|format|shutdown|kill|taskkill|erase|rmdir|unlink|truncate|shred|wipe|passwd|chmod|chown|curl|wget|ssh|scp|sftp|eval|exec|sudo|runas)\b/i, category: 'chaining', reason: 'Single-semicolon chaining with dangerous commands is prohibited.' },
   { pattern: /\|\s*(bash|sh|cmd|powershell)\b/i,  category: 'chaining',       reason: 'Pipe-to-shell is prohibited.' },
   { pattern: /`[^`]*`/,                           category: 'chaining',       reason: 'Backtick command substitution is prohibited.' },
+
+  // ── Variable Expansion / Obfuscation ──────────────────────────────────────
+  { pattern: /\$\(/,                              category: 'obfuscation',    reason: 'Shell command substitution $() is prohibited.' },
+  { pattern: /\$\{[^}]+\}/,                       category: 'obfuscation',    reason: 'Variable expansion ${...} is prohibited in commands.' },
+  { pattern: /%[A-Za-z_][A-Za-z0-9_]*%/,          category: 'obfuscation',    reason: 'Windows environment variable expansion %VAR% is prohibited.' },
 
   // ── HTTP Server & Listener Binding ────────────────────────────────────────
   { pattern: /\bnc\s.*-l/i,                       category: 'http-server',    reason: 'Listening socket (netcat) is prohibited.' },
@@ -212,11 +218,30 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
 ];
 
 function checkBlocked(cmd: string): { blocked: true; category: string; reason: string } | { blocked: false } {
+  // ── CRITICAL FIX (S35): Reject non-ASCII to prevent Unicode homoglyph bypass ──
+  // Cyrillic/Greek lookalikes (e.g. Cyrillic 'р' for Latin 'r') defeat \b word boundaries.
+  if (/[^\x00-\x7F]/.test(cmd)) {
+    return { blocked: true, category: 'obfuscation', reason: 'Non-ASCII characters in commands are prohibited. This prevents Unicode homoglyph bypasses.' };
+  }
+
+  // ── CRITICAL FIX (S35): Check each line independently ──
+  // Newlines break regex `.` matching, allowing chaining across lines.
+  const lines = cmd.split(/\r?\n/).filter(l => l.trim().length > 0);
+  for (const line of lines) {
+    for (const { pattern, category, reason } of BLOCKED_PATTERNS) {
+      if (pattern.test(line)) {
+        return { blocked: true, category, reason };
+      }
+    }
+  }
+
+  // Also check the full combined command (catches cross-line chaining patterns)
   for (const { pattern, category, reason } of BLOCKED_PATTERNS) {
     if (pattern.test(cmd)) {
       return { blocked: true, category, reason };
     }
   }
+
   return { blocked: false };
 }
 
@@ -390,6 +415,7 @@ export const TOOLS: Tool[] = [
   // ── GREEN Tier: Read-only ─────────────────────────────────────────────────────
   {
     name: "list_directory",
+    annotations: { title: 'List Directory', readOnlyHint: true, destructiveHint: false },
     description: "List files and folders in a directory. Read-only, always safe.",
     inputSchema: {
       type: "object",
@@ -400,6 +426,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "read_file",
+    annotations: { title: 'Read File', readOnlyHint: true, destructiveHint: false },
     description: "Read the contents of a text file. Read-only, always safe. Max 500 lines.",
     inputSchema: {
       type: "object",
@@ -413,11 +440,13 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "get_system_info",
+    annotations: { title: 'Get System Info', readOnlyHint: true, destructiveHint: false },
     description: "Get OS version, hostname, username, disk space, memory, and running processes. Read-only.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "find_files",
+    annotations: { title: 'Find Files', readOnlyHint: true, destructiveHint: false },
     description: "Search for files by name pattern in a directory. Read-only.",
     inputSchema: {
       type: "object",
@@ -432,6 +461,7 @@ export const TOOLS: Tool[] = [
   // ── GREEN Tier: Approved commands ─────────────────────────────────────────────
   {
     name: "run_npm_command",
+    annotations: { title: 'Run NPM Command', readOnlyHint: false, destructiveHint: false },
     description: "Run npm install, npm run <script>, or npm list in a project directory.",
     inputSchema: {
       type: "object",
@@ -445,6 +475,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "run_git_command",
+    annotations: { title: 'Run Git Command', readOnlyHint: true, destructiveHint: false },
     description: "Run read-only git commands: status, log, diff, branch, fetch.",
     inputSchema: {
       type: "object",
@@ -460,6 +491,7 @@ export const TOOLS: Tool[] = [
   // ── Escape hatch (RED/AMBER checked) ──────────────────────────────────────────
   {
     name: "run_command",
+    annotations: { title: 'Run Shell Command', readOnlyHint: false, destructiveHint: true },
     description: "Run an arbitrary shell command. dry_run=true by default — always preview before executing. Hard-blocked patterns are enforced server-side.",
     inputSchema: {
       type: "object",
@@ -473,6 +505,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "search_file",
+    annotations: { title: 'Search File', readOnlyHint: true, destructiveHint: false },
     description: "Search for text patterns in a file or directory. Read-only grep/findstr equivalent.",
     inputSchema: {
       type: "object",
