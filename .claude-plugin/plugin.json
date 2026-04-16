@@ -1,1 +1,24 @@
-{"name": "local-terminal", "version": "1.0.0", "description": "Give Claude controlled access to your local Windows terminal - list files, read files, run approved commands, run git and npm scripts, and manage projects without leaving Cowork.", "author": {"name": "Dustin Denis", "email": "claudedussy@gmail.com"}, "repository": "https://github.com/claudedussy/local-terminal-mcp", "keywords": ["terminal", "shell", "cmd", "powershell", "windows", "local", "files", "git", "npm", "command"]}
+{
+  "name": "local-terminal",
+  "version": "1.2.0",
+  "description": "Give Claude controlled, audited access to your local Windows terminal. Three-tier security model (RED/AMBER/GREEN) with 120+ hard-blocked dangerous patterns, sensitive file protection, rate limiting, and full audit logging. Browse files, read code, run approved commands, and manage projects without leaving Cowork.",
+  "author": {
+    "name": "SharpEdge",
+    "email": "support@sharpedge.io"
+  },
+  "repository": "https://github.com/claudedussy/local-terminal-mcp",
+  "keywords": [
+    "terminal",
+    "shell",
+    "cmd",
+    "powershell",
+    "windows",
+    "local",
+    "files",
+    "git",
+    "npm",
+    "command",
+    "security",
+    "audit"
+  ]
+}
