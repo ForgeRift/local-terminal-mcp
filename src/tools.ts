@@ -23,7 +23,7 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── File Deletion & Data Destruction ──────────────────────────────────────
   { pattern: /\brm\s/i,                           category: 'file-delete',    reason: 'File deletion (rm) is prohibited.' },
   { pattern: /\brmdir\b/i,                        category: 'file-delete',    reason: 'Directory removal (rmdir) is prohibited.' },
-  { pattern: /\bdel\b/i,                          category: 'file-delete',    reason: 'File deletion (del) is prohibited.' },
+  { pattern: /(?:^|[;&|])\s*del\b/i,                          category: 'file-delete',    reason: 'File deletion (del) is prohibited.' },
   { pattern: /\berase\b/i,                        category: 'file-delete',    reason: 'File deletion (erase) is prohibited.' },
   { pattern: /\bunlink\b/i,                       category: 'file-delete',    reason: 'File deletion (unlink) is prohibited.' },
   { pattern: /\btruncate\b/i,                     category: 'file-delete',    reason: 'File truncation is prohibited.' },
@@ -58,7 +58,7 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\brmmod\b/i,                        category: 'system-state',   reason: 'Kernel module removal is prohibited.' },
 
   // ── Process Termination ───────────────────────────────────────────────────
-  { pattern: /\bkill\b/i,                         category: 'process-kill',   reason: 'Process termination (kill) is prohibited.' },
+  { pattern: /(?:^|[;&|])\s*kill\b/i,                         category: 'process-kill',   reason: 'Process termination (kill) is prohibited.' },
   { pattern: /\bkillall\b/i,                      category: 'process-kill',   reason: 'Mass process termination is prohibited.' },
   { pattern: /\bpkill\b/i,                        category: 'process-kill',   reason: 'Pattern-based process termination is prohibited.' },
   { pattern: /\btaskkill\b/i,                     category: 'process-kill',   reason: 'Task termination (taskkill) is prohibited.' },
@@ -97,7 +97,7 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
 
   // ── Scheduled Execution ───────────────────────────────────────────────────
   { pattern: /\bcrontab\b/i,                      category: 'scheduled-exec', reason: 'Cron job modification is prohibited.' },
-  { pattern: /\bat\b\s+\d/i,                      category: 'scheduled-exec', reason: 'Scheduled task creation (at) is prohibited.' },
+  { pattern: /(?:^|[;&|])\s*at\s+\d/i,                      category: 'scheduled-exec', reason: 'Scheduled task creation (at) is prohibited.' },
   { pattern: /\bschtasks\b/i,                     category: 'scheduled-exec', reason: 'Windows Task Scheduler modification is prohibited.' },
   { pattern: /register-scheduledjob/i,            category: 'scheduled-exec', reason: 'PowerShell scheduled job creation is prohibited.' },
   { pattern: /new-scheduledtask/i,                category: 'scheduled-exec', reason: 'PowerShell scheduled task creation is prohibited.' },
@@ -113,7 +113,7 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
 
   // ── Code Execution & Shell Invocation ─────────────────────────────────────
   { pattern: /\beval\b/i,                         category: 'code-exec',      reason: 'eval() is prohibited.' },
-  { pattern: /\bexec\b/i,                         category: 'code-exec',      reason: 'exec is prohibited.' },
+  { pattern: /(?:^|[;&|])\s*exec\b/i,                         category: 'code-exec',      reason: 'exec is prohibited.' },
   { pattern: /invoke-expression/i,                category: 'code-exec',      reason: 'PowerShell Invoke-Expression is prohibited.' },
   { pattern: /\biex\b/i,                          category: 'code-exec',      reason: 'PowerShell IEX (Invoke-Expression alias) is prohibited.' },
   { pattern: /\bstart-process\b/i,                category: 'code-exec',      reason: 'PowerShell Start-Process is prohibited.' },
@@ -188,7 +188,7 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── Privilege Escalation ──────────────────────────────────────────────────
   { pattern: /\bsudo\b/i,                         category: 'priv-esc',       reason: 'Privilege escalation (sudo) is prohibited.' },
   { pattern: /\brunas\b/i,                        category: 'priv-esc',       reason: 'Privilege escalation (runas) is prohibited.' },
-  { pattern: /\bsu\s/i,                           category: 'priv-esc',       reason: 'User switching (su) is prohibited.' },
+  { pattern: /(?:^|[;&|])\s*su\s/i,                           category: 'priv-esc',       reason: 'User switching (su) is prohibited.' },
 
   // ── Information Leakage ───────────────────────────────────────────────────
   { pattern: /\\etc\\shadow/i,                    category: 'info-leak',      reason: 'Shadow file access is prohibited.' },
