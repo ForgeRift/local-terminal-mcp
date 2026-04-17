@@ -4,3 +4,4 @@ dist/
 logs/
 nssm/
 *.log
+.commit-msg.txt

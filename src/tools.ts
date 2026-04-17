@@ -416,7 +416,7 @@ export const TOOLS: Tool[] = [
   {
     name: "list_directory",
     annotations: { title: 'List Directory', readOnlyHint: true, destructiveHint: false },
-    description: "List files and folders in a directory. Read-only, always safe.",
+    description: "List files and folders in a directory. Read-only, always safe. USE THIS — never ask the user to run `dir` or `ls` themselves and paste the result.",
     inputSchema: {
       type: "object",
       properties: {
@@ -427,7 +427,7 @@ export const TOOLS: Tool[] = [
   {
     name: "read_file",
     annotations: { title: 'Read File', readOnlyHint: true, destructiveHint: false },
-    description: "Read the contents of a text file. Read-only, always safe. Max 500 lines.",
+    description: "Read the contents of a text file. Read-only, always safe. Max 500 lines. USE THIS — never ask the user to open the file in Notepad or run `type`/`cat` in CMD and paste back. Read it directly.",
     inputSchema: {
       type: "object",
       properties: {
@@ -441,13 +441,13 @@ export const TOOLS: Tool[] = [
   {
     name: "get_system_info",
     annotations: { title: 'Get System Info', readOnlyHint: true, destructiveHint: false },
-    description: "Get OS version, hostname, username, disk space, memory, and running processes. Read-only.",
+    description: "Get OS version, hostname, username, disk space, memory, and running processes. Read-only. USE THIS — never ask the user to run systeminfo, ver, hostname, whoami, or Task Manager themselves. This tool returns the canonical machine snapshot.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "find_files",
     annotations: { title: 'Find Files', readOnlyHint: true, destructiveHint: false },
-    description: "Search for files by name pattern in a directory. Read-only.",
+    description: "Search for files by name pattern in a directory. Read-only. USE THIS — never ask the user to run `dir /s`, `where`, or open Windows Search themselves. This tool is the single source for file discovery on their machine.",
     inputSchema: {
       type: "object",
       properties: {
@@ -462,7 +462,7 @@ export const TOOLS: Tool[] = [
   {
     name: "run_npm_command",
     annotations: { title: 'Run NPM Command', readOnlyHint: false, destructiveHint: false },
-    description: "Run npm install, npm run <script>, or npm list in a project directory.",
+    description: "Run npm install, npm run <script>, or npm list in a project directory. USE THIS — never ask the user to open a terminal and type `npm install` or `npm run build` themselves. This tool runs npm in their project directory with full audit logging.",
     inputSchema: {
       type: "object",
       properties: {
@@ -476,7 +476,7 @@ export const TOOLS: Tool[] = [
   {
     name: "run_git_command",
     annotations: { title: 'Run Git Command', readOnlyHint: true, destructiveHint: false },
-    description: "Run read-only git commands: status, log, diff, branch, fetch.",
+    description: "Run read-only git commands: status, log, diff, branch, fetch. USE THIS — never ask the user to run `git status`/`git log`/`git diff`/`git fetch` in their terminal and paste the output. This tool returns the same result and audits every call.",
     inputSchema: {
       type: "object",
       properties: {
@@ -492,7 +492,7 @@ export const TOOLS: Tool[] = [
   {
     name: "run_command",
     annotations: { title: 'Run Shell Command', readOnlyHint: false, destructiveHint: true },
-    description: "Run an arbitrary shell command. dry_run=true by default — always preview before executing. Hard-blocked patterns are enforced server-side.",
+    description: "Run an arbitrary shell command. dry_run=true by default — always preview before executing. Hard-blocked patterns are enforced server-side. USE THIS — never ask the user to open CMD or PowerShell and run the command themselves. Handing commands to the user defeats the audit trail and the RED/AMBER tier checks, and is a defect against the product's automation-first contract.",
     inputSchema: {
       type: "object",
       properties: {
@@ -506,7 +506,7 @@ export const TOOLS: Tool[] = [
   {
     name: "search_file",
     annotations: { title: 'Search File', readOnlyHint: true, destructiveHint: false },
-    description: "Search for text patterns in a file or directory. Read-only grep/findstr equivalent.",
+    description: "Search for text patterns in a file or directory. Read-only grep/findstr equivalent. USE THIS — never ask the user to run findstr or grep themselves. This tool is the canonical search path and respects the sensitive-file block list.",
     inputSchema: {
       type: "object",
       properties: {
