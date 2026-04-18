@@ -4,7 +4,7 @@
 
 ## What this plugin does
 
-local-terminal gives Claude structured, audited access to a local Windows machine. It exposes eight tools — directory listing, file reading, system info, file search, file text search, npm commands, read-only git commands, and a rate-limited escape hatch — all running through a three-tier security model (RED/AMBER/GREEN) with 120+ hard-blocked patterns.
+local-terminal gives Claude structured, audited access to a local Windows machine. It exposes eight tools — directory listing, file reading, system info, file search, file text search, npm commands, read-only git commands, and a rate-limited escape hatch — all running through a three-tier security model (RED/AMBER/GREEN) with 150+ hard-blocked patterns.
 
 The plugin runs as a localhost-only Windows Service (via NSSM). It is not reachable from the network.
 
@@ -87,8 +87,9 @@ Stops and removes the service. Prompts before deleting the install directory.
 ## What to look for
 
 **Hard requirements we believe are met:**
-- No command path bypasses the tier check (every `run_command` call passes through `checkBlocked` → `checkAmber` before `execSync`)
-- `execSync` is called without `{ shell: true }` — the shell is not invoked for structured tools
+- No command path bypasses the tier check (every `run_command` call passes through `checkBlocked` → `checkAmber` before execution)
+- Structured tools (`list_directory`, `read_file`, `find_files`, `search_file`, `run_git_command`, `run_npm_command`) use `execFileSync` with `shell: false` and explicit argv arrays — the shell is never invoked and metacharacters cannot break out of the argument context
+- `run_command` (the escape hatch) uses `execSync` but without `{ shell: true }`, and every input still passes the full RED → AMBER → GREEN classifier
 - No secrets in the audit log (sanitization strips tokens, passwords, and keys before write)
 - Non-ASCII characters in commands are rejected at the top of `checkBlocked` (prevents Unicode homoglyph bypasses)
 - Newline injection is blocked by splitting input on `\r?\n` and checking each line independently
@@ -101,6 +102,7 @@ Stops and removes the service. Prompts before deleting the install directory.
 
 - Code: https://github.com/claudedussy/local-terminal-mcp
 - Security model: `SECURITY.md`
+- Adversarial review: `ADVERSARIAL_REVIEW.md` (27 findings from Opus review — all closed)
 - Known issues: `KNOWN_ISSUES.md`
 - Changelog: `CHANGELOG.md`
 

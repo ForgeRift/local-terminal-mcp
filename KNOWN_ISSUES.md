@@ -34,7 +34,7 @@ Any single `run_command` call hard-terminates after 30 seconds. Long-running ope
 
 ### Command chaining is blocked
 
-The patterns `&&`, `||`, `;`, backticks, and `$()` substitution are RED-tier blocked. Split into multiple `run_command` calls. For directory-scoped commands, pass the `directory` parameter on structured tools (`run_npm_command`, `run_git_command`) instead of chaining a `cd`.
+The patterns `&&`, `||`, backticks, and `$()` substitution are RED-tier blocked. Semicolons (`;`) are blocked when they appear before or after a dangerous command — standalone `;` in non-chaining contexts may pass through, but in practice any attempt to use `;` as a command separator to reach a blocked operation will be caught. Split into multiple `run_command` calls. For directory-scoped commands, pass the `directory` parameter on structured tools (`run_npm_command`, `run_git_command`) instead of chaining a `cd`.
 
 ### Windows environment variable expansion is blocked
 

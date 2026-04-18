@@ -18,8 +18,8 @@ Claude gets eight tools across three safety tiers:
 - `search_file` — grep/findstr for text patterns in files
 
 **GREEN Tier — Approved commands**
-- `run_npm_command` — `install`, `ci`, `list`, and `run <script>` only
-- `run_git_command` — read-only git: `status`, `log`, `diff`, `branch`, `fetch`
+- `run_npm_command` — read-only npm: `list`, `outdated`, `audit`, `view`, `why`, `explain` (lifecycle scripts disabled — `npm run` / `install` / `ci` are blocked)
+- `run_git_command` — read-only git: `status`, `log`, `diff`, `branch`, `show`, `stash list`, `tag`, `rev-parse`, `ls-files` (`fetch` is blocked — it can trigger transport helpers)
 
 **Escape Hatch (RED/AMBER checked)**
 - `run_command` — arbitrary shell command. `dry_run=true` by default. Passes through RED → AMBER → GREEN pipeline before execution.
@@ -28,7 +28,7 @@ Claude gets eight tools across three safety tiers:
 
 ## Three-Tier Security Model
 
-### RED — Hard-Blocked (120+ patterns, 20 categories)
+### RED — Hard-Blocked (150+ patterns, 22 categories)
 
 Commands that are permanently blocked regardless of context. Returns structured error with category, reason, and Terms of Service warning.
 
@@ -52,7 +52,7 @@ All structured tools and any `run_command` that passes RED + AMBER checks.
 
 Even read-only tools block access to credential and secret files:
 
-`.env`, SSH keys, `.pem`/`.key`/`.pfx`, Windows credential stores (`SAM`, `SECURITY`, `\Microsoft\Credentials`), cloud credentials (`.aws/`, `.gcloud/`, `.azure/`), browser login data, `kubeconfig`, `NTUSER.DAT`, `secrets.json`, `.git-credentials`, and more.
+`.env`, SSH keys, `.pem`/`.key`/`.pfx`, Windows credential stores (`SAM`, `SECURITY`, `\Microsoft\Credentials`), cloud credentials (`.aws/`, `.gcloud/`, `.azure/`, `.terraformrc`), browser login data (`Login Data`, `Local State`), `kubeconfig`, `NTUSER.DAT`, `secrets.json`, `.git-credentials`, package manager tokens (`.npmrc`, `.pypirc`, `.netrc`), shell history, KeePass databases, crypto wallets, and more (50+ patterns).
 
 ---
 
@@ -64,7 +64,7 @@ Even read-only tools block access to credential and secret files:
 | **Request timeout** | 30s hard kill on all commands |
 | **Audit log rotation** | 10MB max, one `.old` backup (configurable via `AUDIT_MAX_SIZE_MB`) |
 | **CORS** | Permissive headers for Cowork/Desktop integration |
-| **Secret redaction** | Tokens, keys, passwords auto-stripped from audit logs |
+| **Secret redaction** | Token shapes redacted from tool output and audit logs (`ghp_`, `sk-`, `AKIA`, PEM headers, high-entropy base64) |
 | **Localhost-only** | Binds to `127.0.0.1` — not reachable from network |
 
 ---

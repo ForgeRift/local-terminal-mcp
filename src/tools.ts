@@ -584,17 +584,46 @@ function truncateOutput(output: string): string {
   );
 }
 
+// Category-specific "what to do instead" guidance shown in every RED block.
+const BLOCKED_ALTERNATIVES: Record<string, string> = {
+  'file-delete':    'File deletion is not available via MCP. Perform this operation manually in Explorer or CMD outside of Claude.',
+  'disk-ops':       'Disk and partition operations are not available via MCP.',
+  'system-state':   'System shutdown/restart must be done manually.',
+  'process-kill':   'To stop a process, use Task Manager or do so manually outside of Claude.',
+  'user-mgmt':      'User and group management must be done manually via Windows Settings or an elevated CMD.',
+  'permissions':    'File permission changes must be done manually.',
+  'network-config': 'Network configuration changes must be done manually.',
+  'scheduled-exec': 'Scheduled task management must be done manually via Task Scheduler.',
+  'service-mgmt':   'Service management must be done manually via services.msc.',
+  'code-exec':      'Use structured tools instead: run_npm_command, run_git_command, or run_command with an approved command.',
+  'data-exfil':     'Network transfers are not available via MCP. Use your browser or download manager for web requests.',
+  'persistence':    'Persistence mechanism changes are not available via MCP.',
+  'direct-db':      'Database write operations are not available via MCP. Use your database client directly.',
+  'pkg-install':    'Package installation must be done outside of Claude. Run npm install / pip install in your own terminal.',
+  'pkg-remove':     'Package removal must be done outside of Claude.',
+  'container':      'Container operations are not available via MCP.',
+  'file-write':     'Writing to system directories is not available via MCP.',
+  'env-manip':      'Environment variable persistence must be done manually via System Properties.',
+  'priv-esc':       'Privilege escalation is not available via MCP.',
+  'info-leak':      'This information source is not accessible via MCP.',
+  'chaining':       'Split into separate run_command calls — one command per call.',
+  'obfuscation':    'Simplify the command. Substitution syntax and non-ASCII characters are not permitted.',
+  'http-server':    'Starting servers via MCP is not available.',
+  'sensitive-file': 'Sensitive files cannot be accessed via MCP. Open the file directly on your machine if needed.',
+  'path-validation':'Check the path for control characters or unsupported path formats.',
+};
+
 function formatBlockedError(category: string, reason: string): string {
+  const alternative = BLOCKED_ALTERNATIVES[category] ?? 'This operation must be performed outside of Claude.';
   return [
     `⛔ BLOCKED [${category}]`,
     ``,
     reason,
     ``,
+    `What to do instead: ${alternative}`,
+    ``,
     `This command is classified RED (hard-blocked) under the local-terminal-mcp security model.`,
     `It cannot be executed regardless of dry_run setting or justification.`,
-    ``,
-    `⚠️  Attempting to circumvent command blocks violates the Terms of Service`,
-    `    and may result in account suspension.`,
   ].join('\n');
 }
 

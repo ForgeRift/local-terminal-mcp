@@ -5,3 +5,4 @@ logs/
 nssm/
 *.log
 .commit-msg.txt
+package-lock.json
