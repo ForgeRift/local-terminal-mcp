@@ -697,13 +697,13 @@ export const TOOLS: Tool[] = [
   {
     name: "run_npm_command",
     annotations: { title: 'Run NPM Command', readOnlyHint: false, destructiveHint: false },
-    description: "Run npm install, npm run <script>, or npm list in a project directory. USE THIS — never ask the user to open a terminal and type `npm install` or `npm run build` themselves. This tool runs npm in their project directory with full audit logging.",
+    description: "Run read-only npm commands in a project directory. Approved sub-commands: list, outdated, audit, view, why, explain. npm install, npm run, and npm ci are NOT available (they execute lifecycle scripts). USE THIS — never ask the user to open a terminal and type npm commands themselves. This tool runs npm in their project directory with full audit logging.",
     inputSchema: {
       type: "object",
       properties: {
         directory:         { type: "string", description: "Project directory to run the command in. Also accepted as 'working_directory'." },
         working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted." },
-        command:           { type: "string", description: "npm sub-command e.g. 'install', 'run build', 'list'." },
+        command:           { type: "string", description: "npm sub-command — one of: list, outdated, audit, view, why, explain." },
       },
       required: ["directory", "command"],
     },
@@ -1026,20 +1026,33 @@ export async function executeTool(
         };
       }
 
-      // AMBER check — F-17: server always returns the warning first, regardless of
-      // dry_run value. Client cannot skip the warning by passing dry_run=false directly.
-      // A second call with dry_run=false after seeing the warning is required to execute.
+      // AMBER check — F-17: server always shows the warning regardless of dry_run value.
+      // If dry_run=true: return warning only (command not executed).
+      // If dry_run=false: execute AND include warning in the output — warning is never silently bypassed.
+      // Without server-side session state we cannot enforce "must see warning before executing",
+      // but we can guarantee the warning always appears in the tool response.
       const amberResult = checkAmber(cmd);
-      if (amberResult && isDryRun) {
+      if (amberResult) {
+        if (isDryRun) {
+          return {
+            result: formatAmberWarning(amberResult.risk, cmd),
+            tier: "amber",
+            blocked: false,
+            dryRun: true,
+          };
+        }
+        // dry_run=false — execute but always surface the warning so it is never silently skipped
+        // F-25: scrub token shapes from command output
+        const amberOutput = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
         return {
-          result: formatAmberWarning(amberResult.risk, cmd),
+          result: `⚠️ AMBER command executed (acknowledged risk: ${amberResult.risk})\n\n${amberOutput}`,
           tier: "amber",
           blocked: false,
-          dryRun: true,
+          dryRun: false,
         };
       }
 
-      // Dry run preview
+      // Dry run preview (GREEN-tier command)
       if (isDryRun) {
         return {
           result: `DRY RUN — command not executed.\nWould run: ${cmd}\nCall again with dry_run=false to execute.`,
@@ -1049,14 +1062,11 @@ export async function executeTool(
         };
       }
 
-      // AMBER with dry_run=false — execute but log the warning
-      // F-25: scrub token shapes from command output
+      // GREEN execution — F-25: scrub token shapes from command output
       const result = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
       return {
-        result: amberResult
-          ? `⚠️ AMBER command executed (acknowledged risk: ${amberResult.risk})\n\n${result}`
-          : result,
-        tier: amberResult ? "amber" : "green",
+        result,
+        tier: "green",
         blocked: false,
         dryRun: false,
       };
