@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
-import { readFileSync, readdirSync, statSync } from "fs";
-import { join, resolve, basename } from "path";
+import { readFileSync, readdirSync, statSync, realpathSync } from "fs";
+import { join, resolve, basename, normalize } from "path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 // ─── Three-Tier Security Model ──────────────────────────────────────────────────
@@ -455,11 +455,25 @@ function runCommand(cmd: string, timeoutMs = COMMAND_TIMEOUT_MS): string {
   }
 }
 
+// F-10: replace tiny denylist with a strict allowlist.
+// Accepts only absolute Windows paths (drive-letter form) containing safe chars.
+// Rejects: UNC paths, device paths (\\.\, \\?\), leading dashes (flag injection),
+// and any character outside the alphanumeric + safe punctuation set.
 function sanitizeDir(dir: string): string {
-  if (/["`;|&<>]/.test(dir)) {
-    throw new Error(`Directory path contains shell-unsafe characters.`);
+  if (!dir || typeof dir !== 'string') throw new Error('Directory path is required.');
+  const trimmed = dir.trim();
+  // Reject UNC / device namespace / network paths
+  if (/^\\\\/.test(trimmed)) throw new Error('UNC and device paths are not allowed.');
+  // Reject leading dash (flag injection: --exec-path, --registry, etc.)
+  if (/^[-/]/.test(trimmed)) throw new Error('Directory path must not start with a flag character.');
+  // Reject newlines, null bytes, and other control characters
+  if (/[\x00-\x1F\x7F]/.test(trimmed)) throw new Error('Directory path contains control characters.');
+  // Allow: drive-letter paths (C:\...) and relative paths with safe characters only
+  // Safe chars: word chars, spaces, hyphens, dots, underscores, backslash, forward slash, colon (for drive letter), parens
+  if (!/^(?:[A-Za-z]:)?[\\\/]?[\w\s.\-\\\/()[\]@+,{}#!]+$/.test(trimmed)) {
+    throw new Error(`Directory path contains unsafe characters: ${trimmed}`);
   }
-  return dir;
+  return trimmed;
 }
 
 const MAX_CMD_OUTPUT_CHARS = 10_000;
@@ -638,12 +652,34 @@ export async function executeTool(
     }
 
     case "read_file": {
-      const filePath  = args.path as string;
+      const filePath = args.path as string;
 
-      // Sensitive file guard
-      if (isSensitiveFile(filePath)) {
+      // F-11/F-14: canonicalize path before any pattern check to defeat UNC,
+      // long-path prefix (\\?\), 8.3 short names, symlinks, and ../ traversal.
+      // Strip alternate data stream suffix (:streamname) first.
+      let canonicalPath: string;
+      try {
+        // Strip ADS suffix (e.g. file.txt:hidden)
+        const stripped = filePath.replace(/:[\w.]+$/, '');
+        // Reject UNC / device namespace
+        const normalized = normalize(stripped);
+        if (/^\\\\/.test(normalized)) {
+          return {
+            result: formatBlockedError('sensitive-file', 'UNC and device paths are not allowed.'),
+            tier: "red", blocked: true, dryRun: false,
+          };
+        }
+        // resolve() + realpathSync follows symlinks to the true target
+        canonicalPath = realpathSync(resolve(stripped));
+      } catch {
+        // File doesn't exist yet or can't be resolved — fall back to resolve() only
+        canonicalPath = resolve(filePath.replace(/:[\w.]+$/, ''));
+      }
+
+      // Sensitive file guard — check BOTH original and canonical path
+      if (isSensitiveFile(filePath) || isSensitiveFile(canonicalPath)) {
         return {
-          result: formatBlockedError('sensitive-file', `Access to '${basename(filePath)}' is blocked. This file matches a sensitive file pattern (credentials, keys, secrets, environment files). Sensitive files cannot be read regardless of command tier.`),
+          result: formatBlockedError('sensitive-file', `Access to '${basename(canonicalPath)}' is blocked. This file matches a sensitive file pattern (credentials, keys, secrets, environment files). Sensitive files cannot be read regardless of command tier.`),
           tier: "red",
           blocked: true,
           dryRun: false,
@@ -653,7 +689,7 @@ export async function executeTool(
       const startLine = Math.max(1, (args.start_line as number | undefined) ?? 1);
       const endLine   = Math.min(500, (args.end_line as number | undefined) ?? 500);
       try {
-        const lines = readFileSync(resolve(filePath), "utf8").split("\n");
+        const lines = readFileSync(canonicalPath, "utf8").split("\n");
         const slice = lines.slice(startLine - 1, endLine);
         return {
           result: slice.map((l, i) => `${startLine + i}: ${l}`).join("\n"),
@@ -708,23 +744,50 @@ export async function executeTool(
     case "run_npm_command": {
       const dir = sanitizeDir((args.directory ?? args.working_directory) as string);
       const cmd = args.command as string;
-      const allowed = /^(install|ci|list|run\s+\w[\w:-]*)$/i;
+      // F-16: remove run/ci from allowlist — both execute lifecycle scripts from
+      // package.json which is attacker-controlled in untrusted repos.
+      const allowed = /^(list|ls|outdated|audit|view|why|explain)(\s|$)/i;
       if (!allowed.test(cmd.trim())) {
-        return { result: `ERROR: npm sub-command '${cmd}' is not in the approved list.`, tier: "green", blocked: true, dryRun: false };
+        return {
+          result: `ERROR: npm sub-command '${cmd}' is not in the approved list.\nAllowed: list, outdated, audit, view, why, explain.\nnpm run / npm install execute lifecycle scripts and are not permitted via this tool.`,
+          tier: "green", blocked: true, dryRun: false,
+        };
       }
-      const result = runCommand(`cd /d "${dir}" && npm ${cmd}`, 60_000);
+      const result = runCommand(`cd /d "${dir}" && npm ${cmd} --ignore-scripts`, 60_000);
       return { result, tier: "green", blocked: false, dryRun: false };
     }
 
     case "run_git_command": {
       const dir = sanitizeDir((args.directory ?? args.working_directory) as string);
       const cmd = args.command as string;
-      const allowed = /^(status|log|diff|branch|fetch|remote|show|stash list|tag|rev-parse|ls-files)/i;
+      // F-15: remove fetch from allowlist — it honours transport helpers (ext::,
+      // custom sshCommand) which can RCE via repo-local .git/config.
+      const allowed = /^(status|log|diff|branch|show|stash list|tag|rev-parse|ls-files)/i;
       if (!allowed.test(cmd.trim())) {
         return { result: `ERROR: git sub-command '${cmd}' is not in the approved read-only list.`, tier: "green", blocked: true, dryRun: false };
       }
-      const result = runCommand(`cd /d "${dir}" && git ${cmd}`, 30_000);
-      return { result, tier: "green", blocked: false, dryRun: false };
+      // F-15: harden git against repo-local config RCE via hardened env.
+      // GIT_CONFIG_NOSYSTEM + GIT_CONFIG_GLOBAL=NUL strips system/global hooks.
+      // GIT_TERMINAL_PROMPT=0 prevents credential prompts that hang the service.
+      const safeGitEnv = {
+        ...buildSafeEnv(),
+        GIT_CONFIG_NOSYSTEM: '1',
+        GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
+        GIT_TERMINAL_PROMPT: '0',
+        GIT_ALLOW_PROTOCOL: 'https:http:file',
+      };
+      try {
+        const output = execSync(`git -C "${dir}" ${cmd}`, {
+          timeout: 30_000,
+          encoding: 'utf8',
+          windowsHide: true,
+          env: safeGitEnv,
+        }).trim();
+        return { result: truncateOutput(output), tier: "green", blocked: false, dryRun: false };
+      } catch (err: unknown) {
+        const e = err as { stdout?: string; stderr?: string; message?: string };
+        return { result: `ERROR: ${e.stderr ?? e.stdout ?? e.message ?? 'Unknown error'}`.trim(), tier: "green", blocked: false, dryRun: false };
+      }
     }
 
     // ── Escape Hatch (RED → AMBER → GREEN pipeline) ────────────────────────────
