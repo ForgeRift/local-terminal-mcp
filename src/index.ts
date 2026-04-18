@@ -14,7 +14,7 @@ import { TOOLS, executeTool } from "./tools.js";
 dotenv.config();
 validateConfig();
 
-const VERSION = "1.2.0";
+const VERSION = "1.7.0";
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 

@@ -123,6 +123,10 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
                                                   category: 'code-exec',      reason: 'PowerShell -c/-Command/-File/-EncodedCommand is prohibited.' },
   { pattern: /\bpwsh(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
                                                   category: 'code-exec',      reason: 'pwsh (PowerShell 7) -c/-Command/-File/-EncodedCommand is prohibited.' },
+  // F-LT-26: PowerShell positional command form — `powershell "code"` with no flag bypasses -c/-Command block.
+  // Requires that the first non-whitespace arg does NOT start with '-' (flags are still OK).
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+(?!-)[^\s]/i,  category: 'code-exec', reason: 'PowerShell with a positional (non-flag) first argument is prohibited.' },
+  { pattern: /\bpwsh(\.exe)?\s+(?!-)[^\s]/i,              category: 'code-exec', reason: 'pwsh with a positional (non-flag) first argument is prohibited.' },
 
   // ── Code Execution & Shell Invocation ─────────────────────────────────────
   { pattern: /\beval\b/i,                         category: 'code-exec',      reason: 'eval() is prohibited.' },
@@ -136,8 +140,14 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bregsvr32\b/i,                     category: 'code-exec',      reason: 'DLL registration/execution is prohibited.' },
   { pattern: /\brundll32\b/i,                     category: 'code-exec',      reason: 'DLL execution (rundll32) is prohibited.' },
   { pattern: /\binstallutil\b/i,                  category: 'code-exec',      reason: 'InstallUtil LOLBin execution is prohibited.' },
-  { pattern: /\new-object\s+.*-com(object)?\b/i,  category: 'code-exec',      reason: 'PowerShell COM object instantiation is prohibited.' },
-  { pattern: /\bset-alias\b/i,                    category: 'code-exec',      reason: 'PowerShell Set-Alias is prohibited (alias indirection bypass).' },
+  // F-LT-30: was /\new-object…/ — \n is a literal newline in JS regex, not \b. Fixed typo.
+  // Also added bare ProgID patterns — New-Object -ComObject with non-WScript targets slipped through.
+  { pattern: /\bnew-object\s+.*-com(object)?\b/i,       category: 'code-exec', reason: 'PowerShell COM object instantiation is prohibited.' },
+  { pattern: /\bshell\.application\b/i,                 category: 'code-exec', reason: 'Shell.Application COM instantiation is prohibited.' },
+  { pattern: /\bscripting\.filesystemobject\b/i,        category: 'code-exec', reason: 'Scripting.FileSystemObject COM instantiation is prohibited.' },
+  { pattern: /\bwscript\.(shell|network)\b/i,           category: 'code-exec', reason: 'WScript COM object instantiation is prohibited.' },
+  { pattern: /\b\.(ShellExecute|Run|Exec)\s*\(/i,       category: 'code-exec', reason: 'COM .ShellExecute/.Run/.Exec method call is prohibited.' },
+  { pattern: /\bset-alias\b/i,                          category: 'code-exec', reason: 'PowerShell Set-Alias is prohibited (alias indirection bypass).' },
   { pattern: /\bnew-alias\b/i,                    category: 'code-exec',      reason: 'PowerShell New-Alias is prohibited.' },
   { pattern: /&\s*\$[A-Za-z_]/,                   category: 'code-exec',      reason: 'PowerShell call operator on variable (&$x) is prohibited.' },
 
@@ -168,7 +178,11 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── Environment Variable Enumeration (F-7 supplement) ────────────────────
   { pattern: /\$env:[A-Za-z_]/i,                  category: 'info-leak',      reason: 'PowerShell $env: variable access is prohibited.' },
   { pattern: /get-(childitem|item|content)\s+env:/i, category: 'info-leak',   reason: 'PowerShell environment variable enumeration is prohibited.' },
-  { pattern: /(?:^|[\s;&|])set\s*(?:$|[|>&])/i,  category: 'info-leak',      reason: 'cmd set (env dump) is prohibited.' },
+  // F-LT-26: PowerShell short-alias env reads: gc/gi/gci/cat/type/ls env: also dump environment.
+  { pattern: /\b(gc|gi|gci|cat|type|ls)\s+env:/i,   category: 'info-leak',   reason: 'PowerShell env: provider read via alias is prohibited.' },
+  // F-LT-23: was set\s*(?:$|[|>&]) — missed `set <PREFIX>` forms like `set GITHUB_`.
+  // Fixed: \s|$ after `set` catches `set ` (space+anything), `set` at EOL, and `set|…`.
+  { pattern: /(?:^|[\s;&|])set(?:\s|$|[|>&])/i,  category: 'info-leak',      reason: 'cmd set (env dump) is prohibited.' },
 
   // ── Persistence Mechanisms ────────────────────────────────────────────────
   { pattern: /\breg\s+(add|delete|import|export)\b/i, category: 'persistence', reason: 'Registry modification is prohibited.' },
@@ -178,6 +192,10 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /authorized_keys/i,                  category: 'persistence',    reason: 'SSH authorized_keys modification is prohibited.' },
   { pattern: /\.bashrc|\.bash_profile|\.profile/i,category: 'persistence',    reason: 'Shell initialization file modification is prohibited.' },
   { pattern: /startup\s*folder/i,                 category: 'persistence',    reason: 'Startup folder modification is prohibited.' },
+  // F-LT-31: actual Startup folder path patterns — `startup folder` keyword missed the real paths.
+  { pattern: /\\Start Menu\\Programs\\Startup\\/i,                  category: 'persistence', reason: 'Writing to the Startup folder is prohibited (persistence vector).' },
+  { pattern: /\\Microsoft\\Windows\\Start Menu\\Programs\\Startup/i, category: 'persistence', reason: 'Writing to the Startup folder is prohibited (persistence vector).' },
+  { pattern: /\bshell:startup\b/i,                                   category: 'persistence', reason: 'shell:startup path is prohibited (persistence vector).' },
 
   // ── Direct Database Modification ──────────────────────────────────────────
   { pattern: /\b(CREATE|DROP|ALTER|DELETE|TRUNCATE|GRANT|REVOKE)\s/i, category: 'direct-db', reason: 'Database write operations are prohibited. Use structured APIs.' },
@@ -270,6 +288,9 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\$\(/,                              category: 'obfuscation',    reason: 'Shell command substitution $() is prohibited.' },
   { pattern: /\$\{[^}]+\}/,                       category: 'obfuscation',    reason: 'Variable expansion ${...} is prohibited in commands.' },
   { pattern: /%[A-Za-z_][A-Za-z0-9_]*%/,          category: 'obfuscation',    reason: 'Windows environment variable expansion %VAR% is prohibited.' },
+  // F-LT-25: cmd.exe substring/replacement expansion — bypasses obfuscation regex + sensitive-path scanner.
+  // %VAR:~n,m% slices a variable value; %VAR:X=Y% replaces chars. Both enable character-level obfuscation.
+  { pattern: /%[A-Za-z_][A-Za-z0-9_]*:[~!*][^%]*%/, category: 'obfuscation', reason: 'cmd.exe substring/replacement variable expansion (%VAR:~n,m% / %VAR:X=Y%) is prohibited.' },
 
   // ── HTTP Server & Listener Binding ────────────────────────────────────────
   { pattern: /\bnc\s.*-l/i,                       category: 'http-server',    reason: 'Listening socket (netcat) is prohibited.' },
@@ -294,6 +315,18 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bperl\b[^|&;]*\s-[eE]\b/i,          category: 'code-exec',     reason: 'perl -e/-E (inline code evaluation) is prohibited.' },
   { pattern: /\bdeno\b[^|&;]*(eval|run)\b/i,       category: 'code-exec',     reason: 'deno eval/run is prohibited.' },
 
+  // ── F-LT-32: Interpreter + scriptfile RCE ────────────────────────────────────
+  // node/python/perl/ruby/php running a script file = arbitrary code execution given
+  // any prior write access to user-writable paths. Block outright.
+  { pattern: /\bnode(\.exe)?\s+\S+\.(c?js|mjs|ts)\b/i,  category: 'code-exec', reason: 'node <script> execution is prohibited (RCE vector).' },
+  { pattern: /\bpython3?(\.exe)?\s+\S+\.py\b/i,          category: 'code-exec', reason: 'python <script> execution is prohibited.' },
+  { pattern: /\bperl(\.exe)?\s+\S+\.pl\b/i,              category: 'code-exec', reason: 'perl <script> execution is prohibited.' },
+  { pattern: /\bruby(\.exe)?\s+\S+\.rb\b/i,              category: 'code-exec', reason: 'ruby <script> execution is prohibited.' },
+  { pattern: /\bphp(\.exe)?\s+\S+\.php\b/i,              category: 'code-exec', reason: 'php <script> execution is prohibited.' },
+  // Redirect to executable/script extension — defense-in-depth for write-then-exec kill chain.
+  { pattern: />\s*[^\s|&;]+\.(js|mjs|cjs|ts|py|pl|rb|php|ps1|psm1|vbs|wsf|bat|cmd|hta|exe|dll|msi|lnk)\b/i,
+                                                          category: 'file-write', reason: 'Redirect to executable/script file extension is prohibited.' },
+
   // ── Additional LOLBins (F-LT-15) ─────────────────────────────────────────────
   { pattern: /\bforfiles\b/i,                      category: 'code-exec',     reason: 'forfiles is prohibited (per-file command execution LOLBin).' },
   { pattern: /\bfinger\b/i,                        category: 'data-exfil',    reason: 'finger is prohibited (external user info disclosure).' },
@@ -306,6 +339,14 @@ function checkBlocked(cmd: string): { blocked: true; category: string; reason: s
   // Cyrillic/Greek lookalikes (e.g. Cyrillic 'р' for Latin 'r') defeat \b word boundaries.
   if (/[^\x00-\x7F]/.test(cmd)) {
     return { blocked: true, category: 'obfuscation', reason: 'Non-ASCII characters in commands are prohibited. This prevents Unicode homoglyph bypasses.' };
+  }
+
+  // ── F-LT-24: Reject cmd.exe caret escape outside quoted strings ──────────────
+  // Carets outside quotes are cmd.exe escape characters: c^url, ^s^e^t, r^m.
+  // They defeat every \b<verb>\b RED pattern by splitting the token character-by-character.
+  // Strip double-quoted segments first (carets inside quotes are literal), then reject any ^.
+  if (/\^/.test(cmd.replace(/"[^"]*"/g, ''))) {
+    return { blocked: true, category: 'obfuscation', reason: 'Caret (^) escape outside quoted strings is prohibited. This prevents cmd.exe caret-obfuscation bypasses (c^url, ^s^e^t).' };
   }
 
   // ── CRITICAL FIX (S35): Check each line independently ──
@@ -505,6 +546,9 @@ const CATASTROPHIC_REGEX_SHAPES: RegExp[] = [
   /\([^)]*\|[^)]*\)\s*[+*{]/, // quantified alternation: (a|b)+
   /(\w\|){4,}/,               // wide alternation: a|b|c|d|... (>3 alternatives)
   /\(.*\).*\\[0-9]\s*[+*{]/,  // quantified backreference: (.+)\1+
+  // F-LT-29: three or more sequential .* / .+ (polynomial backtracking on non-matching strings).
+  // e.g. .*.*.*.*secret — each .* must try every split point, O(n^k) with k wildcards.
+  /(?:\.[*+]){3,}/,
 ];
 
 function isReDoSPattern(pattern: string): boolean {
@@ -576,26 +620,39 @@ function scrubSecrets(output: string): string {
   return scrubbed;
 }
 
-// ─── Scrubbed environment for child processes (F-7 fix) ──────────────────────
-// The service runs with MCP_AUTH_TOKEN / MCP_PORT in its environment
-// (injected by NSSM AppEnvironmentExtra). Strip these and any secret-shaped
-// key names before passing env to any child process, so commands like
-// `powershell -c "$env:MCP_AUTH_TOKEN"` or `cmd /c set` cannot exfiltrate them.
-// F-NEW-5: expanded with modern credential key patterns
-const SECRET_KEY_SUBSTRINGS = [
-  'AUTH_TOKEN', 'BEARER_TOKEN', 'ACCESS_TOKEN', 'REFRESH_TOKEN',
-  'API_KEY', 'SECRET', 'PRIVATE_KEY', 'MCP_AUTH',
-  'SESSION', 'COOKIE', 'PASSWORD', 'PASSWD', 'CREDENTIAL', 'CRED',
-  'VAULT', 'KEYSTORE', 'SALT', 'SIGNING', 'JWT',
-];
+// ─── Scrubbed environment for child processes (F-7 fix, F-LT-33 hardening) ───
+// F-LT-33: prior blocklist approach missed GITHUB_TOKEN, NPM_TOKEN, HF_TOKEN,
+// DATABASE_URL, OPENAI_KEY, etc. (no bare TOKEN/KEY/URL coverage).
+// Switched to allowlist (Option B): only pass through variables that are
+// safe, well-known system vars. Everything else is dropped — including any
+// future secret-shaped vars not yet on any blocklist.
+// Allowlist source: standard Windows/POSIX system env vars needed by common tools.
+const SAFE_ENV_ALLOWLIST = new Set([
+  'PATH', 'PATHEXT',
+  'USERPROFILE', 'HOMEPATH', 'HOMEDRIVE', 'HOME',
+  'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA',
+  'PROGRAMFILES', 'PROGRAMFILES(X86)',
+  'SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR',
+  'COMSPEC', 'COMPUTERNAME',
+  'USERNAME', 'USERDOMAIN', 'USERDNSDOMAIN',
+  'TEMP', 'TMP',
+  'OS', 'PROCESSOR_ARCHITECTURE', 'PROCESSOR_IDENTIFIER', 'NUMBER_OF_PROCESSORS',
+  'LANG', 'TZ',
+  // Node.js / npm env vars that are safe for child npm processes
+  'NODE_PATH', 'NPM_CONFIG_PREFIX',
+  // Git needs these for locale/terminal
+  'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL',
+  'TERM', 'COLORTERM',
+]);
+
 function buildSafeEnv(): NodeJS.ProcessEnv {
-  const env = { ...process.env };
-  for (const key of Object.keys(env)) {
-    if (SECRET_KEY_SUBSTRINGS.some(s => key.toUpperCase().includes(s))) {
-      delete env[key];
+  const safeEnv: NodeJS.ProcessEnv = {};
+  for (const [key, val] of Object.entries(process.env)) {
+    if (SAFE_ENV_ALLOWLIST.has(key.toUpperCase()) || SAFE_ENV_ALLOWLIST.has(key)) {
+      safeEnv[key] = val;
     }
   }
-  return env;
+  return safeEnv;
 }
 
 // ─── F-19: execFile wrapper ───────────────────────────────────────────────────
@@ -690,6 +747,10 @@ function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
     // Long-form flags with = assignment
     if (/^--output=/.test(arg) || /^--exec-path=/.test(arg) || /^--config-env=/.test(arg)) {
       return `git flag '${arg}' is not permitted (file-write or config-inject vector).`;
+    }
+    // F-LT-27: reflog syntax (@{N}, branch@{0}, @{-1}) exposes deleted/stashed secrets
+    if (/@\{/.test(arg)) {
+      return `git argument '${arg}' uses reflog syntax (@{N}) which is not permitted — reflog entries can expose deleted or stashed credentials.`;
     }
   }
   // For 'show': reject <ref>:<path> where path matches sensitive file patterns
@@ -1000,6 +1061,16 @@ export async function executeTool(
           tier: "red", blocked: true, dryRun: false,
         };
       }
+      // F-LT-34: sensitive directory guard — resolving a sensitive dir reveals which
+      // credential files exist inside it even without reading their contents.
+      // Append '/' to trigger path-segment patterns like /[\\\/]\.ssh[\\\/]/i.
+      const rawForSensCheck = rawPath.replace(/\\/g, '/').replace(/\/?$/, '/');
+      if (isSensitiveFile(rawForSensCheck)) {
+        return {
+          result: formatBlockedError('sensitive-file', `Listing '${rawPath}' is blocked — this directory matches a sensitive path pattern (credentials, keys, or secrets directory).`),
+          tier: "red", blocked: true, dryRun: false,
+        };
+      }
       const dir = rawPath;
       try {
         const entries = readdirSync(dir);
@@ -1043,9 +1114,19 @@ export async function executeTool(
         }
         // resolve() + realpathSync follows symlinks to the true target
         canonicalPath = realpathSync(resolve(stripped));
-      } catch {
-        // File doesn't exist yet or can't be resolved — fall back to resolve() only
-        canonicalPath = resolve(filePath.replace(/:[\w.]+$/, ''));
+      } catch (resolveErr: unknown) {
+        // F-LT-35: fail-closed — if realpathSync throws (permission error, broken symlink,
+        // or dangling path), we cannot verify the canonical target, so we must block.
+        // The only safe exception is ENOENT (file genuinely does not exist yet), which
+        // is returned as a readable error rather than a security block.
+        const code = (resolveErr as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+          return { result: `ERROR: File not found: '${filePath}'`, tier: "green", blocked: false, dryRun: false };
+        }
+        return {
+          result: formatBlockedError('path-validation', `Cannot resolve canonical path for '${filePath}': ${(resolveErr as Error).message}. Access denied.`),
+          tier: "red", blocked: true, dryRun: false,
+        };
       }
 
       // Sensitive file guard — check BOTH original and canonical path
@@ -1324,6 +1405,32 @@ export async function executeTool(
                 return {
                   result: formatBlockedError('sensitive-file',
                     `git show '${ref}' touches sensitive file '${file}'. Commit diff blocked to prevent credential exposure via git history.`),
+                  tier: "red", blocked: true, dryRun: false,
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // F-LT-28: for 'git diff <ref>' pre-flight touched files — same logic as 'show'.
+      // Catches: git diff HEAD~1 HEAD, git diff <sha> -- (no pathspec after --)
+      if (subCmd === 'diff') {
+        const userArgs = splitArgs.slice(1);
+        const ddIdx = userArgs.indexOf('--');
+        if (ddIdx < 0) {
+          const bareRefs = userArgs.filter(a => !a.startsWith('-') && !a.includes(':'));
+          for (const ref of bareRefs) {
+            const checkArgs = ['-C', dir, ...GIT_SAFE_CONFIG, '--no-ext-diff',
+                               'show', '--name-only', '--no-patch', '--pretty=format:', ref];
+            const nameStatus = runFile('git', checkArgs, { env: safeGitEnv, timeoutMs: 10_000 });
+            if (nameStatus.startsWith('ERROR:')) continue; // invalid ref — surface in main call
+            const touchedFiles = nameStatus.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            for (const file of touchedFiles) {
+              if (isSensitiveFile(file)) {
+                return {
+                  result: formatBlockedError('sensitive-file',
+                    `git diff '${ref}' touches sensitive file '${file}'. Diff blocked to prevent credential exposure via git history.`),
                   tier: "red", blocked: true, dryRun: false,
                 };
               }
