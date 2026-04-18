@@ -124,7 +124,13 @@ New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 # -- Install Windows Service ---------------------------------------------
 Write-Host "Installing Windows service..." -ForegroundColor Yellow
-& $NssmExe install $ServiceName $NodeExe $EntryPoint
+# Install with executable only (no AppParameters in the install call)
+# — PowerShell's external-process argument handling strips/mangles quotes around
+#   paths that contain spaces, so AppParameters is set via the registry directly
+#   after install to guarantee the value is stored with its surrounding quotes intact.
+& $NssmExe install $ServiceName $NodeExe
+$NssmRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
+Set-ItemProperty -Path $NssmRegPath -Name "AppParameters" -Value "`"$EntryPoint`""
 & $NssmExe set $ServiceName DisplayName $DisplayName
 & $NssmExe set $ServiceName Description $Description
 & $NssmExe set $ServiceName AppDirectory $InstallDir

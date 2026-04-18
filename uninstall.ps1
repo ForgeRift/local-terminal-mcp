@@ -45,8 +45,15 @@ $confirm = Read-Host "Delete the install directory and all its contents? [y/N]"
 
 if ($confirm -match "^[Yy]$") {
     Write-Host "Deleting $InstallDir ..." -ForegroundColor Yellow
-    Remove-Item -Recurse -Force $InstallDir
-    Write-Host "Directory deleted." -ForegroundColor Green
+    # Move out of the install directory first — PowerShell cannot delete its own working directory
+    Set-Location $env:TEMP
+    try {
+        Remove-Item -Recurse -Force $InstallDir -ErrorAction Stop
+        Write-Host "Directory deleted." -ForegroundColor Green
+    } catch {
+        Write-Host "WARNING: Could not delete directory: $_" -ForegroundColor Yellow
+        Write-Host "  You can delete it manually: $InstallDir" -ForegroundColor Yellow
+    }
 } else {
     Write-Host "Directory kept. You can delete it manually if needed." -ForegroundColor Yellow
 }
