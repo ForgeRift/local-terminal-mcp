@@ -27,14 +27,28 @@ Write-Host ""
 Write-Host "=== local-terminal-mcp Setup (v$Version) ===" -ForegroundColor Cyan
 Write-Host ""
 
+# -- Check Git -----------------------------------------------------------
+$GitCmd = Get-Command git -ErrorAction SilentlyContinue
+if (-not $GitCmd) {
+  Write-Host "ERROR: Git not found. Install from https://git-scm.com/download/win then reopen PowerShell." -ForegroundColor Red
+  exit 1
+}
+Write-Host "Git found: $($GitCmd.Source)" -ForegroundColor Green
+
 # -- Check Node.js -------------------------------------------------------
 $NodeCmd = Get-Command node -ErrorAction SilentlyContinue
 if (-not $NodeCmd) {
-  Write-Host "ERROR: Node.js not found. Install from https://nodejs.org" -ForegroundColor Red
+  Write-Host "ERROR: Node.js not found. Install v18 or later from https://nodejs.org" -ForegroundColor Red
   exit 1
 }
 $NodeExe = $NodeCmd.Source
-Write-Host "Node.js found: $NodeExe" -ForegroundColor Green
+$NodeVersion = (node --version) -replace '^v',''
+$NodeMajor = [int]($NodeVersion -split '\.')[0]
+if ($NodeMajor -lt 18) {
+  Write-Host "ERROR: Node.js v$NodeVersion found but v18 or later is required. Update at https://nodejs.org" -ForegroundColor Red
+  exit 1
+}
+Write-Host "Node.js v$NodeVersion found: $NodeExe" -ForegroundColor Green
 
 # -- Build if needed -----------------------------------------------------
 if (-not (Test-Path $EntryPoint)) {
@@ -56,6 +70,20 @@ if (-not (Test-Path $EnvFile)) {
 } else {
   Write-Host ".env already exists -- using existing token" -ForegroundColor Yellow
   $Token = (Get-Content $EnvFile | Where-Object { $_ -match "MCP_AUTH_TOKEN" }) -replace "MCP_AUTH_TOKEN=", ""
+}
+
+# -- Install mcp-remote (required bridge for Claude Desktop HTTP MCP) ----
+$McpRemoteCmd = Get-Command mcp-remote -ErrorAction SilentlyContinue
+if (-not $McpRemoteCmd) {
+  Write-Host "Installing mcp-remote (Claude Desktop needs this to connect to the MCP server)..." -ForegroundColor Yellow
+  npm install -g mcp-remote
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: Failed to install mcp-remote. Try: npm install -g mcp-remote" -ForegroundColor Red
+    exit 1
+  }
+  Write-Host "mcp-remote installed" -ForegroundColor Green
+} else {
+  Write-Host "mcp-remote already installed" -ForegroundColor Green
 }
 
 # -- Download NSSM -------------------------------------------------------

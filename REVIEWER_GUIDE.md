@@ -12,9 +12,17 @@ The plugin runs as a localhost-only Windows Service (via NSSM). It is not reacha
 
 ### 1. Set up a review environment (5 min)
 
-You can review this on any Windows 10/11 machine. A throwaway VM (Hyper-V, VirtualBox, or any cloud Windows instance) works well if you prefer not to install on your primary machine. Requirements: Node.js 18+ and PowerShell with Administrator rights.
+You can review this on any Windows 10/11 machine. A throwaway VM (Hyper-V, VirtualBox, or Windows Sandbox — built into Windows 10/11 Pro) works well if you prefer not to install on your primary machine.
+
+**Pre-requisites to install before running the setup script:**
+- [Git](https://git-scm.com/download/win)
+- [Node.js](https://nodejs.org) v18 or later
+
+`setup.ps1` will verify both are present and exit with a clear error message if either is missing.
 
 ### 2. Install the plugin (5 min)
+
+Open PowerShell **as Administrator** and run:
 
 ```powershell
 git clone https://github.com/claudedussy/local-terminal-mcp
@@ -23,9 +31,11 @@ cd local-terminal-mcp
 ```
 
 `setup.ps1` will:
+- Verify Git and Node.js v18+ are present
 - Build the project
+- Install `mcp-remote` globally (the bridge Claude Desktop uses to reach the local HTTP server)
 - Generate a random bearer token and save it to `.env`
-- Install `local-terminal-mcp` as a Windows Service via NSSM
+- Download NSSM and install `local-terminal-mcp` as a Windows Service
 - Print the `claude_desktop_config.json` snippet to paste
 
 Copy the printed config snippet.

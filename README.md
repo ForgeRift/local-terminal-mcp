@@ -72,6 +72,7 @@ Even read-only tools block access to credential and secret files:
 ## Requirements
 
 - Windows 10 / 11
+- [Git](https://git-scm.com/download/win) (for cloning the repo)
 - [Node.js](https://nodejs.org) v18 or later
 - PowerShell (run as Administrator for setup)
 
@@ -80,7 +81,7 @@ Even read-only tools block access to credential and secret files:
 ## Installation
 
 ```powershell
-# 1. Clone or download the repo
+# 1. Clone the repo
 git clone https://github.com/claudedussy/local-terminal-mcp
 cd local-terminal-mcp
 
@@ -89,7 +90,9 @@ cd local-terminal-mcp
 ```
 
 `setup.ps1` will:
+- Verify Git and Node.js v18+ are installed (exits with a clear error if not)
 - Build the project
+- Install `mcp-remote` globally (the bridge Claude Desktop uses to connect)
 - Generate a random auth token and save it to `.env`
 - Download NSSM and install `local-terminal-mcp` as a Windows Service
 - Configure auto-restart on crash (3s delay)
