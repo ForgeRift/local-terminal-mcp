@@ -51,10 +51,29 @@ if ($confirm -match "^[Yy]$") {
     Write-Host "Directory kept. You can delete it manually if needed." -ForegroundColor Yellow
 }
 
-# -- Remind user to clean up claude_desktop_config.json ---------------------
+# -- Remove local-terminal entry from Claude Desktop config -----------------
+$ClaudeConfigFile = "$env:LOCALAPPDATA\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json"
+if (Test-Path $ClaudeConfigFile) {
+  try {
+    $cfg = Get-Content $ClaudeConfigFile -Raw | ConvertFrom-Json
+    if ($cfg.PSObject.Properties['mcpServers'] -and $cfg.mcpServers.PSObject.Properties['local-terminal']) {
+      $cfg.mcpServers.PSObject.Properties.Remove('local-terminal')
+      $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+      [System.IO.File]::WriteAllText($ClaudeConfigFile, ($cfg | ConvertTo-Json -Depth 10), $utf8NoBom)
+      Write-Host "Removed local-terminal entry from Claude Desktop config." -ForegroundColor Green
+    } else {
+      Write-Host "No local-terminal entry found in Claude Desktop config -- skipping." -ForegroundColor Yellow
+    }
+  } catch {
+    Write-Host "WARNING: Could not update Claude Desktop config: $_" -ForegroundColor Yellow
+    Write-Host "  You may need to manually remove the 'local-terminal' entry from:" -ForegroundColor Yellow
+    Write-Host "  $ClaudeConfigFile" -ForegroundColor Yellow
+  }
+} else {
+  Write-Host "Claude Desktop config not found -- skipping." -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "=== Uninstall Complete ===" -ForegroundColor Green
-Write-Host ""
-Write-Host "Next step: remove the 'local-terminal' block from your claude_desktop_config.json" -ForegroundColor Cyan
-Write-Host "  Path: $env:LOCALAPPDATA\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json"
+Write-Host "Restart Claude Desktop to complete the removal." -ForegroundColor Cyan
 Write-Host ""

@@ -27,6 +27,13 @@ Write-Host ""
 Write-Host "=== local-terminal-mcp Setup (v$Version) ===" -ForegroundColor Cyan
 Write-Host ""
 
+# -- Check Administrator -------------------------------------------------
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)) {
+  Write-Host "ERROR: This script must be run as Administrator." -ForegroundColor Red
+  Write-Host "       Right-click PowerShell and select 'Run as Administrator', then try again." -ForegroundColor Red
+  exit 1
+}
+
 # -- Check Git -----------------------------------------------------------
 $GitCmd = Get-Command git -ErrorAction SilentlyContinue
 if (-not $GitCmd) {
@@ -50,14 +57,20 @@ if ($NodeMajor -lt 18) {
 }
 Write-Host "Node.js v$NodeVersion found: $NodeExe" -ForegroundColor Green
 
-# -- Build if needed -----------------------------------------------------
-if (-not (Test-Path $EntryPoint)) {
-  Write-Host "Building project..." -ForegroundColor Yellow
-  Push-Location $InstallDir
-  npm install
-  npm run build
-  Pop-Location
+# -- Build ------------------------------------------------------------------
+Write-Host "Building project..." -ForegroundColor Yellow
+Push-Location $InstallDir
+npm install
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "ERROR: npm install failed. Check your internet connection and try again." -ForegroundColor Red
+  Pop-Location; exit 1
 }
+npm run build
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "ERROR: npm run build failed. Check the TypeScript errors above." -ForegroundColor Red
+  Pop-Location; exit 1
+}
+Pop-Location
 
 # -- Generate auth token -------------------------------------------------
 if (-not (Test-Path $EnvFile)) {
@@ -91,7 +104,8 @@ if (-not (Test-Path $NssmExe)) {
   Write-Host "Downloading NSSM..." -ForegroundColor Yellow
   New-Item -ItemType Directory -Force -Path $NssmDir | Out-Null
   $ZipPath = Join-Path $NssmDir "nssm.zip"
-  Invoke-WebRequest -Uri $NssmUrl -OutFile $ZipPath
+  try { Invoke-WebRequest -Uri $NssmUrl -OutFile $ZipPath }
+  catch { Write-Host "ERROR: Failed to download NSSM: $_" -ForegroundColor Red; exit 1 }
   Expand-Archive -Path $ZipPath -DestinationPath $NssmDir -Force
   Remove-Item $ZipPath
   Write-Host "NSSM ready" -ForegroundColor Green
@@ -168,7 +182,8 @@ if ($svc -and $svc.Status -eq "Running") {
     Write-Host "Added local-terminal entry to Claude Desktop config" -ForegroundColor Green
   }
 
-  $cfg | ConvertTo-Json -Depth 10 | Out-File -FilePath $ClaudeConfigFile -Encoding utf8
+  $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($ClaudeConfigFile, ($cfg | ConvertTo-Json -Depth 10), $utf8NoBom)
   Write-Host "Config written to: $ClaudeConfigFile" -ForegroundColor Green
 
   Write-Host ""
