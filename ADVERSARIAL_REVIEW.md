@@ -579,9 +579,26 @@ Numbering note: F-LT-52 through F-LT-64 are VOID — both earlier sixth-pass att
 
 Test coverage: 113/113 passing (was 81; four new describe blocks for the sixth-pass CRITICALs).
 
+### HIGH cluster closed in v1.8.0 (same ship)
+
+| ID | Summary | Resolution |
+|---|---|---|
+| F-LT-69 | Add-Type inline C#/VB compile + load | `\badd-type\b` blocked |
+| F-LT-70 | Import-Module / ipmo / using module load attacker code | three patterns blocked |
+| F-LT-71 | PSRemoting: Invoke-Command / Enter-PSSession / New-PSSession / Get-PSSession | four patterns blocked |
+| F-LT-72 | Invoke-Item / ii / Start-Job / Start-ThreadJob | four patterns blocked |
+| F-LT-73 | ftype / assoc extension rebind (persistence + exec) | two patterns blocked |
+| F-LT-74 | .NET compilers (csc / vbc / jsc / ilasm / aspnet_compiler / fsi / dotnet run / dotnet \<dll\>) | compile-then-exec chain closed |
+| F-LT-75 | LOLBAS expansion: psexec / winrs / scriptrunner / cdb / windbg / control / tttracer / dnscmd / devtoolslauncher / comsvcs / sqldumper / pktmon / certreq / gpscript / desktopimgdownldr / mpcmdrun | 15 patterns added |
+| F-LT-76 | Git `--git-dir=/tmp` / `--work-tree=/tmp` / `--namespace=x` glued `=value` form bypassed set-lookup | `validateGitArgv` now normalizes `--flag=value` to `--flag` before FORBIDDEN_GIT_FLAGS lookup |
+| F-LT-77 | PowerShell dot-source `. script.ps1` | separator-anchored dot-source pattern blocked |
+| F-LT-78 | Bare `bash -c` / `sh -c` / `zsh -c` / `dash -c` / `fish -c` / `busybox sh -c` (no `.exe`) | POSIX shell `-c` pattern (extension-optional) + busybox pattern |
+| F-LT-79 | Sensitive-file gaps: Edge / Brave Login Data + Cookies, Chrome Network/Cookies (v96+), DPAPI Crypto Keys/RSA/DSS, FileZilla, GitCredentialManager, workspace `.vscode/settings.json` | seven new SENSITIVE_FILE_PATTERNS |
+
+Test coverage: 173/173 passing (was 113). Eleven new describe blocks for the HIGH cluster.
+
 ### Pending (queued for S55)
 
-- HIGH cluster (11): F-LT-69 (Add-Type), F-LT-70 (Import-Module/ipmo/using module), F-LT-71 (PSRemoting), F-LT-72 (Invoke-Item/Start-Job), F-LT-73 (ftype/assoc), F-LT-74 (.NET compilers csc/vbc/jsc/ilasm/aspnet_compiler), F-LT-75 (LOLBAS expansion: psexec/winrs/scriptrunner/cdb/control/tttracer/dnscmd/etc.), F-LT-76 (git `=value` glued flag bypass), F-LT-77 (PS dot-source), F-LT-78 (alternate shells `bash -c` without .exe), F-LT-79 (sensitive-file gaps: Edge, Brave, Chrome Network/Cookies, DPAPI Crypto Keys, FileZilla, GitCredentialManager, .vscode/settings.json).
 - MEDIUM cluster (4): F-LT-80 (powershell - stdin), F-LT-81 (Register-ScheduledTask), F-LT-82 (python combined-flag -ic/-Bc/-uc), F-LT-83 (mklink junctions/hardlinks).
 - LOW cluster (2): F-LT-84 (setup.ps1 .env ACL), F-LT-85 (audit.log integrity / sanitizeArgs gaps).
 

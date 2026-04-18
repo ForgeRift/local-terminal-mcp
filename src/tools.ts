@@ -148,6 +148,25 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bexec\b/i,                         category: 'code-exec',      reason: 'exec is prohibited.' },
   { pattern: /invoke-expression/i,                category: 'code-exec',      reason: 'PowerShell Invoke-Expression is prohibited.' },
   { pattern: /\biex\b/i,                          category: 'code-exec',      reason: 'PowerShell IEX (Invoke-Expression alias) is prohibited.' },
+  // ── F-LT-69 (S54): Add-Type compiles inline C#/VB.NET and loads the assembly in-process.
+  // Canonical offensive-PS primitive for hitting Win32 APIs without disk I/O.
+  { pattern: /\badd-type\b/i,                     category: 'code-exec',      reason: 'Add-Type (in-process C#/VB compile+load) is prohibited (F-LT-69).' },
+  // ── F-LT-70 (S54): Import-Module / ipmo / using module load attacker-controlled modules
+  // whose top-level code runs on import. `using module` runs on parse (PS5+).
+  { pattern: /\bimport-module\b/i,                category: 'code-exec',      reason: 'Import-Module is prohibited (attacker-controlled module load, F-LT-70).' },
+  { pattern: /\bipmo\b/i,                         category: 'code-exec',      reason: 'ipmo (Import-Module alias) is prohibited (F-LT-70).' },
+  { pattern: /\busing\s+module\b/i,               category: 'code-exec',      reason: 'using module (parse-time module load) is prohibited (F-LT-70).' },
+  // ── F-LT-71 (S54): PSRemoting — local scriptblock evaluator even without -ComputerName.
+  { pattern: /\binvoke-command\b/i,               category: 'code-exec',      reason: 'Invoke-Command (scriptblock evaluator) is prohibited (F-LT-71).' },
+  { pattern: /\benter-pssession\b/i,              category: 'code-exec',      reason: 'Enter-PSSession is prohibited (F-LT-71).' },
+  { pattern: /\bnew-pssession\b/i,                category: 'code-exec',      reason: 'New-PSSession is prohibited (F-LT-71).' },
+  { pattern: /\bget-pssession\b/i,                category: 'code-exec',      reason: 'Get-PSSession is prohibited (F-LT-71).' },
+  // ── F-LT-72 (S54): Invoke-Item / ii opens files with registered handler (=exec for .bat/.exe).
+  // Start-Job -FilePath and Start-ThreadJob -FilePath run arbitrary scripts in background runspaces.
+  { pattern: /\binvoke-item\b/i,                  category: 'code-exec',      reason: 'Invoke-Item is prohibited (registered-handler exec, F-LT-72).' },
+  { pattern: /(?<!\w)ii\s+\S/i,                   category: 'code-exec',      reason: 'ii (Invoke-Item alias) is prohibited (F-LT-72).' },
+  { pattern: /\bstart-job\b/i,                    category: 'code-exec',      reason: 'Start-Job is prohibited (F-LT-72).' },
+  { pattern: /\bstart-threadjob\b/i,              category: 'code-exec',      reason: 'Start-ThreadJob is prohibited (F-LT-72).' },
   { pattern: /\bstart-process\b/i,                category: 'code-exec',      reason: 'PowerShell Start-Process is prohibited.' },
   // ── F-LT-65 (S54): cmd.exe `start` builtin and `call <x>.bat`/`call <x>.cmd` launch
   // arbitrary processes / batch files with no verb validation. PowerShell `saps` is the
@@ -225,6 +244,11 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\\Start Menu\\Programs\\Startup\\/i,                  category: 'persistence', reason: 'Writing to the Startup folder is prohibited (persistence vector).' },
   { pattern: /\\Microsoft\\Windows\\Start Menu\\Programs\\Startup/i, category: 'persistence', reason: 'Writing to the Startup folder is prohibited (persistence vector).' },
   { pattern: /\bshell:startup\b/i,                                   category: 'persistence', reason: 'shell:startup path is prohibited (persistence vector).' },
+  // ── F-LT-73 (S54): ftype/assoc rebind file-extension handlers — every subsequent
+  // double-click of the rebound extension runs the attacker payload. Classic Windows
+  // persistence + privilege escalation primitive.
+  { pattern: /(?:^|[;&|\s])ftype\b/i,             category: 'persistence',    reason: 'ftype (file-extension handler rebind) is prohibited (F-LT-73).' },
+  { pattern: /(?:^|[;&|\s])assoc\b/i,             category: 'persistence',    reason: 'assoc (file-extension type rebind) is prohibited (F-LT-73).' },
 
   // ── Direct Database Modification ──────────────────────────────────────────
   { pattern: /\b(CREATE|DROP|ALTER|DELETE|TRUNCATE|GRANT|REVOKE)\s/i, category: 'direct-db', reason: 'Database write operations are prohibited. Use structured APIs.' },
@@ -318,6 +342,39 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bxwizard\b/i,                      category: 'code-exec',      reason: 'xwizard.exe is prohibited (code execution LOLBin).' },
   { pattern: /\bpresentationhost\b/i,             category: 'code-exec',      reason: 'PresentationHost.exe is prohibited (XAML browser app exec LOLBin).' },
   { pattern: /\bsyncappvpublishingserver\b/i,     category: 'code-exec',      reason: 'SyncAppvPublishingServer is prohibited (PowerShell exec LOLBin).' },
+  // ── F-LT-74 (S54): .NET toolchain compilers — write source to disk, compile, exec.
+  // All ship with Windows .NET Framework or the .NET SDK (most dev machines).
+  // dotnet <assembly.dll> is bare-assembly exec; `dotnet run` runs csproj in cwd.
+  { pattern: /\b(csc|vbc|jsc|ilasm|aspnet_compiler|fsi)(\.exe)?\b/i,
+                                                  category: 'code-exec',      reason: '.NET compiler (csc/vbc/jsc/ilasm/aspnet_compiler/fsi) is prohibited (F-LT-74: write-then-exec chain).' },
+  { pattern: /\bdotnet(\.exe)?\s+(run|exec|\S+\.dll)\b/i,
+                                                  category: 'code-exec',      reason: 'dotnet run / dotnet exec / dotnet <assembly.dll> is prohibited (F-LT-74).' },
+  // ── F-LT-75 (S54): LOLBAS expansion — additional binaries known to shell out
+  // or execute arbitrary code, missed by prior curated list.
+  { pattern: /\bpsexec(64)?(\.exe)?\b/i,          category: 'code-exec',      reason: 'PsExec is prohibited (remote code execution LOLBin, F-LT-75).' },
+  { pattern: /\bwinrs(\.exe)?\b/i,                category: 'code-exec',      reason: 'winrs is prohibited (WinRM remote shell LOLBin, F-LT-75).' },
+  { pattern: /\bscriptrunner(\.exe)?\b/i,         category: 'code-exec',      reason: 'scriptrunner is prohibited (App-V script proxy LOLBin, F-LT-75).' },
+  { pattern: /\b(cdb|windbg|ntsd)(\.exe)?\b/i,    category: 'code-exec',      reason: 'cdb/windbg/ntsd is prohibited (debugger command-file exec LOLBin, F-LT-75).' },
+  { pattern: /\bcontrol(\.exe)?\s/i,              category: 'code-exec',      reason: 'control.exe is prohibited (Control Panel .cpl is DLL exec, F-LT-75).' },
+  { pattern: /\btttracer(\.exe)?\b/i,             category: 'code-exec',      reason: 'tttracer is prohibited (Time Travel Debug process launch LOLBin, F-LT-75).' },
+  { pattern: /\bdnscmd(\.exe)?\b/i,               category: 'code-exec',      reason: 'dnscmd is prohibited (DNS service ServerLevelPluginDll load, F-LT-75).' },
+  { pattern: /\bdevtoolslauncher(\.exe)?\b/i,     category: 'code-exec',      reason: 'devtoolslauncher is prohibited (LaunchForDeploy LOLBin, F-LT-75).' },
+  { pattern: /\bcomsvcs(\.dll)?\b/i,              category: 'code-exec',      reason: 'comsvcs.dll is prohibited (MiniDump / process injection LOLBin, F-LT-75).' },
+  { pattern: /\bsqldumper(\.exe)?\b/i,            category: 'data-exfil',     reason: 'sqldumper is prohibited (process-memory dump LOLBin, F-LT-75).' },
+  { pattern: /\bpktmon(\.exe)?\b/i,               category: 'data-exfil',     reason: 'pktmon is prohibited (network packet capture LOLBin, F-LT-75).' },
+  { pattern: /\bcertreq(\.exe)?\b/i,              category: 'data-exfil',     reason: 'certreq is prohibited (HTTP POST exfil LOLBin, F-LT-75).' },
+  { pattern: /\bgpscript(\.exe)?\b/i,             category: 'code-exec',      reason: 'gpscript is prohibited (Group Policy script exec LOLBin, F-LT-75).' },
+  { pattern: /\bdesktopimgdownldr(\.exe)?\b/i,    category: 'data-exfil',     reason: 'desktopimgdownldr is prohibited (download LOLBin, F-LT-75).' },
+  { pattern: /\bmpcmdrun(\.exe)?\b/i,             category: 'data-exfil',     reason: 'MpCmdRun is prohibited (Defender download LOLBin, F-LT-75).' },
+  // ── F-LT-77 (S54): PowerShell dot-source `. script.ps1` — same effect as `& script.ps1`
+  // in the current scope, but the leading `.` slips past the call-operator block.
+  { pattern: /(?:^|[;&|\s])\.\s+[\w\\\/:.\-]+\.(ps1|psm1)\b/i,
+                                                  category: 'code-exec',      reason: 'PowerShell dot-source (`. script.ps1`) is prohibited (F-LT-77).' },
+  // ── F-LT-78 (S54): bare `bash -c` / `sh -c` / `zsh -c` etc. without .exe suffix.
+  // Git-for-Windows ships `bash` on PATH for any dev machine; existing rule only caught bash.exe.
+  { pattern: /\b(bash|zsh|dash|fish|sh|ash)(\.exe)?\b[^\n]*\s-c\b/i,
+                                                  category: 'code-exec',      reason: 'POSIX shell -c (bash/sh/zsh/dash/fish/ash) is prohibited (F-LT-78).' },
+  { pattern: /\bbusybox\s+sh\b[^\n]*\s-c\b/i,     category: 'code-exec',      reason: 'busybox sh -c is prohibited (F-LT-78).' },
   { pattern: /\bregedit\s+\/s\b/i,               category: 'persistence',    reason: 'regedit /s (silent registry import) is prohibited.' },
   // F-NEW-11: ln --symbolic long-form bypass
   { pattern: /\bln\s+--symbolic\b/i,              category: 'permissions',    reason: 'ln --symbolic (symlink creation, long-form) is prohibited.' },
@@ -586,6 +643,17 @@ export const SENSITIVE_FILE_PATTERNS: RegExp[] = [
   /[\\\/]Microsoft[\\\/]Vault[\\\/]/i,               // Windows Credential Manager vault
   /[\\\/]Code[\\\/]User[\\\/]settings\.json$/i,      // VS Code settings (may contain secrets)
   /[\\\/]Code[\\\/]User[\\\/]globalStorage[\\\/]/i,  // VS Code extension storage
+
+  // F-LT-79 (S54): Edge / Brave / Chrome-post-v96 / DPAPI master keys / FileZilla
+  // / GitCredentialManager / workspace-scope VS Code. All use forward-slash form
+  // because isSensitiveFile normalizes \→/ before matching.
+  /[\\\/]Microsoft[\\\/]Edge[\\\/]User Data[\\\/][^\\\/]+[\\\/](Login Data|Cookies)$/i,
+  /[\\\/]BraveSoftware[\\\/]Brave-Browser[\\\/]User Data[\\\/][^\\\/]+[\\\/](Login Data|Cookies)$/i,
+  /[\\\/]Chrome[\\\/]User Data[\\\/][^\\\/]+[\\\/]Network[\\\/]Cookies$/i,
+  /[\\\/]Microsoft[\\\/]Crypto[\\\/](Keys|RSA|DSS)[\\\/]/i,   // DPAPI master keys — THE target
+  /[\\\/]FileZilla[\\\/](recentservers|sitemanager|filezilla)\.xml/i,
+  /[\\\/]GitCredentialManager[\\\/]/i,
+  /[\\\/]\.vscode[\\\/]settings\.json$/i,                    // workspace-scope VS Code
 ];
 
 export function isSensitiveFile(filePath: string): boolean {
@@ -836,15 +904,23 @@ export const FORBIDDEN_GIT_FLAGS = new Set([
 
 export function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
   for (const arg of cmdArgs) {
-    // Exact flag match
-    if (FORBIDDEN_GIT_FLAGS.has(arg)) {
+    // ── F-LT-76 (S54): normalize `--flag=value` to `--flag` before set-lookup.
+    // Previously only a curated list of `=` forms was checked; --git-dir=/x,
+    // --work-tree=/x, --namespace=x, --super-prefix=x all slipped through.
+    const flagName = arg.startsWith('-') && arg.includes('=')
+      ? arg.slice(0, arg.indexOf('='))
+      : arg;
+    // Exact flag match (now separator-agnostic)
+    if (FORBIDDEN_GIT_FLAGS.has(flagName)) {
       return `git flag '${arg}' is not permitted (file-read or code-exec vector).`;
     }
     // Pickaxe flags (--pickaxe-all, --pickaxe-regex)
     if (/^--pickaxe/.test(arg)) {
       return `git flag '${arg}' (pickaxe search) is not permitted.`;
     }
-    // Long-form flags with = assignment
+    // Long-form flags with = assignment (kept for clarity; now redundant with
+    // F-LT-76 normalization above but harmless — left in so the error message
+    // can distinguish file-write/config-inject vectors explicitly).
     if (/^--output=/.test(arg) || /^--exec-path=/.test(arg) || /^--config-env=/.test(arg)) {
       return `git flag '${arg}' is not permitted (file-write or config-inject vector).`;
     }

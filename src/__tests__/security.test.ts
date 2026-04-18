@@ -270,6 +270,145 @@ describe('F-LT-68 — cmd %VAR:X=Y% replacement expansion is blocked', () => {
     assertBlocked('echo %PATH:~-4%'));
 });
 
+// ─── F-LT-69 — Add-Type inline compile (HIGH) ────────────────────────────────
+
+describe('F-LT-69 — Add-Type is blocked', () => {
+  it('blocks Add-Type -TypeDefinition', () =>
+    assertBlocked('Add-Type -TypeDefinition "public class X {}"'));
+  it('blocks Add-Type -AssemblyName', () =>
+    assertBlocked('Add-Type -AssemblyName System.Windows.Forms'));
+});
+
+// ─── F-LT-70 — Import-Module / ipmo / using module (HIGH) ────────────────────
+
+describe('F-LT-70 — PS module loaders blocked', () => {
+  it('blocks Import-Module C:\\Temp\\evil.psm1', () =>
+    assertBlocked('Import-Module C:\\Temp\\evil.psm1'));
+  it('blocks ipmo C:\\Temp\\evil.psm1', () =>
+    assertBlocked('ipmo C:\\Temp\\evil.psm1'));
+  it('blocks using module evil.psm1', () =>
+    assertBlocked('using module C:\\Temp\\evil.psm1'));
+});
+
+// ─── F-LT-71 — PSRemoting (HIGH) ──────────────────────────────────────────────
+
+describe('F-LT-71 — PSRemoting cmdlets blocked', () => {
+  it('blocks Invoke-Command -ScriptBlock', () =>
+    assertBlocked('Invoke-Command -ScriptBlock { Get-ChildItem }'));
+  it('blocks Enter-PSSession', () => assertBlocked('Enter-PSSession -ComputerName x'));
+  it('blocks New-PSSession', () => assertBlocked('New-PSSession -ComputerName x'));
+});
+
+// ─── F-LT-72 — Invoke-Item / Start-Job (HIGH) ────────────────────────────────
+
+describe('F-LT-72 — Invoke-Item and job-start cmdlets blocked', () => {
+  it('blocks Invoke-Item evil.exe', () => assertBlocked('Invoke-Item evil.exe'));
+  it('blocks ii evil.exe (alias)', () => assertBlocked('ii evil.exe'));
+  it('blocks Start-Job -FilePath', () => assertBlocked('Start-Job -FilePath evil.ps1'));
+  it('blocks Start-ThreadJob -FilePath', () =>
+    assertBlocked('Start-ThreadJob -FilePath evil.ps1'));
+});
+
+// ─── F-LT-73 — ftype/assoc persistence (HIGH) ────────────────────────────────
+
+describe('F-LT-73 — ftype/assoc blocked', () => {
+  it('blocks ftype txtfile=evil.exe', () =>
+    assertBlocked('ftype txtfile=C:\\Temp\\evil.exe "%1"'));
+  it('blocks assoc .txt=txtfile', () => assertBlocked('assoc .txt=txtfile'));
+});
+
+// ─── F-LT-74 — .NET compilers (HIGH) ─────────────────────────────────────────
+
+describe('F-LT-74 — .NET compilers blocked', () => {
+  it('blocks csc.exe', () => assertBlocked('csc.exe /out:evil.exe evil.cs'));
+  it('blocks vbc', () => assertBlocked('vbc /out:evil.exe evil.vb'));
+  it('blocks jsc', () => assertBlocked('jsc /out:evil.exe evil.js'));
+  it('blocks ilasm', () => assertBlocked('ilasm evil.il'));
+  it('blocks aspnet_compiler', () => assertBlocked('aspnet_compiler -v / -p x -f y'));
+  it('blocks fsi', () => assertBlocked('fsi evil.fsx'));
+  it('blocks dotnet myapp.dll', () => assertBlocked('dotnet myapp.dll'));
+  it('blocks dotnet run', () => assertBlocked('dotnet run'));
+});
+
+// ─── F-LT-75 — LOLBAS expansion (HIGH) ───────────────────────────────────────
+
+describe('F-LT-75 — LOLBAS binaries blocked', () => {
+  it('blocks psexec', () => assertBlocked('psexec.exe \\\\host cmd'));
+  it('blocks PsExec64', () => assertBlocked('PsExec64.exe \\\\h cmd'));
+  it('blocks winrs', () => assertBlocked('winrs -r:host cmd'));
+  it('blocks scriptrunner', () => assertBlocked('scriptrunner -appvscript evil.ps1'));
+  it('blocks cdb', () => assertBlocked('cdb -cf evil.ps1 notepad'));
+  it('blocks windbg', () => assertBlocked('windbg -cf evil.ps1 notepad'));
+  it('blocks control evil.cpl', () => assertBlocked('control.exe evil.cpl'));
+  it('blocks tttracer', () => assertBlocked('tttracer -out foo.run evil.exe'));
+  it('blocks dnscmd', () =>
+    assertBlocked('dnscmd /config /ServerLevelPluginDll evil.dll'));
+  it('blocks comsvcs.dll', () => assertBlocked('rundll32 comsvcs.dll MiniDump'));
+  it('blocks sqldumper', () => assertBlocked('sqldumper.exe 1234 0 0x01100'));
+  it('blocks pktmon', () => assertBlocked('pktmon start --capture'));
+  it('blocks mpcmdrun', () => assertBlocked('mpcmdrun -DownloadFile -url http://x -path y'));
+});
+
+// ─── F-LT-76 — git =value glued flags (HIGH) ─────────────────────────────────
+
+describe('F-LT-76 — git --flag=value normalized before deny-list lookup', () => {
+  it('blocks --git-dir=/tmp/evil', () =>
+    assert.ok(validateGitArgv('log', ['--git-dir=/tmp/evil'])));
+  it('blocks --work-tree=/tmp/evil', () =>
+    assert.ok(validateGitArgv('log', ['--work-tree=/tmp/evil'])));
+  it('blocks --namespace=x', () =>
+    assert.ok(validateGitArgv('log', ['--namespace=x'])));
+  it('blocks --super-prefix=x', () =>
+    assert.ok(validateGitArgv('log', ['--super-prefix=x'])));
+  it('blocks -C=dir', () => assert.ok(validateGitArgv('log', ['-C=/tmp/evil'])));
+  it('still blocks --git-dir /tmp (space form, regression)', () =>
+    assert.ok(validateGitArgv('log', ['--git-dir', '/tmp/evil'])));
+  it('allows --pretty=oneline (non-deny-listed)', () =>
+    assert.equal(validateGitArgv('log', ['--pretty=oneline']), null));
+});
+
+// ─── F-LT-77 — PS dot-source (HIGH) ──────────────────────────────────────────
+
+describe('F-LT-77 — PS dot-source blocked', () => {
+  it('blocks . C:\\Temp\\evil.ps1', () => assertBlocked('. C:\\Temp\\evil.ps1'));
+  it('blocks . .\\evil.psm1', () => assertBlocked('. .\\evil.psm1'));
+});
+
+// ─── F-LT-78 — bare bash/sh/zsh -c (HIGH) ────────────────────────────────────
+
+describe('F-LT-78 — POSIX shell -c variants blocked', () => {
+  it('blocks bash -c "evil"', () => assertBlocked('bash -c "evil"'));
+  it('blocks sh -c "evil"', () => assertBlocked('sh -c "evil"'));
+  it('blocks zsh -c "evil"', () => assertBlocked('zsh -c "evil"'));
+  it('blocks dash -c "evil"', () => assertBlocked('dash -c "evil"'));
+  it('blocks fish -c "evil"', () => assertBlocked('fish -c "evil"'));
+  it('blocks busybox sh -c', () => assertBlocked('busybox sh -c "evil"'));
+  it('still blocks bash.exe -c (regression)', () => assertBlocked('bash.exe -c "evil"'));
+});
+
+// ─── F-LT-79 — sensitive-file gaps (HIGH) ────────────────────────────────────
+
+describe('F-LT-79 — expanded sensitive-file coverage', () => {
+  it('blocks Edge Login Data', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Login Data')));
+  it('blocks Edge Cookies', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Cookies')));
+  it('blocks Brave Login Data', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Local\\BraveSoftware\\Brave-Browser\\User Data\\Default\\Login Data')));
+  it('blocks Chrome Network/Cookies (v96+)', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Network\\Cookies')));
+  it('blocks DPAPI master keys (Microsoft/Crypto/Keys)', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Crypto\\Keys\\blob')));
+  it('blocks DPAPI RSA keys', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Crypto\\RSA\\blob')));
+  it('blocks FileZilla sitemanager.xml', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Roaming\\FileZilla\\sitemanager.xml')));
+  it('blocks GitCredentialManager store', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Local\\GitCredentialManager\\store')));
+  it('blocks workspace .vscode/settings.json', () =>
+    assert.ok(isSensitiveFile('C:\\project\\.vscode\\settings.json')));
+});
+
 // ─── Prior-pass smoke checks (not full coverage — ensures patches didn't regress) ─
 
 describe('Prior-pass smoke: representative RED patterns still fire', () => {
