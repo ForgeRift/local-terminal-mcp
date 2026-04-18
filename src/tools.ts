@@ -149,6 +149,20 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /invoke-expression/i,                category: 'code-exec',      reason: 'PowerShell Invoke-Expression is prohibited.' },
   { pattern: /\biex\b/i,                          category: 'code-exec',      reason: 'PowerShell IEX (Invoke-Expression alias) is prohibited.' },
   { pattern: /\bstart-process\b/i,                category: 'code-exec',      reason: 'PowerShell Start-Process is prohibited.' },
+  // ── F-LT-65 (S54): cmd.exe `start` builtin and `call <x>.bat`/`call <x>.cmd` launch
+  // arbitrary processes / batch files with no verb validation. PowerShell `saps` is the
+  // Start-Process alias. The bare-path forms `C:\path\evil.exe` and `.\evil.exe` execute
+  // when typed at the cmd prompt — block both. Chains with F-LT-66 for write-then-exec.
+  { pattern: /(?:^|[;&|\s])start(\.exe)?\s+/i,
+                                                  category: 'code-exec',      reason: 'cmd.exe start launcher is prohibited (arbitrary-process exec, F-LT-65).' },
+  { pattern: /(?:^|[;&|\s])call\s+\S+\.(bat|cmd)\b/i,
+                                                  category: 'code-exec',      reason: 'cmd.exe call <batch-file> is prohibited (F-LT-65).' },
+  { pattern: /\bsaps\b/i,                         category: 'code-exec',      reason: 'PowerShell saps (Start-Process alias) is prohibited (F-LT-65).' },
+  // Direct-path executable launch (no verb). Any path-shaped token containing a
+  // separator and ending in an exec/script extension. Matches C:\foo\evil.exe,
+  // .\evil.exe, ..\evil.bat, /usr/bin/x.sh, etc.
+  { pattern: /(?:^|[;&|\s])[^\s|&;]*[\\\/][^\s\\\/|&;]+\.(exe|com|scr|cpl|msi|bat|cmd|hta|lnk|ps1|psm1|vbs|wsf|jar)\b/i,
+                                                  category: 'code-exec',      reason: 'Direct-path executable/script launch is prohibited (F-LT-65).' },
   { pattern: /\bwscript\b/i,                      category: 'code-exec',      reason: 'Windows Script Host (wscript) is prohibited.' },
   { pattern: /\bcscript\b/i,                      category: 'code-exec',      reason: 'Windows Script Host (cscript) is prohibited.' },
   { pattern: /\bmshta\b/i,                        category: 'code-exec',      reason: 'MSHTA execution is prohibited.' },
@@ -244,6 +258,14 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /set-content.*\\windows\\/i,         category: 'file-write',     reason: 'PowerShell writing to Windows directory is prohibited.' },
   { pattern: /out-file.*\\windows\\/i,            category: 'file-write',     reason: 'PowerShell writing to Windows directory is prohibited.' },
   { pattern: /add-content.*\\windows\\/i,         category: 'file-write',     reason: 'PowerShell writing to Windows directory is prohibited.' },
+  // ── F-LT-66 (S54): PowerShell write cmdlets emitting executable/script extensions.
+  // Mirror of F-LT-41 (rename) and L363 (redirect-to-exec) — same extension list.
+  // Without this, `Set-Content C:\Temp\evil.bat 'calc'` then F-LT-65 `start evil.bat` is RCE.
+  { pattern: /\b(set-content|out-file|add-content|tee-object)\b[^|&;]*\S+\.(ps1|psm1|bat|cmd|vbs|wsf|wsh|js|mjs|cjs|ts|mts|cts|tsx|jsx|py|pyw|pl|rb|php|lua|exe|dll|msi|reg|lnk|com|scr|hta|jar)\b/i,
+                                                  category: 'file-write',     reason: 'PowerShell write cmdlet to executable/script extension is prohibited (F-LT-66).' },
+  { pattern: /(?:^|[;&|\s|>])tee\b[^|&;]*\S+\.(ps1|psm1|bat|cmd|vbs|wsf|wsh|js|mjs|cjs|ts|mts|cts|tsx|jsx|py|pyw|pl|rb|php|lua|exe|dll|msi|reg|lnk|com|scr|hta|jar)\b/i,
+                                                  category: 'file-write',     reason: 'tee to executable/script extension is prohibited (F-LT-66).' },
+  { pattern: /\bcopy\s+con\b/i,                   category: 'file-write',     reason: 'cmd.exe copy con (console-input file write) is prohibited (F-LT-66).' },
 
   // ── Environment Variable Manipulation ─────────────────────────────────────
   { pattern: /\bsetx\b/i,                         category: 'env-manip',      reason: 'Persistent environment variable modification (setx) is prohibited.' },
@@ -255,7 +277,9 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /(?:^|[;&|])\s*su\s/i,                           category: 'priv-esc',       reason: 'User switching (su) is prohibited.' },
 
   // ── Information Leakage ───────────────────────────────────────────────────
-  { pattern: /\\etc\\shadow/i,                    category: 'info-leak',      reason: 'Shadow file access is prohibited.' },
+  // F-LT-67: was /\\etc\\shadow/i — backslash-only matched one direction;
+  // the separator-agnostic form catches both /etc/shadow and \etc\shadow.
+  { pattern: /[\\\/]etc[\\\/]shadow\b/i,          category: 'info-leak',      reason: 'Shadow file access is prohibited.' },
   { pattern: /\bsam\b.*system/i,                  category: 'info-leak',      reason: 'SAM database access is prohibited.' },
   { pattern: /\bcmdkey\s+\/list/i,                category: 'info-leak',      reason: 'Credential enumeration (cmdkey) is prohibited.' },
   { pattern: /\bvaultcmd\b/i,                     category: 'info-leak',      reason: 'Credential vault access is prohibited.' },
@@ -305,7 +329,10 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /%[A-Za-z_][A-Za-z0-9_]*%/,          category: 'obfuscation',    reason: 'Windows environment variable expansion %VAR% is prohibited.' },
   // F-LT-25: cmd.exe substring/replacement expansion — bypasses obfuscation regex + sensitive-path scanner.
   // %VAR:~n,m% slices a variable value; %VAR:X=Y% replaces chars. Both enable character-level obfuscation.
-  { pattern: /%[A-Za-z_][A-Za-z0-9_]*:[~!*][^%]*%/, category: 'obfuscation', reason: 'cmd.exe substring/replacement variable expansion (%VAR:~n,m% / %VAR:X=Y%) is prohibited.' },
+  // F-LT-68 (S54): original character class [~!*] missed the `=` delimiter (replace form).
+  // Split into two explicit patterns for clarity and to catch the X=Y replace case definitively.
+  { pattern: /%[A-Za-z_][A-Za-z0-9_]*:[~!*][^%]*%/, category: 'obfuscation', reason: 'cmd.exe substring variable expansion (%VAR:~n,m%) is prohibited.' },
+  { pattern: /%[A-Za-z_][A-Za-z0-9_]*:[^%~!*=]+=[^%]*%/, category: 'obfuscation', reason: 'cmd.exe replacement variable expansion (%VAR:X=Y%) is prohibited (F-LT-68).' },
 
   // ── HTTP Server & Listener Binding ────────────────────────────────────────
   { pattern: /\bnc\s.*-l/i,                       category: 'http-server',    reason: 'Listening socket (netcat) is prohibited.' },
@@ -482,16 +509,20 @@ export const SENSITIVE_FILE_PATTERNS: RegExp[] = [
   /\.azure[\\\/]/i,
 
   // Password files
-  /\\etc\\shadow/i,
-  /\\etc\\gshadow/i,
+  // F-LT-67: patterns MUST match after filePath.replace(/\\/g, '/') normalization.
+  // Previous literal backslash form `\\etc\\shadow` was dead code — never matched.
+  // Use cross-separator character class so both / and \ inputs normalize and match.
+  /[\\\/]etc[\\\/]shadow(\b|$)/i,
+  /[\\\/]etc[\\\/]gshadow(\b|$)/i,
   /\.htpasswd/i,
   /\.netrc/i,
   /\.pgpass/i,
   /\.my\.cnf/i,
 
   // Windows credential stores
-  /\\Microsoft\\Credentials/i,
-  /\\Microsoft\\Protect/i,
+  // F-LT-67: fixed — see comment above.
+  /[\\\/]Microsoft[\\\/]Credentials([\\\/]|$)/i,
+  /[\\\/]Microsoft[\\\/]Protect([\\\/]|$)/i,
   /SAM$/i,
   /SYSTEM$/i,
   /SECURITY$/i,

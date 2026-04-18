@@ -196,6 +196,80 @@ describe('F-LT-50 — sensitive pathspec blocked after --', () => {
   });
 });
 
+// ─── F-LT-67 — sensitive-file dead-regex fix (CRITICAL) ──────────────────────
+// Prior passes shipped \\etc\\shadow / \\Microsoft\\Credentials patterns that never
+// fired because isSensitiveFile normalizes \→/ BEFORE matching. Every test here
+// MUST pass after the fix — they fail against the broken form.
+
+describe('F-LT-67 — sensitive-file patterns fire post-normalization', () => {
+  it('blocks /etc/shadow', () => assert.ok(isSensitiveFile('/etc/shadow')));
+  it('blocks \\etc\\shadow', () => assert.ok(isSensitiveFile('\\etc\\shadow')));
+  it('blocks /etc/gshadow', () => assert.ok(isSensitiveFile('/etc/gshadow')));
+  it('blocks Microsoft\\Credentials\\blob', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Credentials\\blob')));
+  it('blocks Microsoft/Credentials (forward slash)', () =>
+    assert.ok(isSensitiveFile('/Users/x/AppData/Roaming/Microsoft/Credentials')));
+  it('blocks Microsoft\\Protect (DPAPI master keys)', () =>
+    assert.ok(isSensitiveFile('C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Protect\\blob')));
+  it('blocks Microsoft/Protect (forward slash)', () =>
+    assert.ok(isSensitiveFile('/Users/x/AppData/Roaming/Microsoft/Protect/blob')));
+  // Also verify the RED-tier shadow path is still caught on the forward-slash form
+  // (BLOCKED_PATTERNS L260 got the same cross-separator treatment).
+  it('RED-tier blocks /etc/shadow (forward slash)', () =>
+    assertBlocked('cat /etc/shadow'));
+  it('RED-tier blocks \\etc\\shadow (backslash)', () =>
+    assertBlocked('type \\etc\\shadow'));
+});
+
+// ─── F-LT-65 — cmd.exe launcher builtins (CRITICAL) ───────────────────────────
+
+describe('F-LT-65 — start / call / saps / direct-path exec are blocked', () => {
+  it('blocks start evil.exe', () => assertBlocked('start evil.exe'));
+  it('blocks start /b evil.exe', () => assertBlocked('start /b evil.exe'));
+  it('blocks start "" "C:\\path\\evil.exe"', () => assertBlocked('start "" "C:\\path\\evil.exe"'));
+  it('blocks start.exe evil.exe', () => assertBlocked('start.exe evil.exe'));
+  it('blocks call evil.bat', () => assertBlocked('call evil.bat'));
+  it('blocks call foo.cmd', () => assertBlocked('call foo.cmd'));
+  it('blocks saps evil.exe (PS alias)', () => assertBlocked('saps evil.exe'));
+  it('blocks C:\\Users\\Public\\evil.exe arg', () =>
+    assertBlocked('C:\\Users\\Public\\evil.exe arg'));
+  it('blocks .\\evil.exe', () => assertBlocked('.\\evil.exe'));
+  it('allows startup.md (filename containing "start" but not builtin)', () =>
+    assertNotBlocked('type startup.md'));
+});
+
+// ─── F-LT-66 — PS write cmdlets writing executable extensions (CRITICAL) ─────
+
+describe('F-LT-66 — PS write to executable/script extension is blocked', () => {
+  it('blocks Set-Content C:\\Temp\\evil.bat "calc"', () =>
+    assertBlocked('Set-Content C:\\Temp\\evil.bat "calc"'));
+  it('blocks Out-File -FilePath evil.ps1 -InputObject "calc"', () =>
+    assertBlocked('Out-File -FilePath evil.ps1 -InputObject "calc"'));
+  it('blocks Add-Content evil.cmd "calc"', () =>
+    assertBlocked('Add-Content evil.cmd "calc"'));
+  it('blocks Tee-Object -FilePath evil.bat', () =>
+    assertBlocked('echo calc | Tee-Object -FilePath evil.bat'));
+  it('blocks copy con evil.bat', () => assertBlocked('copy con evil.bat'));
+  it('blocks Set-Content writing .exe', () =>
+    assertBlocked('Set-Content C:\\Temp\\evil.exe "x"'));
+  it('blocks Out-File writing .vbs', () =>
+    assertBlocked('Out-File -FilePath evil.vbs -InputObject "x"'));
+  it('allows Set-Content evil.txt (non-executable)', () =>
+    assertNotBlocked('Set-Content C:\\Temp\\notes.txt "hello"'));
+});
+
+// ─── F-LT-68 — cmd %VAR:X=Y% replace obfuscation (CRITICAL) ──────────────────
+
+describe('F-LT-68 — cmd %VAR:X=Y% replacement expansion is blocked', () => {
+  it('blocks echo %PATH:C=c%', () => assertBlocked('echo %PATH:C=c%'));
+  it('blocks echo %X:xxx=%', () => assertBlocked('echo %X:xxx=%'));
+  it('blocks %VAR:foo=bar%', () => assertBlocked('echo %VAR:foo=bar%'));
+  it('blocks %VAR:~0,3% (slice form, pre-existing)', () =>
+    assertBlocked('echo %PATH:~0,3%'));
+  it('blocks %VAR:~-4% (slice-negative, pre-existing)', () =>
+    assertBlocked('echo %PATH:~-4%'));
+});
+
 // ─── Prior-pass smoke checks (not full coverage — ensures patches didn't regress) ─
 
 describe('Prior-pass smoke: representative RED patterns still fire', () => {

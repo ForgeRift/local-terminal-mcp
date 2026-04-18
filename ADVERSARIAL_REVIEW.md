@@ -537,3 +537,53 @@ All 16 fifth-pass findings closed in v1.7.1:
 
 Test coverage: 81/81 passing (`src/__tests__/security.test.ts`).
 
+---
+
+## Sixth Pass — 2026-04-18 (S54 review → S54 close)
+
+**Reviewer:** Claude Opus 4.7 subagent (deliberately blind brief, files read directly to eliminate prior attachment confusion).
+**Verdict:** FAIL. 21 findings. CRITICALs closed in v1.8.0; HIGH/MEDIUM/LOW queued.
+
+Numbering note: F-LT-52 through F-LT-64 are VOID — both earlier sixth-pass attempts against LT mistakenly audited vps-control-mcp code. This pass restarts at F-LT-65 against the actual LT codebase.
+
+### CRITICALs closed in v1.8.0
+
+#### F-LT-65 — `start <binary>` / `call <bat>` / `saps` / direct-path exec not blocked
+**Attack:** `start C:\Users\Public\evil.exe` opened arbitrary process via cmd.exe builtin. `call evil.bat` ran batch files. PowerShell `saps` alias for `Start-Process` slipped past the `start-process` literal block. Direct paths like `.\evil.exe` and `C:\path\evil.exe` invoked binaries with no verb gate.
+**Fix:** Four BLOCKED_PATTERNS additions: `start(\.exe)?`, `call \S+\.(bat|cmd)`, `\bsaps\b`, plus a separator-required exec/script extension catch-all `[^\s|&;]*[\\\/][^\s\\\/|&;]+\.(exe|com|scr|cpl|msi|bat|cmd|hta|lnk|ps1|psm1|vbs|wsf|jar)`.
+**Status:** FIXED (v1.8.0)
+
+#### F-LT-66 — PowerShell write cmdlets to executable extensions not blocked
+**Attack:** `Set-Content C:\Temp\evil.bat "calc"` then F-LT-65 `start evil.bat` = write-then-exec RCE. Equally `Out-File`, `Add-Content`, `Tee-Object`, `tee` alias, `copy con` — all wrote arbitrary `.bat`/`.ps1`/`.exe` payloads. The existing `\windows\` directory write guard and the `>` redirect-to-exec rule never covered the cmdlet form.
+**Fix:** Three BLOCKED_PATTERNS additions covering Set-Content/Out-File/Add-Content/Tee-Object, the `tee` alias, and `copy con`. All use the same executable-extension list as F-LT-41 rename and L363 redirect rules.
+**Status:** FIXED (v1.8.0)
+
+#### F-LT-67 — Sensitive-file regexes were dead code post-normalization (the worst miss)
+**Attack:** `isSensitiveFile()` calls `filePath.replace(/\\/g, '/')` BEFORE matching. Patterns written with literal `\\etc\\shadow`, `\\Microsoft\\Credentials`, `\\Microsoft\\Protect`, `\\etc\\gshadow` could never match — every `\` was already gone. `read_file` and `commandContainsSensitivePath` both returned false for the canonical Windows DPAPI credential store path. Empirically: `isSensitiveFile('C:\\...\\Microsoft\\Credentials\\blob')` returned `false`. F-LT-13 (S48) shipped these patterns; six passes never traced one end-to-end.
+**Fix:** Rewrote four patterns with cross-separator character class: `[\\\/]etc[\\\/]shadow`, `[\\\/]etc[\\\/]gshadow`, `[\\\/]Microsoft[\\\/]Credentials([\\\/]|$)`, `[\\\/]Microsoft[\\\/]Protect([\\\/]|$)`. Same cross-separator treatment applied to BLOCKED_PATTERNS L260 `\etc\shadow` so the RED-tier check fires on either separator. DPAPI master keys, Credential Manager blobs, and shadow files now genuinely guarded.
+**Status:** FIXED (v1.8.0)
+
+#### F-LT-68 — cmd `%VAR:X=Y%` replacement form not blocked
+**Attack:** F-LT-25 (S50) commit message claimed `%VAR:X=Y%` (substring replace) was covered, but the actual regex character class was `[~!*]` — only the slice form. `set X=cxxxurl && %X:xxx=%` → `curl` reconstructed from harmless tokens, defeating the `\bcurl\b` block. The inline comment even named the missing case.
+**Fix:** Split into two patterns: kept `[~!*]` for slice, added `[^%~!*=]+=[^%]*` for the replacement form. Both now in BLOCKED_PATTERNS.
+**Status:** FIXED (v1.8.0)
+
+### v1.8.0 Fix Summary
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| F-LT-65 | CRITICAL | start / call / saps / direct-path exec now blocked |
+| F-LT-66 | CRITICAL | PS write cmdlets to exec extensions blocked |
+| F-LT-67 | CRITICAL | sensitive-file patterns rewritten cross-separator; BLOCKED_PATTERNS shadow rule likewise |
+| F-LT-68 | CRITICAL | `%VAR:X=Y%` replacement form added alongside slice form |
+
+Test coverage: 113/113 passing (was 81; four new describe blocks for the sixth-pass CRITICALs).
+
+### Pending (queued for S55)
+
+- HIGH cluster (11): F-LT-69 (Add-Type), F-LT-70 (Import-Module/ipmo/using module), F-LT-71 (PSRemoting), F-LT-72 (Invoke-Item/Start-Job), F-LT-73 (ftype/assoc), F-LT-74 (.NET compilers csc/vbc/jsc/ilasm/aspnet_compiler), F-LT-75 (LOLBAS expansion: psexec/winrs/scriptrunner/cdb/control/tttracer/dnscmd/etc.), F-LT-76 (git `=value` glued flag bypass), F-LT-77 (PS dot-source), F-LT-78 (alternate shells `bash -c` without .exe), F-LT-79 (sensitive-file gaps: Edge, Brave, Chrome Network/Cookies, DPAPI Crypto Keys, FileZilla, GitCredentialManager, .vscode/settings.json).
+- MEDIUM cluster (4): F-LT-80 (powershell - stdin), F-LT-81 (Register-ScheduledTask), F-LT-82 (python combined-flag -ic/-Bc/-uc), F-LT-83 (mklink junctions/hardlinks).
+- LOW cluster (2): F-LT-84 (setup.ps1 .env ACL), F-LT-85 (audit.log integrity / sanitizeArgs gaps).
+
+Full findings report: `SIXTH_PASS_LT_FINDINGS.md` (repo root of the cowork workspace).
+
