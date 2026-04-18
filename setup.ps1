@@ -130,27 +130,56 @@ Start-Sleep -Seconds 2
 
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($svc -and $svc.Status -eq "Running") {
+
+  # -- Write Claude Desktop config -----------------------------------------
+  # Handles: new install (creates dir + file), re-run (updates existing entry),
+  # and machines where Claude Desktop hasn't been installed yet (pre-creates config).
+  $ClaudeConfigDir  = "$env:LOCALAPPDATA\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude"
+  $ClaudeConfigFile = Join-Path $ClaudeConfigDir "claude_desktop_config.json"
+
+  Write-Host "Configuring Claude Desktop..." -ForegroundColor Yellow
+  New-Item -ItemType Directory -Force -Path $ClaudeConfigDir | Out-Null
+
+  if (Test-Path $ClaudeConfigFile) {
+    $cfg = Get-Content $ClaudeConfigFile -Raw | ConvertFrom-Json
+  } else {
+    $cfg = [PSCustomObject]@{}
+  }
+
+  if (-not $cfg.PSObject.Properties['mcpServers']) {
+    $cfg | Add-Member -MemberType NoteProperty -Name 'mcpServers' -Value ([PSCustomObject]@{})
+  }
+
+  $entry = [PSCustomObject]@{
+    command = "mcp-remote"
+    args    = @(
+      "http://127.0.0.1:$Port/sse",
+      "--allow-http",
+      "--header",
+      "Authorization: Bearer $Token"
+    )
+  }
+
+  if ($cfg.mcpServers.PSObject.Properties['local-terminal']) {
+    $cfg.mcpServers.'local-terminal' = $entry
+    Write-Host "Updated existing local-terminal entry in Claude Desktop config" -ForegroundColor Green
+  } else {
+    $cfg.mcpServers | Add-Member -MemberType NoteProperty -Name 'local-terminal' -Value $entry
+    Write-Host "Added local-terminal entry to Claude Desktop config" -ForegroundColor Green
+  }
+
+  $cfg | ConvertTo-Json -Depth 10 | Out-File -FilePath $ClaudeConfigFile -Encoding utf8
+  Write-Host "Config written to: $ClaudeConfigFile" -ForegroundColor Green
+
   Write-Host ""
   Write-Host "=== Setup Complete (v$Version) ===" -ForegroundColor Green
-  Write-Host "Service running at http://127.0.0.1:$Port" -ForegroundColor Green
+  Write-Host "Service:       http://127.0.0.1:$Port" -ForegroundColor Green
+  Write-Host "Claude config: $ClaudeConfigFile" -ForegroundColor Green
   Write-Host ""
-  Write-Host "Add this to your claude_desktop_config.json:" -ForegroundColor Cyan
-  Write-Host ""
-  Write-Host "{"
-  Write-Host "  `"mcpServers`": {"
-  Write-Host "    `"local-terminal`": {"
-  Write-Host "      `"command`": `"mcp-remote`","
-  Write-Host "      `"args`": ["
-  Write-Host "        `"http://127.0.0.1:$Port/sse`","
-  Write-Host "        `"--allow-http`","
-  Write-Host "        `"--header`","
-  Write-Host "        `"Authorization: Bearer $Token`""
-  Write-Host "      ]"
-  Write-Host "    }"
-  Write-Host "  }"
-  Write-Host "}"
-  Write-Host ""
+  Write-Host "Restart Claude Desktop to activate the plugin." -ForegroundColor Cyan
   Write-Host "To update later: git pull, then re-run .\setup.ps1" -ForegroundColor Cyan
+
 } else {
   Write-Host "WARNING: Service may not have started. Check $LogDir for errors." -ForegroundColor Red
+  Write-Host "Claude Desktop config was NOT written (service must be running first)." -ForegroundColor Red
 }

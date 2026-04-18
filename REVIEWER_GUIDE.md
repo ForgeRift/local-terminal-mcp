@@ -31,23 +31,20 @@ cd local-terminal-mcp
 ```
 
 `setup.ps1` will:
-- Verify Git and Node.js v18+ are present
+- Verify Git and Node.js v18+ are present (exits with a clear error and install link if not)
 - Build the project
 - Install `mcp-remote` globally (the bridge Claude Desktop uses to reach the local HTTP server)
 - Generate a random bearer token and save it to `.env`
 - Download NSSM and install `local-terminal-mcp` as a Windows Service
-- Print the `claude_desktop_config.json` snippet to paste
-
-Copy the printed config snippet.
+- Write the MCP entry directly into your Claude Desktop config (creates the file and directory if they don't exist yet)
 
 ### 3. Connect from Claude (2 min)
 
-Add the printed snippet to your Claude Desktop config:
+Restart Claude Desktop. The plugin should appear as connected — no manual config editing required. The config was written to:
+
 ```
 %LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json
 ```
-
-Restart Claude Desktop. Confirm the plugin appears as connected.
 
 ### 4. Exercise the tiers (15 min)
 

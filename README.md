@@ -96,14 +96,9 @@ cd local-terminal-mcp
 - Generate a random auth token and save it to `.env`
 - Download NSSM and install `local-terminal-mcp` as a Windows Service
 - Configure auto-restart on crash (3s delay)
-- Print the `claude_desktop_config.json` snippet to paste
+- Write the MCP entry directly into your Claude Desktop config (creates the file and directory if they don't exist yet)
 
-Add the printed snippet to your Claude Desktop config, then restart Claude Desktop.
-
-**Config file location:**
-```
-%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json
-```
+Then restart Claude Desktop — the plugin will appear as connected.
 
 ---
 
