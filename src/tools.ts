@@ -19,7 +19,7 @@ interface BlockedPattern {
   reason: string;
 }
 
-const BLOCKED_PATTERNS: BlockedPattern[] = [
+export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── File Deletion & Data Destruction ──────────────────────────────────────
   { pattern: /\brm\s/i,                           category: 'file-delete',    reason: 'File deletion (rm) is prohibited.' },
   { pattern: /\brmdir\b/i,                        category: 'file-delete',    reason: 'Directory removal (rmdir) is prohibited.' },
@@ -118,15 +118,30 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── Shell Wrappers (F-2/F-4/F-5 fix) ────────────────────────────────────────
   // Block cmd /c and powershell/pwsh -c/-Command/-File/-EncodedCommand outright.
   // These are the canonical dispatch forms that let anything slip past verb blocks.
-  { pattern: /\bcmd(\.exe)?\s+\/[cCkK]\b/i,      category: 'code-exec',      reason: 'cmd /c shell dispatch is prohibited. Use structured tools instead.' },
+  // ── F-LT-42 (S52): cmd /c and /k bypass when other /-flags precede. Scan all tokens.
+  { pattern: /\bcmd(\.exe)?\b(?:\s+\/[a-zA-Z:][^\s]*)*\s+\/[cCkK]\b/i,
+                                                  category: 'code-exec',      reason: 'cmd /c (or /k) shell dispatch is prohibited anywhere in the arg list (F-LT-42).' },
   { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
                                                   category: 'code-exec',      reason: 'PowerShell -c/-Command/-File/-EncodedCommand is prohibited.' },
   { pattern: /\bpwsh(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
                                                   category: 'code-exec',      reason: 'pwsh (PowerShell 7) -c/-Command/-File/-EncodedCommand is prohibited.' },
-  // F-LT-26: PowerShell positional command form — `powershell "code"` with no flag bypasses -c/-Command block.
-  // Requires that the first non-whitespace arg does NOT start with '-' (flags are still OK).
-  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+(?!-)[^\s]/i,  category: 'code-exec', reason: 'PowerShell with a positional (non-flag) first argument is prohibited.' },
-  { pattern: /\bpwsh(\.exe)?\s+(?!-)[^\s]/i,              category: 'code-exec', reason: 'pwsh with a positional (non-flag) first argument is prohibited.' },
+  // ── F-LT-36 (S52): PowerShell positional-script bypass when any flag precedes ───
+  // The old rule `\s+(?!-)[^\s]` only checked the first token — `powershell -nologo x.ps1`
+  // satisfied the `-` and slipped past. The replacement scans all tokens: any bare
+  // (non-flag) token anywhere in the argv list triggers the block.
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\b(?:\s+[-\/][^\s]+)*\s+(?![-\/])[^\s]+/i,
+                                                  category: 'code-exec',      reason: 'PowerShell with a positional (non-flag) argument is prohibited (F-LT-36: flag-tolerant positional scan).' },
+  { pattern: /\bpwsh(\.exe)?\b(?:\s+[-\/][^\s]+)*\s+(?![-\/])[^\s]+/i,
+                                                  category: 'code-exec',      reason: 'pwsh with a positional (non-flag) argument is prohibited (F-LT-36).' },
+  // ── F-LT-36 explicit dispatch flags — block -File / -Command anywhere in argv ───
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+(?:[^\n]*\s)?-f(ile)?\b\s+\S/i,
+                                                  category: 'code-exec',      reason: 'PowerShell -File <script> is prohibited (F-LT-36).' },
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+(?:[^\n]*\s)?-c(ommand)?\b\s+\S/i,
+                                                  category: 'code-exec',      reason: 'PowerShell -Command is prohibited (F-LT-36).' },
+  { pattern: /\bpwsh(\.exe)?\s+(?:[^\n]*\s)?-f(ile)?\b\s+\S/i,
+                                                  category: 'code-exec',      reason: 'pwsh -File <script> is prohibited (F-LT-36).' },
+  { pattern: /\bpwsh(\.exe)?\s+(?:[^\n]*\s)?-c(ommand)?\b\s+\S/i,
+                                                  category: 'code-exec',      reason: 'pwsh -Command is prohibited (F-LT-36).' },
 
   // ── Code Execution & Shell Invocation ─────────────────────────────────────
   { pattern: /\beval\b/i,                         category: 'code-exec',      reason: 'eval() is prohibited.' },
@@ -309,20 +324,41 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   // python -m: invokes arbitrary stdlib modules (http.server, ftplib, pip, etc.)
   { pattern: /\bpython3?\b[^|&;]*\s-m\b/i,         category: 'code-exec',     reason: 'python -m (module invocation) is prohibited. Use structured tools.' },
   { pattern: /\bpy\b[^|&;]*\s-m\b/i,               category: 'code-exec',     reason: 'py -m (module invocation) is prohibited.' },
+  // ── F-LT-48 (S52): python -c / -x / stdin mode — single-call RCE, identical surface to -m.
+  // Handles python, python2, python3, python3.11, pythonw, py variants.
+  { pattern: /\bpython\d*w?\b[^|&;]*\s-c\b/i,      category: 'code-exec',     reason: 'python -c (inline code evaluation) is prohibited.' },
+  { pattern: /\bpy\b[^|&;]*\s-c\b/i,               category: 'code-exec',     reason: 'py -c (inline code evaluation) is prohibited.' },
+  { pattern: /\bpython\d*w?\s+-c["']/i,            category: 'code-exec',     reason: 'python -c (no-space inline code) is prohibited.' },
+  { pattern: /\bpy\s+-c["']/i,                     category: 'code-exec',     reason: 'py -c (no-space inline code) is prohibited.' },
+  // python -  (stdin-as-source) and python -x (skip-first-line then exec) both execute attacker input.
+  { pattern: /\bpython\d*w?\s+-\s*(?:$|["'<|&;])/im, category: 'code-exec',   reason: 'python - (stdin as source) is prohibited.' },
+  { pattern: /\bpython\d*w?\s+-x\b/i,              category: 'code-exec',     reason: 'python -x (skip-first-line exec) is prohibited.' },
   // Other language interpreters with inline execution flags
   { pattern: /\bruby\b[^|&;]*\s-[er]\b/i,          category: 'code-exec',     reason: 'ruby -e/-r (inline eval/preload) is prohibited.' },
   { pattern: /\bphp\b[^|&;]*\s-r\b/i,              category: 'code-exec',     reason: 'php -r (inline code evaluation) is prohibited.' },
   { pattern: /\bperl\b[^|&;]*\s-[eE]\b/i,          category: 'code-exec',     reason: 'perl -e/-E (inline code evaluation) is prohibited.' },
   { pattern: /\bdeno\b[^|&;]*(eval|run)\b/i,       category: 'code-exec',     reason: 'deno eval/run is prohibited.' },
 
-  // ── F-LT-32: Interpreter + scriptfile RCE ────────────────────────────────────
-  // node/python/perl/ruby/php running a script file = arbitrary code execution given
-  // any prior write access to user-writable paths. Block outright.
-  { pattern: /\bnode(\.exe)?\s+\S+\.(c?js|mjs|ts)\b/i,  category: 'code-exec', reason: 'node <script> execution is prohibited (RCE vector).' },
-  { pattern: /\bpython3?(\.exe)?\s+\S+\.py\b/i,          category: 'code-exec', reason: 'python <script> execution is prohibited.' },
-  { pattern: /\bperl(\.exe)?\s+\S+\.pl\b/i,              category: 'code-exec', reason: 'perl <script> execution is prohibited.' },
-  { pattern: /\bruby(\.exe)?\s+\S+\.rb\b/i,              category: 'code-exec', reason: 'ruby <script> execution is prohibited.' },
-  { pattern: /\bphp(\.exe)?\s+\S+\.php\b/i,              category: 'code-exec', reason: 'php <script> execution is prohibited.' },
+  // ── F-LT-32 + F-LT-40 (S52): Interpreter + scriptfile RCE ────────────────────
+  // Any modern script interpreter running a script file has identical blast radius to
+  // the original five (node/python/perl/ruby/php). F-LT-40 broadens the interpreter
+  // list and adds loader-flag / npx-indirect coverage.
+  { pattern: /\b(node|python\d*w?|py|perl|ruby|php|bun|deno|tsx|ts-node|Rscript|lua(jit)?|scala|groovy|java|osascript|bash|zsh|sh)(\.exe)?\s+[^-\s][^\s]*\.(c?js|mjs|ts|mts|cts|tsx|jsx|py|pyw|pl|rb|php|lua|r|jar|cmd|bat|ps1|psm1|vbs|wsf|csx|sh|bash|zsh)\b/i,
+                                                         category: 'code-exec', reason: '<interpreter> <script-file> execution is prohibited (F-LT-40: broad interpreter + script-file RCE).' },
+  // F-LT-40: interpreters that take a `run`/`exec`/`eval` subcommand before the script file.
+  { pattern: /\b(bun|deno)(\.exe)?\s+(run|exec|eval|repl)\b\s+\S+\.(c?js|mjs|ts|mts|cts|tsx|jsx|py|pyw|pl|rb|php|lua|sh)\b/i,
+                                                         category: 'code-exec', reason: '<interpreter> run <script-file> is prohibited (F-LT-40).' },
+  // F-LT-40: bun/deno run without ext when argument looks like a file-like path
+  { pattern: /\b(bun|deno)(\.exe)?\s+(run|exec|eval|repl)\b\s+[^-\s]\S+/i,
+                                                         category: 'code-exec', reason: '<interpreter> run <positional> is prohibited (F-LT-40).' },
+  // dotnet script takes a .csx or arbitrary file — treat `dotnet script` as inline exec regardless of extension.
+  { pattern: /\bdotnet(\.exe)?\s+script\b/i,             category: 'code-exec', reason: 'dotnet script execution is prohibited (F-LT-40).' },
+  // Node loader/import pre-hook — arbitrary code before main.js via ESM loader or require pre-hook.
+  { pattern: /\bnode(\.exe)?\b[^|&;]*--(?:loader|experimental-loader|import|require)\b/i,
+                                                         category: 'code-exec', reason: 'node --loader/--import/--require (pre-hook RCE) is prohibited (F-LT-40).' },
+  // npx indirect launch of a script file through an interpreter package.
+  { pattern: /\bnpx\s+(?:--package=\S+\s+)?(?:tsx|ts-node|babel-node|esbuild-register|ts-script)\b\s+\S+\.\w+/i,
+                                                         category: 'code-exec', reason: 'npx <interpreter> <script> is prohibited (F-LT-40).' },
   // Redirect to executable/script extension — defense-in-depth for write-then-exec kill chain.
   { pattern: />\s*[^\s|&;]+\.(js|mjs|cjs|ts|py|pl|rb|php|ps1|psm1|vbs|wsf|bat|cmd|hta|exe|dll|msi|lnk)\b/i,
                                                           category: 'file-write', reason: 'Redirect to executable/script file extension is prohibited.' },
@@ -332,9 +368,32 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bfinger\b/i,                        category: 'data-exfil',    reason: 'finger is prohibited (external user info disclosure).' },
   { pattern: /\bdiskshadow\b/i,                    category: 'code-exec',     reason: 'diskshadow is prohibited (VSS shadow-copy exec LOLBin).' },
   { pattern: /\bmmc(\.exe)?\s/i,                   category: 'code-exec',     reason: 'mmc.exe is prohibited (MMC snap-in code exec LOLBin).' },
+
+  // ── F-LT-41 (S52): rename/ren into executable-extension destinations ────────
+  // Breaks the three-call bypass chain (read src → copy with write perm → rename to .ps1 → exec).
+  { pattern: /\b(rename|ren|mv|move)\b[^|&;]*\s\S+\.(ps1|psm1|bat|cmd|vbs|wsf|wsh|js|mjs|cjs|ts|mts|cts|tsx|py|pyw|pl|rb|php|lua|exe|dll|msi|reg|lnk|com|scr|hta|jar)\b/i,
+                                                   category: 'file-write',    reason: 'rename/mv/move to executable or script extension is prohibited (F-LT-41).' },
+
+  // ── F-LT-43 (S52): WSL launcher binaries dispatch into a Linux shell ────────
+  // ubuntu / debian / kali / etc. (.exe) launch the configured default distro shell,
+  // bypassing every Windows-side blocklist.
+  { pattern: /\b(ubuntu(\d+)?|debian(\d+)?|kali(-linux)?|archwsl|alpine(wsl)?|opensuse-[a-z0-9.\-]+|fedoraremix|oracle-?linux\S*|slespro|sles-\d+|wsl)(\.exe)?\b/i,
+                                                   category: 'code-exec',     reason: 'WSL distro launcher / wsl.exe is prohibited (F-LT-43: Linux shell dispatch).' },
+
+  // ── F-LT-44 (S52): .NET / System.Reflection / COM ProgID instantiation ──────
+  // These PowerShell idioms reach arbitrary code via type reflection or COM ProgIDs.
+  { pattern: /\[Type\]::GetTypeFromProgID\s*\(/i,       category: 'code-exec', reason: '[Type]::GetTypeFromProgID is prohibited (F-LT-44: COM reflection).' },
+  { pattern: /\[Activator\]::CreateInstance\s*\(/i,     category: 'code-exec', reason: '[Activator]::CreateInstance is prohibited (F-LT-44).' },
+  { pattern: /\.InvokeMember\s*\(/i,                    category: 'code-exec', reason: '.InvokeMember() is prohibited (F-LT-44: late-bound member call).' },
+  { pattern: /\[System\.Reflection\./i,                 category: 'code-exec', reason: 'System.Reflection type reference is prohibited (F-LT-44).' },
+  { pattern: /\[Reflection\.Assembly\]::(Load|LoadFrom|LoadFile|LoadWithPartialName|ReflectionOnlyLoad)/i,
+                                                       category: 'code-exec', reason: '[Reflection.Assembly]::Load* is prohibited (F-LT-44: in-memory assembly load).' },
+  { pattern: /System\.Management\.Automation\.(PSCmdlet|Utils|Runspaces)\b/i,
+                                                       category: 'code-exec', reason: 'System.Management.Automation internals are prohibited (F-LT-44).' },
+  { pattern: /&\s*\(\s*\[type\]/i,                      category: 'code-exec', reason: '& ([type]…) invocation is prohibited (F-LT-44: reflection-mediated dispatch).' },
 ];
 
-function checkBlocked(cmd: string): { blocked: true; category: string; reason: string } | { blocked: false } {
+export function checkBlocked(cmd: string): { blocked: true; category: string; reason: string } | { blocked: false } {
   // ── CRITICAL FIX (S35): Reject non-ASCII to prevent Unicode homoglyph bypass ──
   // Cyrillic/Greek lookalikes (e.g. Cyrillic 'р' for Latin 'r') defeat \b word boundaries.
   if (/[^\x00-\x7F]/.test(cmd)) {
@@ -377,7 +436,7 @@ interface AmberWarning {
   risk: string;
 }
 
-const AMBER_PATTERNS: AmberWarning[] = [
+export const AMBER_PATTERNS: AmberWarning[] = [
   { pattern: /\bfind\b.*-exec\b/i,          risk: 'find -exec can execute commands on matched files. Review carefully.' },
   { pattern: /\bxargs\b/i,                  risk: 'xargs pipes input as arguments to other commands. Review carefully.' },
   { pattern: /\bawk\b/i,                    risk: 'awk can write files and execute shell commands.' },
@@ -390,7 +449,7 @@ const AMBER_PATTERNS: AmberWarning[] = [
   { pattern: /\bren\b.*\*/i,               risk: 'Wildcard rename can affect many files. Review carefully.' },
 ];
 
-function checkAmber(cmd: string): AmberWarning | null {
+export function checkAmber(cmd: string): AmberWarning | null {
   for (const entry of AMBER_PATTERNS) {
     if (entry.pattern.test(cmd)) return entry;
   }
@@ -399,7 +458,7 @@ function checkAmber(cmd: string): AmberWarning | null {
 
 // ─── Sensitive File Protection ──────────────────────────────────────────────────
 
-const SENSITIVE_FILE_PATTERNS: RegExp[] = [
+export const SENSITIVE_FILE_PATTERNS: RegExp[] = [
   // Environment files — F-LT fix: negative lookahead catches .env" .env) .env/ .env$IFS variants
   /\.env(?![a-zA-Z0-9])/i,
 
@@ -498,7 +557,7 @@ const SENSITIVE_FILE_PATTERNS: RegExp[] = [
   /[\\\/]Code[\\\/]User[\\\/]globalStorage[\\\/]/i,  // VS Code extension storage
 ];
 
-function isSensitiveFile(filePath: string): boolean {
+export function isSensitiveFile(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
   return SENSITIVE_FILE_PATTERNS.some(p => p.test(normalized) || p.test(basename(normalized)));
 }
@@ -627,30 +686,37 @@ function scrubSecrets(output: string): string {
 // safe, well-known system vars. Everything else is dropped — including any
 // future secret-shaped vars not yet on any blocklist.
 // Allowlist source: standard Windows/POSIX system env vars needed by common tools.
-const SAFE_ENV_ALLOWLIST = new Set([
+export const SAFE_ENV_ALLOWLIST = new Set([
   'PATH', 'PATHEXT',
   'USERPROFILE', 'HOMEPATH', 'HOMEDRIVE', 'HOME',
   'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA',
   'PROGRAMFILES', 'PROGRAMFILES(X86)',
   'SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR',
-  'COMSPEC', 'COMPUTERNAME',
+  // F-LT-37 (S52): COMSPEC is pinned below via buildSafeEnv — do NOT pass-through from process.env.
+  'COMPUTERNAME',
   'USERNAME', 'USERDOMAIN', 'USERDNSDOMAIN',
   'TEMP', 'TMP',
   'OS', 'PROCESSOR_ARCHITECTURE', 'PROCESSOR_IDENTIFIER', 'NUMBER_OF_PROCESSORS',
   'LANG', 'TZ',
-  // Node.js / npm env vars that are safe for child npm processes
-  'NODE_PATH', 'NPM_CONFIG_PREFIX',
+  // F-LT-46 (S52): REMOVED NPM_CONFIG_PREFIX and NODE_PATH — either lets a caller stage an
+  // attacker-controlled npm/node module tree and hijack package resolution.
   // Git needs these for locale/terminal
   'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL',
   'TERM', 'COLORTERM',
 ]);
 
-function buildSafeEnv(): NodeJS.ProcessEnv {
+export function buildSafeEnv(): NodeJS.ProcessEnv {
   const safeEnv: NodeJS.ProcessEnv = {};
   for (const [key, val] of Object.entries(process.env)) {
     if (SAFE_ENV_ALLOWLIST.has(key.toUpperCase()) || SAFE_ENV_ALLOWLIST.has(key)) {
       safeEnv[key] = val;
     }
+  }
+  // F-LT-37 (S52): pin COMSPEC to the real Windows cmd.exe so a caller can't point it
+  // at a user-writable path that cmd /c would dispatch into.
+  if (process.platform === 'win32') {
+    const sysRoot = process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
+    safeEnv.COMSPEC = `${sysRoot}\\System32\\cmd.exe`;
   }
   return safeEnv;
 }
@@ -723,7 +789,7 @@ const GIT_SAFE_CONFIG: string[] = [
 // --output/-O (write to file), --config-env/-c (config injection),
 // --exec-path (binary path override), --textconv (filter execution).
 // Also blocks 'git show <ref>:<sensitive-path>' historical secret exfil.
-const FORBIDDEN_GIT_FLAGS = new Set([
+export const FORBIDDEN_GIT_FLAGS = new Set([
   '--no-index', '--ext-diff', '--textconv', '--output', '-O',
   '--config-env', '-c', '--exec-path', '-p', '--patch', '-S', '-G',
   // F-LT-10: CWD escape and repo-dir override
@@ -732,9 +798,12 @@ const FORBIDDEN_GIT_FLAGS = new Set([
   '--walk-reflogs', '--reflog',
   // F-LT-21: binary blob leak channel
   '--binary',
+  // F-LT-45 (S52): additional write-to-file / formatted-output surfaces on diff/log/show/format-patch.
+  '-o', '--output-directory',
+  '--output-indicator-new', '--output-indicator-old', '--output-indicator-context',
 ]);
 
-function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
+export function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
   for (const arg of cmdArgs) {
     // Exact flag match
     if (FORBIDDEN_GIT_FLAGS.has(arg)) {
@@ -747,6 +816,10 @@ function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
     // Long-form flags with = assignment
     if (/^--output=/.test(arg) || /^--exec-path=/.test(arg) || /^--config-env=/.test(arg)) {
       return `git flag '${arg}' is not permitted (file-write or config-inject vector).`;
+    }
+    // F-LT-45 (S52): also block --output-directory= and --output-indicator-*=
+    if (/^--output-directory=/.test(arg) || /^--output-indicator(-new|-old|-context)?=/.test(arg)) {
+      return `git flag '${arg}' is not permitted (F-LT-45: file-write / formatted-output vector).`;
     }
     // F-LT-27: reflog syntax (@{N}, branch@{0}, @{-1}) exposes deleted/stashed secrets
     if (/@\{/.test(arg)) {
@@ -1074,12 +1147,18 @@ export async function executeTool(
       const dir = rawPath;
       try {
         const entries = readdirSync(dir);
-        const lines = entries.map((e) => {
+        // F-LT-38 (S52): filter individual sensitive entries (e.g. id_rsa, .env) out of
+        // the per-listing output even when the parent dir itself isn't sensitive.
+        // Reduces passive recon (e.g. "does this user have ~/.aws/credentials?").
+        const lines: string[] = [];
+        for (const e of entries) {
+          const full = join(dir, e);
+          if (isSensitiveFile(full) || isSensitiveFile(e)) continue;
           try {
-            const s = statSync(join(dir, e));
-            return `${s.isDirectory() ? "DIR " : "FILE"} ${e}`;
-          } catch { return `?    ${e}`; }
-        });
+            const s = statSync(full);
+            lines.push(`${s.isDirectory() ? "DIR " : "FILE"} ${e}`);
+          } catch { lines.push(`?    ${e}`); }
+        }
         return { result: lines.join("\n") || "(empty)", tier: "green", blocked: false, dryRun: false };
       } catch (err: unknown) {
         return { result: `ERROR: ${(err as Error).message}`, tier: "green", blocked: false, dryRun: false };
@@ -1094,6 +1173,16 @@ export async function executeTool(
       // F-27: reject control characters in path
       if (/[\x00-\x1F\x7F]/.test(filePath)) {
         return { result: formatBlockedError('path-validation', 'File path contains control characters.'), tier: "red", blocked: true, dryRun: false };
+      }
+
+      // F-LT-49 (S52): up-front sensitive-pattern check BEFORE stat/realpath. Prevents
+      // existence-oracle where a non-existent sensitive path returned ENOENT and an
+      // existing one returned the "blocked" message — the difference leaks info.
+      if (isSensitiveFile(filePath)) {
+        return {
+          result: formatBlockedError('sensitive-file', `Access to '${basename(filePath)}' is blocked. This path matches a sensitive file pattern (credentials, keys, secrets, environment files). Sensitive files cannot be read regardless of existence.`),
+          tier: "red", blocked: true, dryRun: false,
+        };
       }
 
       // F-11/F-14: canonicalize path before any pattern check to defeat UNC,
@@ -1117,11 +1206,11 @@ export async function executeTool(
       } catch (resolveErr: unknown) {
         // F-LT-35: fail-closed — if realpathSync throws (permission error, broken symlink,
         // or dangling path), we cannot verify the canonical target, so we must block.
-        // The only safe exception is ENOENT (file genuinely does not exist yet), which
-        // is returned as a readable error rather than a security block.
+        // F-LT-49 (S52): uniform message for any access failure so ENOENT vs EACCES can't
+        // be used as an existence oracle.
         const code = (resolveErr as NodeJS.ErrnoException).code;
-        if (code === 'ENOENT') {
-          return { result: `ERROR: File not found: '${filePath}'`, tier: "green", blocked: false, dryRun: false };
+        if (code === 'ENOENT' || code === 'EACCES' || code === 'EPERM') {
+          return { result: `ERROR: File not accessible.`, tier: "green", blocked: false, dryRun: false };
         }
         return {
           result: formatBlockedError('path-validation', `Cannot resolve canonical path for '${filePath}': ${(resolveErr as Error).message}. Access denied.`),
@@ -1352,9 +1441,27 @@ export async function executeTool(
             tier: "green", blocked: true, dryRun: false,
           };
         }
+        // F-LT-47 (S52): reject caller-supplied --userconfig / --globalconfig — we
+        // force these to NUL/dev/null below and must not let them be overridden.
+        if (/^--userconfig(=|$)/i.test(a) || /^--globalconfig(=|$)/i.test(a)) {
+          return {
+            result: `ERROR: npm flag '${a}' is not permitted (config-file override). MCP npm runs always use isolated config.`,
+            tier: "green", blocked: true, dryRun: false,
+          };
+        }
       }
       // F-19: execFileSync(shell:false) — npm receives argv directly, no shell re-parse.
-      const npmArgs = [...npmArgParsed, '--ignore-scripts'];
+      // F-LT-47 (S52): force --userconfig / --globalconfig to the OS null sink so a .npmrc
+      // sitting in cwd (or a planted user config) cannot override registry/auth.
+      // Also pin the registry explicitly in case cwd .npmrc claims otherwise.
+      const nullSink = process.platform === 'win32' ? 'NUL' : '/dev/null';
+      const npmArgs = [
+        ...npmArgParsed,
+        '--ignore-scripts',
+        `--userconfig=${nullSink}`,
+        `--globalconfig=${nullSink}`,
+        '--registry=https://registry.npmjs.org/',
+      ];
       const result = runFile('npm', npmArgs, { cwd: dir, timeoutMs: 60_000 });
       return { result, tier: "green", blocked: false, dryRun: false };
     }
@@ -1415,12 +1522,22 @@ export async function executeTool(
 
       // F-LT-28: for 'git diff <ref>' pre-flight touched files — same logic as 'show'.
       // Catches: git diff HEAD~1 HEAD, git diff <sha> -- (no pathspec after --)
-      if (subCmd === 'diff') {
+      // F-LT-50 (S52): also expand commit-range syntax (A..B and A...B) so each side is
+      // pre-flighted individually; otherwise the pair token slips past sensitive-file scan.
+      if (subCmd === 'diff' || subCmd === 'log') {
         const userArgs = splitArgs.slice(1);
         const ddIdx = userArgs.indexOf('--');
         if (ddIdx < 0) {
-          const bareRefs = userArgs.filter(a => !a.startsWith('-') && !a.includes(':'));
-          for (const ref of bareRefs) {
+          const refs: string[] = [];
+          for (const a of userArgs) {
+            if (a.startsWith('-')) continue;
+            if (a.includes(':')) continue; // ref:path is handled elsewhere
+            // F-LT-50: split A..B / A...B into their endpoints for individual pre-flight.
+            if (a.includes('...')) { refs.push(...a.split('...').filter(Boolean)); continue; }
+            if (a.includes('..'))  { refs.push(...a.split('..').filter(Boolean));  continue; }
+            refs.push(a);
+          }
+          for (const ref of refs) {
             const checkArgs = ['-C', dir, ...GIT_SAFE_CONFIG, '--no-ext-diff',
                                'show', '--name-only', '--no-patch', '--pretty=format:', ref];
             const nameStatus = runFile('git', checkArgs, { env: safeGitEnv, timeoutMs: 10_000 });
@@ -1430,7 +1547,7 @@ export async function executeTool(
               if (isSensitiveFile(file)) {
                 return {
                   result: formatBlockedError('sensitive-file',
-                    `git diff '${ref}' touches sensitive file '${file}'. Diff blocked to prevent credential exposure via git history.`),
+                    `git ${subCmd} '${ref}' touches sensitive file '${file}'. ${subCmd === 'diff' ? 'Diff' : 'Log'} blocked to prevent credential exposure via git history.`),
                   tier: "red", blocked: true, dryRun: false,
                 };
               }
@@ -1487,6 +1604,29 @@ export async function executeTool(
       // but we can guarantee the warning always appears in the tool response.
       const amberResult = checkAmber(cmd);
       if (amberResult) {
+        // F-LT-39 (S52): AMBER `sed -i <target>` has no size cap — a multi-gig file
+        // would starve node. Precheck any target file referenced by sed -i and reject
+        // above 10 MB. Best-effort parse: accept the first non-flag token after -i,
+        // or the tail token(s) if -i is the last flag.
+        const SED_INPLACE_MAX = 10 * 1024 * 1024; // 10 MB
+        if (/\bsed\s+-i/i.test(cmd)) {
+          // Extract argv-ish tokens (quoted strings treated as one) and inspect file targets.
+          const tokens = splitArgv(cmd);
+          for (const tok of tokens) {
+            if (tok.startsWith('-')) continue;
+            // Skip tokens that look like sed scripts (start with s/, /, or contain regex metachars at head).
+            if (/^[sgyd]\//.test(tok) || /^\//.test(tok)) continue;
+            try {
+              const st = statSync(tok);
+              if (st.isFile() && st.size > SED_INPLACE_MAX) {
+                return {
+                  result: formatBlockedError('file-write', `sed -i target '${tok}' exceeds the 10 MB in-place edit cap (F-LT-39). Use a streamed diff pipeline instead.`),
+                  tier: "red", blocked: true, dryRun: isDryRun,
+                };
+              }
+            } catch { /* non-existent / non-file tokens are fine */ }
+          }
+        }
         if (isDryRun) {
           return {
             result: formatAmberWarning(amberResult.risk, cmd),

