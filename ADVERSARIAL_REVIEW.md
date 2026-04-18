@@ -267,3 +267,128 @@ The Opus reviewer recommended moving to `execFile` with argv arrays, a strict ve
 - **F-7**: `buildSafeEnv()` strips secrets before every child process invocation.
 
 `run_command` retains `execSync` by design — it is the intentional escape hatch — but is protected by the full RED/AMBER pipeline including the new sensitive-path scan (F-1) and input size cap (F-22).
+
+---
+
+# Fourth-Pass Adversarial Review — v1.7.0
+
+**Review performed:** 2026-04-18 (Claude Opus hostile fourth pass)
+**Hardening completed:** 2026-04-18 (Sonnet continuation, S50)
+**Status:** All 13 findings closed. Shipped as v1.7.0 (commit `b785e46`).
+
+The fourth pass targeted structural gaps not caught by the pattern model: (1) cmd.exe obfuscation primitives (caret escape, substring expansion, positional PowerShell); (2) a regex typo that silently disabled the COM-instantiation block; (3) interpreter+scriptfile RCE; (4) git history disclosure via reflog and diff; (5) an allowlist flip for `buildSafeEnv` to close the open-ended secret-stripping model; and (6) fail-closed path canonicalization.
+
+---
+
+## Findings
+
+### F-LT-23 — CRITICAL — `set <PREFIX>` dumps env vars (regex gap)
+**Attack vector:** `set GITHUB_` prints all env vars with that prefix. Prior regex required `set` at EOL or before pipe/redirect, missing `set <arg>` forms.
+**Fix:** Tightened to `(?:^|[\s;&|])set(?:\s|$|[|>&])/i` — word-boundary + mandatory space or EOL after `set`.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-24 — CRITICAL — cmd.exe caret escape bypasses every `\bverb\b` RED pattern
+**Attack vector:** `c^url http://evil`, `^s^e^t`, `r^m file` — cmd.exe strips carets before parsing, `\bcurl\b` never fires.
+**Fix:** In `run_command`, before the RED check, strip double-quoted sections then reject any remaining `^`. Carets have no legitimate use outside quoted strings in the tested command subset.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-25 — CRITICAL — `%VAR:~n,m%` substring expansion bypasses obfuscation patterns
+**Attack vector:** `type C:\Users\x\.e%TMP:~0,0%nv` → decoded to `type C:\Users\x\.env`. Pattern scanner sees literal expansion markers, not the final verb.
+**Fix:** Added pattern `/\%[A-Za-z_][A-Za-z0-9_]*:[~!*][^%]*%/` to BLOCKED_PATTERNS (obfuscation).
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-26 — HIGH — `powershell "positional code"` bypasses the `-c/-Command/-File` wrapper block
+**Attack vector:** `powershell "(New-Object Net.WebClient).DownloadFile(...)"` — no `-c` or `-Command` flag, first arg is positional code. Existing block only matched explicit flag forms.
+**Fix:** Added patterns blocking `powershell`/`pwsh` with a non-flag first argument (`(?!-)`). Also added `\b(gc|gi|gci|cat|type|ls)\s+env:/i` to catch PS alias forms of env: provider reads.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-27 — MEDIUM — Git reflog `@{N}` / `@{-N}` syntax exposes unreachable commits
+**Attack vector:** `git log HEAD@{1}`, `git show @{-1}` — walks reflog entries that may contain deleted/stashed secrets. `--walk-reflogs` flag was blocked but the ref-syntax form was not.
+**Fix:** Added `/@\{/.test(arg)` check in `validateGitArgv` arg loop; returns block message on match.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-28 — HIGH — `git diff <sha1> <sha2>` dumps historical content without sensitive-path pre-flight
+**Attack vector:** `git diff abc123 def456` renders a full diff including deleted `.env` or `id_rsa` from commit history. The `git show` pre-flight (F-LT-4) only ran for `subCmd === 'show'`.
+**Fix:** Added a matching pre-flight block for `subCmd === 'diff'` — extracts bare ref args, runs `git show --name-only --no-patch` for each, blocks if any touched file matches `isSensitiveFile`.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-29 — HIGH — Sequential `.*.*.*` bypasses `CATASTROPHIC_REGEX_SHAPES` guard
+**Attack vector:** `search_file({ pattern: ".*.*.*.*secret" })` — ungrouped sequential quantifiers cause polynomial backtracking but weren't matched by existing nested-group patterns.
+**Fix:** Added `/(?:\.[*+]){3,}/` to `CATASTROPHIC_REGEX_SHAPES` — rejects 3+ consecutive `.*` or `.+` sequences.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-30 — CRITICAL — One-char regex typo silently disabled COM-instantiation block
+**Attack vector:** `\new-object` in JS regex is `\n` (newline) + `ew-object` — never matches. `powershell "(New-Object -ComObject Shell.Application).ShellExecute('calc.exe')"` went through unblocked.
+**Fix:** Corrected to `\bnew-object\s+.*-com(object)?\b/i`. Added four new ProgID patterns: `Shell.Application`, `Scripting.FileSystemObject`, `WScript.(Shell|Network)`, and `.ShellExecute/.Run/.Exec` method calls.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-31 — HIGH — Writes to per-user Startup folder not blocked (persistence vector)
+**Attack vector:** `echo evil > "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\p.cmd"` — cmd is executed on every user login. No prior pattern covered Startup folder paths.
+**Fix:** Added three patterns to BLOCKED_PATTERNS: `\Start Menu\Programs\Startup\`, `\Microsoft\Windows\Start Menu\Programs\Startup`, and `shell:startup`.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-32 — CRITICAL — `node file.js` / `python file.py` / interpreter+scriptfile is full RCE
+**Attack vector:** `node C:\Users\x\payload.js` executes arbitrary code without going through the blocked-verb list. Combined with `>` write (if to a user path), this is a two-step full RCE.
+**Fix:** Added per-interpreter patterns blocking `node`, `python3?`, `perl`, `ruby`, `php` followed by a script file argument. Also added a redirect-to-script-extension block (`> *.js|*.py|*.bat|...`).
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-33 — HIGH — `buildSafeEnv` strip list misses common secret env var names
+**Attack vector:** `GITHUB_TOKEN`, `NPM_TOKEN`, `HF_TOKEN`, `OPENAI_KEY`, `DATABASE_URL` all passed through to child processes. The strip list only matched known substrings — an open-ended blocklist always has gaps.
+**Fix:** Replaced strip-list approach with a closed allowlist (`SAFE_ENV_ALLOWLIST` Set of ~25 known-safe OS/toolchain vars). Any key not on the allowlist is excluded from the child env. Future secret var names are safe by default.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-34 — MEDIUM — `list_directory` does not guard sensitive directories
+**Attack vector:** `list_directory("C:\\Users\\x\\.ssh")` reveals which credential files exist (`id_rsa`, `authorized_keys`, `known_hosts`) even if `read_file` would block reading them.
+**Fix:** After UNC rejection, normalizes the path to forward-slash form with a trailing `/`, then checks against `SENSITIVE_FILE_PATTERNS` via `isSensitiveFile`. Blocks with a "sensitive path pattern" error.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+### F-LT-35 — MEDIUM — `read_file` falls back to unresolved path when `realpathSync` throws
+**Attack vector:** If `realpathSync` throws due to a permission error or broken symlink (not ENOENT), the catch block previously fell back to `resolve(filePath)` — the unverified raw path. Sensitive-file pattern check then ran against the unverified string, which may not reflect the true symlink target.
+**Fix:** Fail-closed on non-ENOENT throws: return a blocked path-validation error. ENOENT (file genuinely not found) returns a readable "File not found" error in the green tier rather than a security block.
+**Status:** FIXED (commit `b785e46`)
+
+---
+
+## v1.7.0 Fix Summary
+
+All 13 fourth-pass findings are closed in a single commit (`b785e46`):
+
+| Finding | Severity | Resolution |
+|---|---|---|
+| F-LT-23 | CRITICAL | Tightened `set` env-dump regex |
+| F-LT-24 | CRITICAL | Caret escape rejection before RED check |
+| F-LT-25 | CRITICAL | `%VAR:~n,m%` substring expansion blocked |
+| F-LT-26 | HIGH | PowerShell positional form + PS alias env reads blocked |
+| F-LT-27 | MEDIUM | Reflog `@{N}` syntax blocked in `validateGitArgv` |
+| F-LT-28 | HIGH | `git diff` pre-flight mirrors `git show` pre-flight |
+| F-LT-29 | HIGH | Sequential `.*` ReDoS shape added to guard |
+| F-LT-30 | CRITICAL | COM regex typo fixed; ProgID patterns added |
+| F-LT-31 | HIGH | Startup folder write paths blocked |
+| F-LT-32 | CRITICAL | Interpreter+scriptfile patterns + redirect-to-script blocked |
+| F-LT-33 | HIGH | `buildSafeEnv` flipped to allowlist model |
+| F-LT-34 | MEDIUM | Sensitive directory guard in `list_directory` |
+| F-LT-35 | MEDIUM | `realpathSync` fail-closed; ENOENT surfaced separately |
