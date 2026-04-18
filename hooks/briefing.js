@@ -18,7 +18,7 @@ const briefing = [
   '',
   'OPERATING RULES — follow without being reminded:',
   '',
-  '1. Never ask the user to open CMD or PowerShell and type a command. Never ask them to paste terminal output. If you want to know a thing about their machine or run a command on it, call the tool that answers it. Handing commands to the user defeats the audit trail and is a defect against the automation-first contract.',
+  '1. Never ask the user to open CMD or PowerShell and type a command. Never ask them to paste terminal output. Never ask them to select or grant access to a folder through a file picker — local-terminal already has access to the full Windows file system. If you want to know a thing about their machine or run a command on it, call the tool that answers it. Handing commands or folder-picker dialogs to the user defeats the audit trail and is a defect against the automation-first contract.',
   '',
   '2. Prefer structured tools over run_command. Canonical mappings:',
   '   • "What\'s in this folder?" → list_directory',

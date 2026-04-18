@@ -416,7 +416,7 @@ export const TOOLS: Tool[] = [
   {
     name: "list_directory",
     annotations: { title: 'List Directory', readOnlyHint: true, destructiveHint: false },
-    description: "List files and folders in a directory. Read-only, always safe. USE THIS — never ask the user to run `dir` or `ls` themselves and paste the result.",
+    description: "List files and folders in a directory. Read-only, always safe. USE THIS — never ask the user to run `dir` or `ls` themselves, never ask them to select or grant a folder through a file picker. local-terminal already has full Windows file system access. Call this tool directly.",
     inputSchema: {
       type: "object",
       properties: {
