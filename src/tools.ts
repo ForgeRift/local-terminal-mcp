@@ -105,6 +105,16 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bschtasks\b/i,                     category: 'scheduled-exec', reason: 'Windows Task Scheduler modification is prohibited.' },
   { pattern: /register-scheduledjob/i,            category: 'scheduled-exec', reason: 'PowerShell scheduled job creation is prohibited.' },
   { pattern: /new-scheduledtask/i,                category: 'scheduled-exec', reason: 'PowerShell scheduled task creation is prohibited.' },
+  // ── F-LT-81 (S54): Modern Windows ScheduledTasks module verbs — Register-ScheduledTask
+  // is the primary creation cmdlet (PS3+ ScheduledJobs is legacy). Block the full chain:
+  // action/trigger constructors plus Register/Set/Unregister.
+  { pattern: /\bregister-scheduledtask\b/i,       category: 'scheduled-exec', reason: 'Register-ScheduledTask is prohibited (F-LT-81).' },
+  { pattern: /\bnew-scheduledtaskaction\b/i,      category: 'scheduled-exec', reason: 'New-ScheduledTaskAction is prohibited (F-LT-81).' },
+  { pattern: /\bnew-scheduledtasktrigger\b/i,     category: 'scheduled-exec', reason: 'New-ScheduledTaskTrigger is prohibited (F-LT-81).' },
+  { pattern: /\bnew-scheduledtasksettingsset\b/i, category: 'scheduled-exec', reason: 'New-ScheduledTaskSettingsSet is prohibited (F-LT-81).' },
+  { pattern: /\bnew-scheduledtaskprincipal\b/i,   category: 'scheduled-exec', reason: 'New-ScheduledTaskPrincipal is prohibited (F-LT-81).' },
+  { pattern: /\bset-scheduledtask\b/i,            category: 'scheduled-exec', reason: 'Set-ScheduledTask is prohibited (F-LT-81).' },
+  { pattern: /\bunregister-scheduledtask\b/i,     category: 'scheduled-exec', reason: 'Unregister-ScheduledTask is prohibited (F-LT-81).' },
 
   // ── Service Management ────────────────────────────────────────────────────
   { pattern: /\bsc\s+(create|delete|stop|start|config)\b/i, category: 'service-mgmt', reason: 'Windows service management (sc) is prohibited.' },
@@ -125,6 +135,13 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
                                                   category: 'code-exec',      reason: 'PowerShell -c/-Command/-File/-EncodedCommand is prohibited.' },
   { pattern: /\bpwsh(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
                                                   category: 'code-exec',      reason: 'pwsh (PowerShell 7) -c/-Command/-File/-EncodedCommand is prohibited.' },
+  // ── F-LT-80 (S54): `powershell -` / `pwsh -` stdin-as-source forms — PowerShell
+  // reads the script from stdin. Analogous to python `-` (F-LT-48). A bare `-`
+  // that ends the line or precedes a redirect/pipe/chain token.
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+-\s*(?:$|["'<|&;])/im,
+                                                  category: 'code-exec',      reason: 'PowerShell `-` (stdin as source) is prohibited (F-LT-80).' },
+  { pattern: /\bpwsh(\.exe)?\s+-\s*(?:$|["'<|&;])/im,
+                                                  category: 'code-exec',      reason: 'pwsh `-` (stdin as source) is prohibited (F-LT-80).' },
   // ── F-LT-36 (S52): PowerShell positional-script bypass when any flag precedes ───
   // The old rule `\s+(?!-)[^\s]` only checked the first token — `powershell -nologo x.ps1`
   // satisfied the `-` and slipped past. The replacement scans all tokens: any bare
@@ -379,6 +396,13 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // F-NEW-11: ln --symbolic long-form bypass
   { pattern: /\bln\s+--symbolic\b/i,              category: 'permissions',    reason: 'ln --symbolic (symlink creation, long-form) is prohibited.' },
   { pattern: /\bln\s+-s\b/i,                      category: 'permissions',    reason: 'ln -s (symlink creation) is prohibited.' },
+  // ── F-LT-83 (S54): Windows symlink/junction/hardlink equivalents — `mklink` is the
+  // cmd.exe builtin; PowerShell `New-Item -ItemType SymbolicLink|HardLink|Junction`
+  // creates the same primitive. Blocks realpath-bypass + write-redirect attacks
+  // against protected directories.
+  { pattern: /\bmklink\b/i,                       category: 'permissions',    reason: 'mklink (symlink/junction/hardlink) is prohibited (F-LT-83).' },
+  { pattern: /\bnew-item\b[^|&;]*-\s*(?:ItemType|Type)\s+(?:Symbolic|Hard|Junction)/i,
+                                                  category: 'permissions',    reason: 'New-Item -ItemType SymbolicLink/HardLink/Junction is prohibited (F-LT-83).' },
 
   // ── Variable Expansion / Obfuscation ──────────────────────────────────────
   { pattern: /\$\(/,                              category: 'obfuscation',    reason: 'Shell command substitution $() is prohibited.' },
@@ -411,6 +435,12 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── F-LT-48 (S52): python -c / -x / stdin mode — single-call RCE, identical surface to -m.
   // Handles python, python2, python3, python3.11, pythonw, py variants.
   { pattern: /\bpython\d*w?\b[^|&;]*\s-c\b/i,      category: 'code-exec',     reason: 'python -c (inline code evaluation) is prohibited.' },
+  // ── F-LT-82 (S54): combined short-flag forms — `python -ic`, `-Bc`, `-uc`, `-Eic`, etc.
+  // Python accepts `-XYc <code>` where any of -B/-E/-i/-O/-q/-S/-s/-u/-v/-x/-d/-I can prefix `c`.
+  // The space-separated `-c` rule above misses the no-space combined form.
+  { pattern: /\bpython\d*w?\s+-[a-zA-Z]*c\b/i,     category: 'code-exec',     reason: 'python combined-flag -c (e.g. -ic / -Bc / -uc) is prohibited (F-LT-82).' },
+  { pattern: /\bpy\s+-[a-zA-Z]*c\b/i,              category: 'code-exec',     reason: 'py launcher combined-flag -c is prohibited (F-LT-82).' },
+  { pattern: /\bpython\d*w?\s+-[a-zA-Z]*c["']/i,   category: 'code-exec',     reason: 'python combined-flag -c (no-space form) is prohibited (F-LT-82).' },
   { pattern: /\bpy\b[^|&;]*\s-c\b/i,               category: 'code-exec',     reason: 'py -c (inline code evaluation) is prohibited.' },
   { pattern: /\bpython\d*w?\s+-c["']/i,            category: 'code-exec',     reason: 'python -c (no-space inline code) is prohibited.' },
   { pattern: /\bpy\s+-c["']/i,                     category: 'code-exec',     reason: 'py -c (no-space inline code) is prohibited.' },

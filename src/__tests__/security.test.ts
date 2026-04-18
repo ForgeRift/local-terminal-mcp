@@ -409,6 +409,55 @@ describe('F-LT-79 — expanded sensitive-file coverage', () => {
     assert.ok(isSensitiveFile('C:\\project\\.vscode\\settings.json')));
 });
 
+// ─── F-LT-80 — PowerShell stdin-as-source (MEDIUM) ──────────────────────────
+
+describe('F-LT-80 — powershell - / pwsh - stdin form', () => {
+  it('blocks "powershell -" (end of line)', () => assertBlocked('powershell -'));
+  it('blocks powershell - with redirect', () => assertBlocked('powershell - < C:\\Temp\\evil.ps1'));
+  it('blocks pwsh -', () => assertBlocked('pwsh -'));
+  it('blocks pwsh - with redirect', () => assertBlocked('pwsh - < script.ps1'));
+  it('allows powershell --version', () => assertNotBlocked('powershell --version'));
+});
+
+// ─── F-LT-81 — Register-ScheduledTask family (MEDIUM) ────────────────────────
+
+describe('F-LT-81 — ScheduledTasks module cmdlets', () => {
+  it('blocks Register-ScheduledTask', () => assertBlocked('Register-ScheduledTask -TaskName X -Action $a -Trigger $t'));
+  it('blocks New-ScheduledTaskAction', () => assertBlocked('New-ScheduledTaskAction -Execute "calc.exe"'));
+  it('blocks New-ScheduledTaskTrigger', () => assertBlocked('New-ScheduledTaskTrigger -AtStartup'));
+  it('blocks New-ScheduledTaskSettingsSet', () => assertBlocked('New-ScheduledTaskSettingsSet -Hidden'));
+  it('blocks Set-ScheduledTask', () => assertBlocked('Set-ScheduledTask -TaskName X -Trigger $t'));
+  it('blocks Unregister-ScheduledTask', () => assertBlocked('Unregister-ScheduledTask -TaskName X -Confirm:$false'));
+  it('regression: still blocks Register-ScheduledJob (prior rule)', () => assertBlocked('Register-ScheduledJob -Name X -ScriptBlock {calc}'));
+});
+
+// ─── F-LT-82 — python combined-flag -c (MEDIUM) ──────────────────────────────
+
+describe('F-LT-82 — python combined short-flag -c forms', () => {
+  it('blocks python -ic', () => assertBlocked('python -ic "import os"'));
+  it('blocks python -Bc', () => assertBlocked('python -Bc "import os"'));
+  it('blocks python -uc', () => assertBlocked('python -uc "import os"'));
+  it('blocks python3 -Eic', () => assertBlocked('python3 -Eic "import os"'));
+  it('blocks py -ic', () => assertBlocked('py -ic "import os"'));
+  it('blocks python -ic"..." (no space)', () => assertBlocked('python -ic"import os"'));
+  it('regression: still blocks python -c', () => assertBlocked('python -c "print(1)"'));
+  it('regression: still allows python --version', () => assertNotBlocked('python --version'));
+  it('regression: still allows python -h', () => assertNotBlocked('python -h'));
+});
+
+// ─── F-LT-83 — mklink + New-Item link (MEDIUM) ───────────────────────────────
+
+describe('F-LT-83 — Windows symlink/junction/hardlink primitives', () => {
+  it('blocks mklink /H', () => assertBlocked('mklink /H newpath C:\\Windows\\System32\\config\\SAM'));
+  it('blocks mklink /J junction', () => assertBlocked('mklink /J junction C:\\Users\\x\\AppData\\Roaming\\Microsoft\\Credentials'));
+  it('blocks mklink /D', () => assertBlocked('mklink /D dirlink target'));
+  it('blocks plain mklink link target', () => assertBlocked('mklink link target'));
+  it('blocks New-Item -ItemType SymbolicLink', () => assertBlocked('New-Item -ItemType SymbolicLink -Path link -Target C:\\.env'));
+  it('blocks New-Item -ItemType HardLink', () => assertBlocked('New-Item -ItemType HardLink -Path link -Target SAM'));
+  it('blocks New-Item -ItemType Junction', () => assertBlocked('New-Item -ItemType Junction -Path x -Target y'));
+  it('regression: still blocks ln -s', () => assertBlocked('ln -s /etc/shadow /tmp/s'));
+});
+
 // ─── Prior-pass smoke checks (not full coverage — ensures patches didn't regress) ─
 
 describe('Prior-pass smoke: representative RED patterns still fire', () => {

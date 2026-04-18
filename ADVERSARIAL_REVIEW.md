@@ -597,10 +597,30 @@ Test coverage: 113/113 passing (was 81; four new describe blocks for the sixth-p
 
 Test coverage: 173/173 passing (was 113). Eleven new describe blocks for the HIGH cluster.
 
-### Pending (queued for S55)
+### MEDIUM/LOW cluster closed in v1.8.1 (sixth-pass complete)
 
-- MEDIUM cluster (4): F-LT-80 (powershell - stdin), F-LT-81 (Register-ScheduledTask), F-LT-82 (python combined-flag -ic/-Bc/-uc), F-LT-83 (mklink junctions/hardlinks).
-- LOW cluster (2): F-LT-84 (setup.ps1 .env ACL), F-LT-85 (audit.log integrity / sanitizeArgs gaps).
+| ID | Severity | Summary | Resolution |
+|---|---|---|---|
+| F-LT-80 | MEDIUM | `powershell -` / `pwsh -` stdin-as-source | two patterns mirroring the python `-` rule (F-LT-48) |
+| F-LT-81 | MEDIUM | Modern ScheduledTasks module verbs (Register/Set/Unregister/New-ScheduledTaskAction/Trigger/SettingsSet/Principal) | seven cmdlet patterns added |
+| F-LT-82 | MEDIUM | `python -ic` / `-Bc` / `-uc` / `-Eic` combined short-flag forms | three patterns covering python/py/no-space variants |
+| F-LT-83 | MEDIUM | `mklink /H /J /D` and `New-Item -ItemType SymbolicLink/HardLink/Junction` | two patterns (cmd.exe builtin + PowerShell cmdlet) |
+| F-LT-84 | LOW | setup.ps1 `.env` had no ACL hardening — relied on inherited parent ACL | added `icacls /inheritance:r` + grant SYSTEM/Administrators/owner only after Out-File |
+| F-LT-85 | LOW | `sanitizeArgs` token-prefix list far smaller than tools.ts SECRET_OUTPUT_PATTERNS; key-name list missed credential/cookie/session/api_key | extended both: 30+ token prefixes (GitHub, Slack, AWS, Stripe, Supabase, Atlassian, Twilio, Mailgun, npm, PEM…) + extra key-name regex |
+
+Test coverage: 202/202 passing (was 173). Four new describe blocks for the MEDIUM cluster (F-LT-80/81/82/83).
+
+### Sixth-pass status
+
+| Severity | Count | v1.8.0 | v1.8.1 | Open |
+|---|---|---|---|---|
+| CRITICAL | 4 | closed | — | 0 |
+| HIGH | 11 | closed | — | 0 |
+| MEDIUM | 4 | — | closed | 0 |
+| LOW | 2 | — | closed | 0 |
+| **Total** | **21** | **15** | **6** | **0** |
+
+All sixth-pass findings closed. Ship-ready.
 
 Full findings report: `SIXTH_PASS_LT_FINDINGS.md` (repo root of the cowork workspace).
 

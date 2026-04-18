@@ -79,7 +79,16 @@ if (-not (Test-Path $EnvFile)) {
   $Token = ($bytes | ForEach-Object { $_.ToString("x2") }) -join ""
   "MCP_AUTH_TOKEN=$Token" | Out-File -FilePath $EnvFile -Encoding utf8
   "MCP_PORT=$Port"        | Out-File -FilePath $EnvFile -Encoding utf8 -Append
-  Write-Host "Generated auth token and saved to .env" -ForegroundColor Green
+  # F-LT-84 (S54): harden .env ACL — break inheritance, grant only SYSTEM + Administrators + owner.
+  # On default user-profile installs the inherited ACL is already restricted, but on
+  # ProgramData / shared drive installs the token would be world-readable without this.
+  try {
+    & icacls $EnvFile /inheritance:r | Out-Null
+    & icacls $EnvFile /grant:r "SYSTEM:F" "Administrators:F" "${env:USERNAME}:F" | Out-Null
+    Write-Host "Generated auth token, saved to .env, and hardened ACLs" -ForegroundColor Green
+  } catch {
+    Write-Host "Generated auth token and saved to .env (ACL hardening skipped: $_)" -ForegroundColor Yellow
+  }
 } else {
   Write-Host ".env already exists -- using existing token" -ForegroundColor Yellow
   $Token = (Get-Content $EnvFile | Where-Object { $_ -match "MCP_AUTH_TOKEN" }) -replace "MCP_AUTH_TOKEN=", ""
