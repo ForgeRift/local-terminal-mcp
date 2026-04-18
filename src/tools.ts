@@ -442,33 +442,75 @@ function checkSize(value: string, field: keyof typeof INPUT_LIMITS): string | nu
   return null;
 }
 
-// ─── F-23: ReDoS guard for user-supplied regex (search_file) ────────────────────
+// ─── F-23/F-NEW-8: ReDoS guard for user-supplied regex (search_file) ────────────
 // Classic catastrophic-backtracking shapes are rejected before the regex compiles.
-// This mirrors the guard in vps-control-mcp F-VM-7.
+// F-NEW-8 fix: shape 1 now also catches {n,m} inside the group, e.g. (a{2,})+
 const CATASTROPHIC_REGEX_SHAPES: RegExp[] = [
-  /\([^)]*[+*]\)\s*[+*{]/, // nested quantifier: (x+)+ (x*)* (x+){n}
+  /\([^)]*[+*{]\)\s*[+*{]/, // nested quantifier: (x+)+ (x*)* (x+){n} (x{2,})+
   /\([^)]*\|[^)]*\)\s*[+*{]/, // quantified alternation: (a|b)+
-  /(\w\|){4,}/,             // wide alternation: a|b|c|d|... (>3 alternatives)
+  /(\w\|){4,}/,               // wide alternation: a|b|c|d|... (>3 alternatives)
+  /\(.*\).*\\[0-9]\s*[+*{]/,  // quantified backreference: (.+)\1+
 ];
 
 function isReDoSPattern(pattern: string): boolean {
   return CATASTROPHIC_REGEX_SHAPES.some(shape => shape.test(pattern));
 }
 
-// ─── F-25: Output-side secret scrubbing ─────────────────────────────────────────
+// ─── F-25/F-NEW-9/10: Output-side secret scrubbing ──────────────────────────────
 // Scan tool output for known token shapes and PEM headers; redact to [REDACTED].
-// Runs after every tool execution so even "legitimate" git log / npm audit output
-// cannot surface secrets that were accidentally committed.
+// F-NEW-9: expanded with post-2020 SaaS token formats.
+// F-NEW-10: base64 catch-all tightened from {60,} to {80,} to reduce false positives.
 const SECRET_OUTPUT_PATTERNS: RegExp[] = [
-  /ghp_[A-Za-z0-9]{36,}/g,                     // GitHub personal access token
-  /ghs_[A-Za-z0-9]{36,}/g,                     // GitHub server-to-server token
-  /gho_[A-Za-z0-9]{36,}/g,                     // GitHub OAuth token
-  /sk-[A-Za-z0-9]{40,}/g,                      // OpenAI API key
-  /sk-ant-[A-Za-z0-9\-_]{80,}/g,               // Anthropic API key
-  /AKIA[0-9A-Z]{16}/g,                          // AWS access key ID
-  /xox[baprs]-[A-Za-z0-9\-]{20,}/g,            // Slack token
-  /-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/g, // PEM private key
-  /[A-Za-z0-9+/]{60,}={0,2}(?=\s|$)/g,        // high-entropy base64 blob (≥60 chars)
+  // GitHub
+  /ghp_[A-Za-z0-9]{36,}/g,
+  /ghs_[A-Za-z0-9]{36,}/g,
+  /gho_[A-Za-z0-9]{36,}/g,
+  // OpenAI
+  /sk-[A-Za-z0-9]{40,}/g,
+  // Anthropic
+  /sk-ant-[A-Za-z0-9\-_]{80,}/g,
+  // AWS
+  /AKIA[0-9A-Z]{16}/g,
+  /ASIA[0-9A-Z]{16}/g,                          // AWS STS temporary key
+  // Slack
+  /xox[baprs]-[A-Za-z0-9\-]{20,}/g,
+  /xapp-[A-Za-z0-9\-]{20,}/g,                   // Slack app-level token (F-NEW-9)
+  // GitLab (F-NEW-9)
+  /glpat-[A-Za-z0-9_\-]{20,}/g,
+  /glptt-[A-Za-z0-9_\-]{20,}/g,
+  /glsoat-[A-Za-z0-9_\-]{20,}/g,
+  /glrt-[A-Za-z0-9_\-]{20,}/g,
+  /gldt-[A-Za-z0-9_\-]{20,}/g,
+  // Stripe (F-NEW-9)
+  /sk_live_[A-Za-z0-9]{24,}/g,
+  /sk_test_[A-Za-z0-9]{24,}/g,
+  /rk_live_[A-Za-z0-9]{24,}/g,
+  /whsec_[A-Za-z0-9]{24,}/g,
+  // Twilio (F-NEW-9)
+  /AC[a-f0-9]{32}/g,
+  /SK[a-f0-9]{32}/g,
+  // SendGrid (F-NEW-9)
+  /SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43}/g,
+  // npm (F-NEW-9)
+  /npm_[A-Za-z0-9]{36,}/g,
+  // Atlassian (F-NEW-9)
+  /ATATT3xFfGF0[A-Za-z0-9_\-=]{20,}/g,
+  // DigitalOcean (F-NEW-9)
+  /dop_v1_[a-f0-9]{64}/g,
+  /doo_v1_[a-f0-9]{64}/g,
+  /dor_v1_[a-f0-9]{64}/g,
+  // Docker Hub (F-NEW-9)
+  /dckr_pat_[A-Za-z0-9_\-]{27,}/g,
+  // Square (F-NEW-9)
+  /EAAA[A-Za-z0-9_\-]{60,}/g,
+  // Mailgun (F-NEW-9)
+  /key-[a-f0-9]{32}/g,
+  // Google API (F-NEW-9)
+  /AIza[A-Za-z0-9_\-]{35}/g,
+  // PEM private keys
+  /-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/g,
+  // High-entropy base64 (tightened to {80,} — F-NEW-10)
+  /[A-Za-z0-9+/]{80,}={0,2}(?=\s|$)/g,
 ];
 
 function scrubSecrets(output: string): string {
