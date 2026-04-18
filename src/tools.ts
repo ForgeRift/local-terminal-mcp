@@ -1,5 +1,5 @@
 import { execSync, execFileSync } from "child_process";
-import { readFileSync, readdirSync, statSync, realpathSync } from "fs";
+import { readFileSync, readdirSync, statSync, lstatSync, realpathSync } from "fs";
 import { join, resolve, basename, normalize } from "path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 
@@ -241,6 +241,30 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /;\s*\b(rm|del|format|shutdown|kill|taskkill|erase|rmdir|unlink|truncate|shred|wipe|passwd|chmod|chown|curl|wget|ssh|scp|sftp|eval|exec|sudo|runas)\b/i, category: 'chaining', reason: 'Single-semicolon chaining with dangerous commands is prohibited.' },
   { pattern: /\|\s*(bash|sh|cmd|powershell|pwsh)\b/i, category: 'chaining',   reason: 'Pipe-to-shell is prohibited.' },
   { pattern: /`[^`]*`/,                           category: 'chaining',       reason: 'Backtick command substitution is prohibited.' },
+  // F-NEW-5: single-& chaining (Windows CMD separator, distinct from && which is already caught)
+  { pattern: /(?<![>&])&(?![&>])/,                category: 'chaining',       reason: 'Single-& command chaining is prohibited (Windows CMD separator).' },
+
+  // ── LOLBin Expansion (F-NEW-5) ────────────────────────────────────────────
+  // LOLBAS binaries not covered by existing patterns.
+  { pattern: /\bmsiexec\b/i,                      category: 'code-exec',      reason: 'msiexec is prohibited (remote MSI download+exec LOLBin).' },
+  { pattern: /\bmsdt\b/i,                         category: 'code-exec',      reason: 'msdt.exe is prohibited (Follina RCE LOLBin, CVE-2022-30190).' },
+  { pattern: /\bcmstp\b/i,                        category: 'code-exec',      reason: 'cmstp.exe is prohibited (ClickOnce policy bypass LOLBin).' },
+  { pattern: /\besentutl\b/i,                     category: 'data-exfil',     reason: 'esentutl.exe is prohibited (locked-file copy, data exfil LOLBin).' },
+  { pattern: /\bhh(\.exe)?\b/i,                   category: 'code-exec',      reason: 'hh.exe is prohibited (HTML Help code execution LOLBin).' },
+  { pattern: /\bpcalua\b/i,                       category: 'code-exec',      reason: 'pcalua.exe is prohibited (Program Compatibility Assistant exec LOLBin).' },
+  { pattern: /\bodbcconf\b/i,                     category: 'code-exec',      reason: 'odbcconf.exe is prohibited (arbitrary DLL execution LOLBin).' },
+  { pattern: /\bregasm\b/i,                       category: 'code-exec',      reason: 'regasm.exe is prohibited (.NET assembly execution LOLBin).' },
+  { pattern: /\bregsvcs\b/i,                      category: 'code-exec',      reason: 'regsvcs.exe is prohibited (.NET component services LOLBin).' },
+  { pattern: /\bwsl(\.exe)?\b/i,                  category: 'code-exec',      reason: 'wsl.exe is prohibited (WSL shell bypass LOLBin).' },
+  { pattern: /\bbash\.exe\b/i,                    category: 'code-exec',      reason: 'bash.exe (WSL) is prohibited (shell bypass LOLBin).' },
+  { pattern: /\bmavinject\b/i,                    category: 'code-exec',      reason: 'mavinject.exe is prohibited (DLL injection LOLBin).' },
+  { pattern: /\bxwizard\b/i,                      category: 'code-exec',      reason: 'xwizard.exe is prohibited (code execution LOLBin).' },
+  { pattern: /\bpresentationhost\b/i,             category: 'code-exec',      reason: 'PresentationHost.exe is prohibited (XAML browser app exec LOLBin).' },
+  { pattern: /\bsyncappvpublishingserver\b/i,     category: 'code-exec',      reason: 'SyncAppvPublishingServer is prohibited (PowerShell exec LOLBin).' },
+  { pattern: /\bregedit\s+\/s\b/i,               category: 'persistence',    reason: 'regedit /s (silent registry import) is prohibited.' },
+  // F-NEW-11: ln --symbolic long-form bypass
+  { pattern: /\bln\s+--symbolic\b/i,              category: 'permissions',    reason: 'ln --symbolic (symlink creation, long-form) is prohibited.' },
+  { pattern: /\bln\s+-s\b/i,                      category: 'permissions',    reason: 'ln -s (symlink creation) is prohibited.' },
 
   // ── Variable Expansion / Obfuscation ──────────────────────────────────────
   { pattern: /\$\(/,                              category: 'obfuscation',    reason: 'Shell command substitution $() is prohibited.' },
@@ -526,9 +550,12 @@ function scrubSecrets(output: string): string {
 // (injected by NSSM AppEnvironmentExtra). Strip these and any secret-shaped
 // key names before passing env to any child process, so commands like
 // `powershell -c "$env:MCP_AUTH_TOKEN"` or `cmd /c set` cannot exfiltrate them.
+// F-NEW-5: expanded with modern credential key patterns
 const SECRET_KEY_SUBSTRINGS = [
   'AUTH_TOKEN', 'BEARER_TOKEN', 'ACCESS_TOKEN', 'REFRESH_TOKEN',
   'API_KEY', 'SECRET', 'PRIVATE_KEY', 'MCP_AUTH',
+  'SESSION', 'COOKIE', 'PASSWORD', 'PASSWD', 'CREDENTIAL', 'CRED',
+  'VAULT', 'KEYSTORE', 'SALT', 'SIGNING', 'JWT',
 ];
 function buildSafeEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env };
@@ -572,13 +599,73 @@ function runFile(
 // run_git_command and run_npm_command. Handles double-quoted tokens only.
 // NOT a general shell parser — do not use for untrusted input.
 function splitArgv(cmd: string): string[] {
+  // F-NEW-13: strip null bytes, CR/LF, and backticks before parsing —
+  // these cannot appear in valid git/npm sub-commands and enable injection.
+  const sanitized = cmd.replace(/[\x00\r\n`]/g, '');
   const args: string[] = [];
   const re = /"([^"]+)"|(\S+)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(cmd)) !== null) {
+  while ((m = re.exec(sanitized)) !== null) {
     args.push(m[1] ?? m[2]);
   }
   return args;
+}
+
+// ─── F-NEW-2: Neutralizing -c flags prepended to every git invocation ────────
+// Prevents repo-local .git/config from overriding dangerous git config keys
+// (diff.external, core.pager, core.fsmonitor, core.sshCommand, core.editor,
+// protocol.ext.allow). These empty/safe values take precedence over repo-local
+// config because they appear first on the command line.
+const GIT_SAFE_CONFIG: string[] = [
+  '-c', 'diff.external=',
+  '-c', 'core.pager=cat',
+  '-c', 'core.fsmonitor=',
+  '-c', 'core.sshCommand=',
+  '-c', 'core.editor=true',
+  '-c', 'protocol.ext.allow=never',
+  '-c', 'protocol.file.allow=user',
+];
+
+// ─── F-NEW-1 + F-NEW-6: git argv hardening ───────────────────────────────────
+// Blocks flags that turn read-only git commands into arbitrary file readers or
+// code executors: --no-index (untracked file diff), --ext-diff (external diff
+// tool exec), -p/--patch (history content dump), -S/-G (pickaxe secret search),
+// --output/-O (write to file), --config-env/-c (config injection),
+// --exec-path (binary path override), --textconv (filter execution).
+// Also blocks 'git show <ref>:<sensitive-path>' historical secret exfil.
+const FORBIDDEN_GIT_FLAGS = new Set([
+  '--no-index', '--ext-diff', '--textconv', '--output', '-O',
+  '--config-env', '-c', '--exec-path', '-p', '--patch', '-S', '-G',
+]);
+
+function validateGitArgv(subCmd: string, cmdArgs: string[]): string | null {
+  for (const arg of cmdArgs) {
+    // Exact flag match
+    if (FORBIDDEN_GIT_FLAGS.has(arg)) {
+      return `git flag '${arg}' is not permitted (file-read or code-exec vector).`;
+    }
+    // Pickaxe flags (--pickaxe-all, --pickaxe-regex)
+    if (/^--pickaxe/.test(arg)) {
+      return `git flag '${arg}' (pickaxe search) is not permitted.`;
+    }
+    // Long-form flags with = assignment
+    if (/^--output=/.test(arg) || /^--exec-path=/.test(arg) || /^--config-env=/.test(arg)) {
+      return `git flag '${arg}' is not permitted (file-write or config-inject vector).`;
+    }
+  }
+  // For 'show': reject <ref>:<path> where path matches sensitive file patterns
+  if (subCmd === 'show') {
+    for (const arg of cmdArgs) {
+      const colonIdx = arg.indexOf(':');
+      if (colonIdx > 0) {
+        const refPath = arg.slice(colonIdx + 1);
+        if (isSensitiveFile(refPath)) {
+          return `git show path '${refPath}' matches a sensitive file pattern and cannot be accessed.`;
+        }
+      }
+    }
+  }
+  return null;
 }
 
 function runCommand(cmd: string, timeoutMs = COMMAND_TIMEOUT_MS): string {
@@ -614,7 +701,11 @@ function sanitizeDir(dir: string): string {
   if (!/^(?:[A-Za-z]:)?[\\\/]?[\w\s.\-\\\/()[\]@+,{}#!]+$/.test(trimmed)) {
     throw new Error(`Directory path contains unsafe characters: ${trimmed}`);
   }
-  return trimmed;
+  // F-NEW-12: strip trailing path separator (preserving drive root: C:\)
+  const normalized = /^[A-Za-z]:[\\\/]$/.test(trimmed)
+    ? trimmed
+    : trimmed.replace(/[\\\/]+$/, '');
+  return normalized;
 }
 
 const MAX_CMD_OUTPUT_CHARS = 10_000;
@@ -806,7 +897,15 @@ export async function executeTool(
 
     // ── GREEN Tier: Read-only ────────────────────────────────────────────────────
     case "list_directory": {
-      const dir = (args.path as string | undefined) ?? ".";
+      const rawPath = (args.path as string | undefined) ?? ".";
+      // F-NEW-3: UNC/device path rejection — \\server\share resolves WebDAV/NTLM
+      if (/^\\\\/.test(rawPath.trim())) {
+        return {
+          result: formatBlockedError('path-validation', 'UNC and device paths (\\\\server\\share) are not allowed.'),
+          tier: "red", blocked: true, dryRun: false,
+        };
+      }
+      const dir = rawPath;
       try {
         const entries = readdirSync(dir);
         const lines = entries.map((e) => {
@@ -893,13 +992,19 @@ export async function executeTool(
     }
 
     case "find_files": {
-      const dir     = args.directory as string;
+      const rawDir  = args.directory as string;
       const pattern = args.pattern as string;
       // F-22: input size caps
-      const _ffDirSz = checkSize(dir, 'directory');
+      const _ffDirSz = checkSize(rawDir, 'directory');
       if (_ffDirSz) return { result: _ffDirSz, tier: "green", blocked: false, dryRun: false };
       const _ffPatSz = checkSize(pattern, 'findPattern');
       if (_ffPatSz) return { result: _ffPatSz, tier: "green", blocked: false, dryRun: false };
+      // F-NEW-3: sanitizeDir blocks UNC/device paths (WebDAV/NTLM leak) and flag injection
+      let dir: string;
+      try { dir = sanitizeDir(rawDir); }
+      catch (e: unknown) {
+        return { result: `ERROR: ${(e as Error).message}`, tier: "green", blocked: false, dryRun: false };
+      }
       // F-19: native fs walk — no shell process, no injection surface.
       // Convert glob pattern to regex: escape regex metacharacters, then
       // restore * → .* and ? → . so standard glob wildcards work as expected.
@@ -908,20 +1013,48 @@ export async function executeTool(
                              .replace(/\?/g, '.');
       const re = new RegExp(`^${escaped}$`, 'i');
       const matches: string[] = [];
-      const walk = (d: string) => {
+      // F-NEW-7: caps to prevent DoS via unbounded walk
+      const MAX_RESULTS = 500;
+      const MAX_DEPTH   = 8;
+      const DEADLINE_MS = 15_000;
+      const deadline    = Date.now() + DEADLINE_MS;
+      // F-NEW-7: track visited dev:ino pairs to detect and break symlink cycles
+      const visited = new Set<string>();
+      const walk = (d: string, depth: number) => {
+        if (depth > MAX_DEPTH) return;
+        if (Date.now() > deadline) return;
+        if (matches.length >= MAX_RESULTS) return;
         let entries: string[];
         try { entries = readdirSync(d); } catch { return; }
         for (const e of entries) {
+          if (matches.length >= MAX_RESULTS) return;
+          if (Date.now() > deadline) return;
           const full = join(d, e);
-          let st;
-          try { st = statSync(full); } catch { continue; }
-          if (st.isDirectory()) { walk(full); }
-          else if (re.test(e))  { matches.push(full); }
+          // F-NEW-7: lstatSync sees the symlink itself — never follows it
+          let lst;
+          try { lst = lstatSync(full); } catch { continue; }
+          if (lst.isSymbolicLink()) continue;   // skip all symlinks
+          if (lst.isDirectory()) {
+            // Cycle guard via stable dev:ino identity
+            const key = `${lst.dev}:${lst.ino}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            walk(full, depth + 1);
+          } else if (re.test(e)) {
+            // F-NEW-4: filter out sensitive file locations before returning
+            if (!isSensitiveFile(full)) {
+              matches.push(full);
+            }
+          }
         }
       };
       try {
-        walk(dir);
-        return { result: truncateOutput(matches.join('\n')) || '(no matches)', tier: "green", blocked: false, dryRun: false };
+        walk(dir, 0);
+        const suffix = matches.length >= MAX_RESULTS ? `\n(results capped at ${MAX_RESULTS})` : '';
+        return {
+          result: truncateOutput(matches.join('\n') + suffix) || '(no matches)',
+          tier: "green", blocked: false, dryRun: false,
+        };
       } catch (err: unknown) {
         return { result: `ERROR: ${(err as Error).message}`, tier: "green", blocked: false, dryRun: false };
       }
@@ -1020,19 +1153,34 @@ export async function executeTool(
       if (!allowed.test(cmd.trim())) {
         return { result: `ERROR: git sub-command '${cmd}' is not in the approved read-only list.`, tier: "green", blocked: true, dryRun: false };
       }
+      // F-NEW-1 + F-NEW-6: validate argv — block dangerous flags and sensitive show paths
+      const splitArgs = splitArgv(cmd);
+      const subCmd = (splitArgs[0] ?? '').toLowerCase();
+      const argError = validateGitArgv(subCmd, splitArgs.slice(1));
+      if (argError) {
+        return {
+          result: formatBlockedError('sensitive-file', argError),
+          tier: "red", blocked: true, dryRun: false,
+        };
+      }
       // F-15: harden git against repo-local config RCE via hardened env.
       // GIT_CONFIG_NOSYSTEM + GIT_CONFIG_GLOBAL=NUL strips system/global hooks.
       // GIT_TERMINAL_PROMPT=0 prevents credential prompts that hang the service.
+      // F-NEW-2: GIT_CEILING_DIRECTORIES prevents git from walking up to a parent
+      // repo whose .git/config may contain attacker-controlled hooks or config.
       const safeGitEnv = {
         ...buildSafeEnv(),
         GIT_CONFIG_NOSYSTEM: '1',
         GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
         GIT_TERMINAL_PROMPT: '0',
         GIT_ALLOW_PROTOCOL: 'https:http:file',
+        GIT_CEILING_DIRECTORIES: dir,
       };
       // F-19: use execFileSync(shell:false) — argv array never touches cmd.exe,
       // so metachar injection via git sub-command strings is structurally impossible.
-      const gitArgs = ['-C', dir, ...splitArgv(cmd)];
+      // F-NEW-2: GIT_SAFE_CONFIG prepends neutralizing -c flags before user args,
+      // overriding any dangerous repo-local .git/config settings at command level.
+      const gitArgs = ['-C', dir, ...GIT_SAFE_CONFIG, ...splitArgs];
       const output = runFile('git', gitArgs, { env: safeGitEnv, timeoutMs: 30_000 });
       // F-25: scrub any accidentally-committed token shapes from git log / diff output
       return { result: truncateOutput(scrubSecrets(output)), tier: "green", blocked: false, dryRun: false };

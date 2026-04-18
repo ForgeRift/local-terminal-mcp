@@ -6,6 +6,30 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## [1.5.0] — 2026-04-18
+
+### Security hardening — second-pass Opus adversarial review (S45)
+
+Closes all 2 CRITICAL, 4 HIGH, and 5 MEDIUM/LOW findings from the second-pass adversarial review. Previous verdict: FAIL. All blockers resolved.
+
+**CRITICAL:**
+- **F-NEW-2**: git config RCE — prepend 7 neutralizing `-c` flags to every `run_git_command` invocation (`diff.external=`, `core.pager=cat`, `core.fsmonitor=`, `core.sshCommand=`, `core.editor=true`, `protocol.ext.allow=never`, `protocol.file.allow=user`). Add `GIT_CEILING_DIRECTORIES` to safeGitEnv. Closes the two-step `.git/config` write → `git diff` execute attack chain.
+- **F-NEW-1 + F-NEW-6 (CRITICAL + HIGH)**: `validateGitArgv()` added — rejects `--no-index`, `--ext-diff`, `--textconv`, `--output`, `-O`, `--config-env`, `-c`, `--exec-path`, `-p`, `--patch`, `-S`, `-G`, `--pickaxe-*`. For `git show`: rejects `<ref>:<path>` where path matches `SENSITIVE_FILE_PATTERNS`. Closes arbitrary-file-read via `git diff --no-index` and historical secret exfil via `git log -p -S / git show HEAD:.env`.
+
+**HIGH:**
+- **F-NEW-3**: `find_files` now calls `sanitizeDir()` at entry — blocks UNC/device path NTLM hash leak and SSRF. `list_directory` also rejects UNC paths.
+- **F-NEW-4**: `find_files` result set filtered through `isSensitiveFile()` before returning. Cap added at 500 results.
+- **F-NEW-5**: LOLBin blocklist expanded with full LOLBAS corpus additions: `msiexec`, `msdt.exe`, `cmstp`, `esentutl`, `hh.exe`, `pcalua`, `odbcconf`, `regasm`, `regsvcs`, `wsl.exe`, `bash.exe`, `mavinject`, `xwizard`, `PresentationHost`, `SyncAppvPublishingServer`, `regedit /s`. Single-`&` chaining pattern added (`(?<![>&])&(?![&>])`). `SECRET_KEY_SUBSTRINGS` expanded: SESSION, COOKIE, PASSWORD, PASSWD, CREDENTIAL, CRED, VAULT, KEYSTORE, SALT, SIGNING, JWT.
+
+**MEDIUM/LOW:**
+- **F-NEW-7**: `find_files` now uses `lstatSync` (never follows symlinks), tracks `Set<dev:ino>` for cycle detection, enforces `maxDepth=8` and 15s deadline. Closes DoS and symlink-amplified UNC walk.
+- **F-NEW-11**: `ln --symbolic` and `ln -s` added to BLOCKED_PATTERNS (permissions category). Closes long-form flag bypass.
+- **F-NEW-12**: `sanitizeDir` strips trailing path separators (preserving drive root `C:\`). Closes trailing-backslash edge case.
+- **F-NEW-13**: `splitArgv` strips null bytes, CR/LF, and backticks before parsing. Closes injection via these characters in git/npm sub-commands.
+- **F-NEW-14/15**: Documented in KNOWN_ISSUES (wmic internal path in `get_system_info`; rate-limit is per-session not per-call). No code change — low exploitability.
+
+---
+
 ## [1.4.1] — 2026-04-18
 
 ### Fixed
