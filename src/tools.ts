@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { readFileSync, readdirSync, statSync, realpathSync } from "fs";
 import { join, resolve, basename, normalize } from "path";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
@@ -440,6 +440,47 @@ function buildSafeEnv(): NodeJS.ProcessEnv {
   return env;
 }
 
+// ─── F-19: execFile wrapper ───────────────────────────────────────────────────
+// Structured tools use runFile() with explicit argv arrays and shell:false.
+// This eliminates the shell re-parse layer — no metachar injection is possible
+// because the OS receives argc/argv directly, never a shell command string.
+// run_command (the escape hatch) still uses runCommand/execSync by design —
+// it IS a shell command runner — but it is protected by the RED/AMBER pattern
+// checks which must pass before execution.
+function runFile(
+  exe: string,
+  args: string[],
+  opts: { cwd?: string; env?: NodeJS.ProcessEnv; timeoutMs?: number } = {}
+): string {
+  try {
+    return execFileSync(exe, args, {
+      cwd: opts.cwd,
+      env: opts.env ?? buildSafeEnv(),
+      timeout: opts.timeoutMs ?? COMMAND_TIMEOUT_MS,
+      encoding: "utf8",
+      windowsHide: true,
+      shell: false,
+    }).trim();
+  } catch (err: unknown) {
+    const e = err as { stdout?: string; stderr?: string; message?: string; killed?: boolean };
+    if (e.killed) return `ERROR: Command timed out after ${(opts.timeoutMs ?? COMMAND_TIMEOUT_MS) / 1000}s and was killed.`;
+    return `ERROR: ${e.stderr ?? e.stdout ?? e.message ?? "Unknown error"}`.trim();
+  }
+}
+
+// Simple argv splitter for the restricted sub-command strings we accept from
+// run_git_command and run_npm_command. Handles double-quoted tokens only.
+// NOT a general shell parser — do not use for untrusted input.
+function splitArgv(cmd: string): string[] {
+  const args: string[] = [];
+  const re = /"([^"]+)"|(\S+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cmd)) !== null) {
+    args.push(m[1] ?? m[2]);
+  }
+  return args;
+}
+
 function runCommand(cmd: string, timeoutMs = COMMAND_TIMEOUT_MS): string {
   try {
     return execSync(cmd, {
@@ -718,8 +759,31 @@ export async function executeTool(
     case "find_files": {
       const dir     = args.directory as string;
       const pattern = args.pattern as string;
-      const result  = runCommand(`dir /s /b "${join(dir, pattern)}" 2>nul || find "${dir}" -name "${pattern}" 2>/dev/null`);
-      return { result: result || "(no matches)", tier: "green", blocked: false, dryRun: false };
+      // F-19: native fs walk — no shell process, no injection surface.
+      // Convert glob pattern to regex: escape regex metacharacters, then
+      // restore * → .* and ? → . so standard glob wildcards work as expected.
+      const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+                             .replace(/\*/g, '.*')
+                             .replace(/\?/g, '.');
+      const re = new RegExp(`^${escaped}$`, 'i');
+      const matches: string[] = [];
+      const walk = (d: string) => {
+        let entries: string[];
+        try { entries = readdirSync(d); } catch { return; }
+        for (const e of entries) {
+          const full = join(d, e);
+          let st;
+          try { st = statSync(full); } catch { continue; }
+          if (st.isDirectory()) { walk(full); }
+          else if (re.test(e))  { matches.push(full); }
+        }
+      };
+      try {
+        walk(dir);
+        return { result: truncateOutput(matches.join('\n')) || '(no matches)', tier: "green", blocked: false, dryRun: false };
+      } catch (err: unknown) {
+        return { result: `ERROR: ${(err as Error).message}`, tier: "green", blocked: false, dryRun: false };
+      }
     }
 
     case "search_file": {
@@ -736,8 +800,36 @@ export async function executeTool(
         };
       }
 
-      const result = runCommand(`findstr /n /i /c:"${pattern}" "${filePath}" 2>nul || grep -n -i "${pattern}" "${filePath}" 2>/dev/null`);
-      return { result: result || "(no matches)", tier: "green", blocked: false, dryRun: false };
+      // F-19: native fs search — no shell process, no injection surface.
+      let re: RegExp;
+      try { re = new RegExp(pattern, 'i'); }
+      catch { return { result: `ERROR: Invalid regex pattern: ${pattern}`, tier: "green", blocked: false, dryRun: false }; }
+
+      const searchInFile = (fp: string): string[] => {
+        if (isSensitiveFile(fp)) return [];
+        try {
+          return readFileSync(fp, 'utf8')
+            .split('\n')
+            .flatMap((line, idx) => re.test(line) ? [`${fp}:${idx + 1}: ${line}`] : []);
+        } catch { return []; }
+      };
+
+      let hits: string[];
+      try {
+        const st = statSync(filePath);
+        if (st.isDirectory()) {
+          hits = readdirSync(filePath).flatMap(e => {
+            const fp = join(filePath, e);
+            try { return statSync(fp).isDirectory() ? [] : searchInFile(fp); }
+            catch { return []; }
+          });
+        } else {
+          hits = searchInFile(filePath);
+        }
+      } catch (err: unknown) {
+        return { result: `ERROR: ${(err as Error).message}`, tier: "green", blocked: false, dryRun: false };
+      }
+      return { result: truncateOutput(hits.join('\n')) || '(no matches)', tier: "green", blocked: false, dryRun: false };
     }
 
     // ── GREEN Tier: Approved commands ────────────────────────────────────────────
@@ -753,7 +845,9 @@ export async function executeTool(
           tier: "green", blocked: true, dryRun: false,
         };
       }
-      const result = runCommand(`cd /d "${dir}" && npm ${cmd} --ignore-scripts`, 60_000);
+      // F-19: execFileSync(shell:false) — npm receives argv directly, no shell re-parse.
+      const npmArgs = [...splitArgv(cmd), '--ignore-scripts'];
+      const result = runFile('npm', npmArgs, { cwd: dir, timeoutMs: 60_000 });
       return { result, tier: "green", blocked: false, dryRun: false };
     }
 
@@ -776,18 +870,11 @@ export async function executeTool(
         GIT_TERMINAL_PROMPT: '0',
         GIT_ALLOW_PROTOCOL: 'https:http:file',
       };
-      try {
-        const output = execSync(`git -C "${dir}" ${cmd}`, {
-          timeout: 30_000,
-          encoding: 'utf8',
-          windowsHide: true,
-          env: safeGitEnv,
-        }).trim();
-        return { result: truncateOutput(output), tier: "green", blocked: false, dryRun: false };
-      } catch (err: unknown) {
-        const e = err as { stdout?: string; stderr?: string; message?: string };
-        return { result: `ERROR: ${e.stderr ?? e.stdout ?? e.message ?? 'Unknown error'}`.trim(), tier: "green", blocked: false, dryRun: false };
-      }
+      // F-19: use execFileSync(shell:false) — argv array never touches cmd.exe,
+      // so metachar injection via git sub-command strings is structurally impossible.
+      const gitArgs = ['-C', dir, ...splitArgv(cmd)];
+      const output = runFile('git', gitArgs, { env: safeGitEnv, timeoutMs: 30_000 });
+      return { result: truncateOutput(output), tier: "green", blocked: false, dryRun: false };
     }
 
     // ── Escape Hatch (RED → AMBER → GREEN pipeline) ────────────────────────────
