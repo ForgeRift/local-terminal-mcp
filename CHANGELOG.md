@@ -6,6 +6,43 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## [1.4.0] — 2026-04-18
+
+### Security hardening — all 27 findings from the Opus adversarial review closed
+
+This release closes every finding in `ADVERSARIAL_REVIEW.md`. The original Opus verdict was FAIL; all P0/P1/P2 items are now resolved.
+
+**P0 (CRITICAL — 8 findings):**
+- **F-1**: Applied `SENSITIVE_FILE_PATTERNS` to `run_command` argv — `type`, `Get-Content`, `findstr`, etc. can no longer read credential files.
+- **F-2**: Rewrote `del`/`exec` with `\b` word boundaries; `cmd /c del` and `powershell -c "del …"` now caught.
+- **F-3**: Added `rmdir`, `rd`, `Remove-Item`, `Remove-ItemProperty`, `ri` (flagged), `Clear-Item`, `Clear-Content`.
+- **F-4**: Blocked `powershell|pwsh` + `-EncodedCommand`/`-Enc`/`-e`/`-c`/`-Command`/`-File` — base64 PowerShell unreachable.
+- **F-5**: Added `pwsh` to every pattern that previously named only `powershell`.
+- **F-6**: Blocked .NET type accelerators (`[IO.File]::Delete`, `[Net.WebClient]::DownloadFile`, `[Diagnostics.Process]::Start`, etc.).
+- **F-7**: `buildSafeEnv()` strips secret-shaped env keys before every child process; `$env:VAR`, `Get-ChildItem env:`, `cmd /c set` pattern-blocked.
+- **F-8**: LOLBin patterns — `certutil`, `bitsadmin`, `mshta`, `regsvr32`, `rundll32`, `installutil`, `msbuild` inline tasks.
+
+**P1 (HIGH — 10 findings):**
+- **F-9**: `wmic`, `Invoke-CimMethod`, `Get-WmiObject`, `gwmi`, `Get-CimInstance`, `gcim`, `Win32_Process` blocked.
+- **F-10**: `sanitizeDir` denylist replaced with strict allowlist; UNC/device/leading-dash/control-char rejection added.
+- **F-11/F-14**: `read_file` strips ADS suffix, rejects UNC/device, canonicalizes via `realpathSync`; both original and canonical path checked.
+- **F-12**: `sanitizeDir` rejects leading `-`/`/`; `execFileSync` argv (F-19) makes `dir` positional, never a flag.
+- **F-13**: Expanded `SENSITIVE_FILE_PATTERNS` — npm/PyPI/Maven/Cargo/Gradle tokens, Azure/GCP/Terraform credentials, PSReadline history, shell history, Chrome `Local State`, KeePass, crypto wallets.
+- **F-15**: `run_git_command` injects `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=NUL GIT_TERMINAL_PROMPT=0 GIT_ALLOW_PROTOCOL=https:http:file`; `git fetch` removed from allowlist.
+- **F-16**: `npm run`/`ci`/`install` removed from allowlist; `--ignore-scripts` added to remaining commands.
+- **F-17**: Server-side AMBER enforcement — warning always returned first; client cannot skip with `dry_run: false`.
+- **F-18**: `New-Object -Com`, `Set-Alias`, `New-Alias`, `& $var` call operator blocked.
+- **F-19**: `run_git_command`, `run_npm_command`, `find_files`, `search_file` refactored to `execFileSync(shell:false)` with argv arrays; `runFile()` + `splitArgv()` helpers added.
+
+**P2 (MEDIUM/LOW — 9 findings):**
+- **F-22**: `INPUT_LIMITS` + `checkSize()` — all user-supplied strings capped before regex runs (`command` 4 096, `filePath`/`directory` 512, patterns 256).
+- **F-23**: `isReDoSPattern()` guard in `search_file` rejects nested quantifiers and wide alternation.
+- **F-25**: `scrubSecrets()` redacts token shapes (`ghp_`, `sk-`, `AKIA`, `xoxb-`, Anthropic keys, PEM headers, high-entropy base64) from `run_command` and `run_git_command` output.
+- **F-27**: Control-char rejection added to `read_file` and `search_file` path inputs.
+- **F-20/F-21/F-24/F-26**: Covered by other fixes above (see `ADVERSARIAL_REVIEW.md`).
+
+---
+
 ## [1.3.0] — 2026-04-17
 
 ### Added

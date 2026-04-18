@@ -1,6 +1,6 @@
 {
   "name": "local-terminal",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Give Claude controlled, audited access to your local Windows terminal. Three-tier security model (RED/AMBER/GREEN) with 120+ hard-blocked dangerous patterns, sensitive file protection, rate limiting, and full audit logging. Browse files, read code, run approved commands, and manage projects without leaving Cowork.",
   "author": {
     "name": "SharpEdge",

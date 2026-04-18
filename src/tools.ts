@@ -421,6 +421,64 @@ function commandContainsSensitivePath(cmd: string): boolean {
 
 const COMMAND_TIMEOUT_MS = 30_000;
 
+// ─── F-22: Input size caps (prevents ReDoS amplification + log flooding) ────────
+// Every user-supplied string is checked before any regex runs.
+// Caps mirror vps-control-mcp's INPUT_LIMITS established in F-VM-3.
+const INPUT_LIMITS: Record<string, number> = {
+  command:       4_096,  // run_command — generous; most legit commands fit in 256
+  filePath:        512,  // read_file / search_file path
+  searchPattern:   256,  // search_file pattern (regex)
+  findPattern:     256,  // find_files pattern (glob)
+  directory:       512,  // all dir / working_directory params
+  gitSubCommand:   512,  // run_git_command sub-command string
+  npmSubCommand:   256,  // run_npm_command sub-command string
+};
+
+function checkSize(value: string, field: keyof typeof INPUT_LIMITS): string | null {
+  const limit = INPUT_LIMITS[field];
+  if (value.length > limit) {
+    return `ERROR: '${field}' exceeds maximum allowed length (${value.length} > ${limit}). Reduce input size.`;
+  }
+  return null;
+}
+
+// ─── F-23: ReDoS guard for user-supplied regex (search_file) ────────────────────
+// Classic catastrophic-backtracking shapes are rejected before the regex compiles.
+// This mirrors the guard in vps-control-mcp F-VM-7.
+const CATASTROPHIC_REGEX_SHAPES: RegExp[] = [
+  /\([^)]*[+*]\)\s*[+*{]/, // nested quantifier: (x+)+ (x*)* (x+){n}
+  /\([^)]*\|[^)]*\)\s*[+*{]/, // quantified alternation: (a|b)+
+  /(\w\|){4,}/,             // wide alternation: a|b|c|d|... (>3 alternatives)
+];
+
+function isReDoSPattern(pattern: string): boolean {
+  return CATASTROPHIC_REGEX_SHAPES.some(shape => shape.test(pattern));
+}
+
+// ─── F-25: Output-side secret scrubbing ─────────────────────────────────────────
+// Scan tool output for known token shapes and PEM headers; redact to [REDACTED].
+// Runs after every tool execution so even "legitimate" git log / npm audit output
+// cannot surface secrets that were accidentally committed.
+const SECRET_OUTPUT_PATTERNS: RegExp[] = [
+  /ghp_[A-Za-z0-9]{36,}/g,                     // GitHub personal access token
+  /ghs_[A-Za-z0-9]{36,}/g,                     // GitHub server-to-server token
+  /gho_[A-Za-z0-9]{36,}/g,                     // GitHub OAuth token
+  /sk-[A-Za-z0-9]{40,}/g,                      // OpenAI API key
+  /sk-ant-[A-Za-z0-9\-_]{80,}/g,               // Anthropic API key
+  /AKIA[0-9A-Z]{16}/g,                          // AWS access key ID
+  /xox[baprs]-[A-Za-z0-9\-]{20,}/g,            // Slack token
+  /-----BEGIN [A-Z ]+PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+PRIVATE KEY-----/g, // PEM private key
+  /[A-Za-z0-9+/]{60,}={0,2}(?=\s|$)/g,        // high-entropy base64 blob (≥60 chars)
+];
+
+function scrubSecrets(output: string): string {
+  let scrubbed = output;
+  for (const pattern of SECRET_OUTPUT_PATTERNS) {
+    scrubbed = scrubbed.replace(pattern, '[REDACTED]');
+  }
+  return scrubbed;
+}
+
 // ─── Scrubbed environment for child processes (F-7 fix) ──────────────────────
 // The service runs with MCP_AUTH_TOKEN / MCP_PORT in its environment
 // (injected by NSSM AppEnvironmentExtra). Strip these and any secret-shaped
@@ -694,6 +752,13 @@ export async function executeTool(
 
     case "read_file": {
       const filePath = args.path as string;
+      // F-22: input size cap
+      const _rfSize = checkSize(filePath, 'filePath');
+      if (_rfSize) return { result: _rfSize, tier: "green", blocked: false, dryRun: false };
+      // F-27: reject control characters in path
+      if (/[\x00-\x1F\x7F]/.test(filePath)) {
+        return { result: formatBlockedError('path-validation', 'File path contains control characters.'), tier: "red", blocked: true, dryRun: false };
+      }
 
       // F-11/F-14: canonicalize path before any pattern check to defeat UNC,
       // long-path prefix (\\?\), 8.3 short names, symlinks, and ../ traversal.
@@ -759,6 +824,11 @@ export async function executeTool(
     case "find_files": {
       const dir     = args.directory as string;
       const pattern = args.pattern as string;
+      // F-22: input size caps
+      const _ffDirSz = checkSize(dir, 'directory');
+      if (_ffDirSz) return { result: _ffDirSz, tier: "green", blocked: false, dryRun: false };
+      const _ffPatSz = checkSize(pattern, 'findPattern');
+      if (_ffPatSz) return { result: _ffPatSz, tier: "green", blocked: false, dryRun: false };
       // F-19: native fs walk — no shell process, no injection surface.
       // Convert glob pattern to regex: escape regex metacharacters, then
       // restore * → .* and ? → . so standard glob wildcards work as expected.
@@ -789,6 +859,19 @@ export async function executeTool(
     case "search_file": {
       const filePath = args.path as string;
       const pattern  = args.pattern as string;
+      // F-22: input size caps
+      const _sfPathSz = checkSize(filePath, 'filePath');
+      if (_sfPathSz) return { result: _sfPathSz, tier: "green", blocked: false, dryRun: false };
+      const _sfPatSz = checkSize(pattern, 'searchPattern');
+      if (_sfPatSz) return { result: _sfPatSz, tier: "green", blocked: false, dryRun: false };
+      // F-23: ReDoS guard — reject catastrophic backtracking patterns before compile
+      if (isReDoSPattern(pattern)) {
+        return { result: `ERROR: Pattern '${pattern}' has a structure (nested quantifiers or wide alternation) that can cause catastrophic backtracking. Simplify the pattern.`, tier: "green", blocked: false, dryRun: false };
+      }
+      // F-27: reject control characters in path
+      if (/[\x00-\x1F\x7F]/.test(filePath)) {
+        return { result: formatBlockedError('path-validation', 'File path contains control characters.'), tier: "red", blocked: true, dryRun: false };
+      }
 
       // Sensitive file guard
       if (isSensitiveFile(filePath)) {
@@ -836,6 +919,9 @@ export async function executeTool(
     case "run_npm_command": {
       const dir = sanitizeDir((args.directory ?? args.working_directory) as string);
       const cmd = args.command as string;
+      // F-22: input size cap
+      const _npmSz = checkSize(cmd, 'npmSubCommand');
+      if (_npmSz) return { result: _npmSz, tier: "green", blocked: false, dryRun: false };
       // F-16: remove run/ci from allowlist — both execute lifecycle scripts from
       // package.json which is attacker-controlled in untrusted repos.
       const allowed = /^(list|ls|outdated|audit|view|why|explain)(\s|$)/i;
@@ -854,6 +940,9 @@ export async function executeTool(
     case "run_git_command": {
       const dir = sanitizeDir((args.directory ?? args.working_directory) as string);
       const cmd = args.command as string;
+      // F-22: input size cap
+      const _gitSz = checkSize(cmd, 'gitSubCommand');
+      if (_gitSz) return { result: _gitSz, tier: "green", blocked: false, dryRun: false };
       // F-15: remove fetch from allowlist — it honours transport helpers (ext::,
       // custom sshCommand) which can RCE via repo-local .git/config.
       const allowed = /^(status|log|diff|branch|show|stash list|tag|rev-parse|ls-files)/i;
@@ -874,13 +963,17 @@ export async function executeTool(
       // so metachar injection via git sub-command strings is structurally impossible.
       const gitArgs = ['-C', dir, ...splitArgv(cmd)];
       const output = runFile('git', gitArgs, { env: safeGitEnv, timeoutMs: 30_000 });
-      return { result: truncateOutput(output), tier: "green", blocked: false, dryRun: false };
+      // F-25: scrub any accidentally-committed token shapes from git log / diff output
+      return { result: truncateOutput(scrubSecrets(output)), tier: "green", blocked: false, dryRun: false };
     }
 
     // ── Escape Hatch (RED → AMBER → GREEN pipeline) ────────────────────────────
     case "run_command": {
       const cmd       = args.command as string;
       const isDryRun  = args.dry_run === false || args.dry_run === "false" ? false : true;
+      // F-22: input size cap — bounds regex cost and log flooding
+      const _rcSz = checkSize(cmd, 'command');
+      if (_rcSz) return { result: _rcSz, tier: "green", blocked: false, dryRun: isDryRun };
 
       // RED check
       const blockResult = checkBlocked(cmd);
@@ -928,7 +1021,8 @@ export async function executeTool(
       }
 
       // AMBER with dry_run=false — execute but log the warning
-      const result = truncateOutput(runCommand(cmd, COMMAND_TIMEOUT_MS));
+      // F-25: scrub token shapes from command output
+      const result = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
       return {
         result: amberResult
           ? `⚠️ AMBER command executed (acknowledged risk: ${amberResult.risk})\n\n${result}`
