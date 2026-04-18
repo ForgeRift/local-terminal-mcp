@@ -60,7 +60,7 @@ Write-Host "Node.js v$NodeVersion found: $NodeExe" -ForegroundColor Green
 # -- Build ------------------------------------------------------------------
 Write-Host "Building project..." -ForegroundColor Yellow
 Push-Location $InstallDir
-npm install
+npm install --no-fund
 if ($LASTEXITCODE -ne 0) {
   Write-Host "ERROR: npm install failed. Check your internet connection and try again." -ForegroundColor Red
   Pop-Location; exit 1
@@ -140,10 +140,25 @@ Write-Host "Failure recovery configured (auto-restart after 3s)" -ForegroundColo
 
 # -- Start service -------------------------------------------------------
 & $NssmExe start $ServiceName
-Start-Sleep -Seconds 2
+
+# -- Wait for service to be healthy (avoids race condition on Claude Desktop connect) --
+Write-Host "Waiting for service to be ready..." -ForegroundColor Yellow
+$healthUrl  = "http://127.0.0.1:$Port/health"
+$ready      = $false
+$deadline   = (Get-Date).AddSeconds(30)
+while ((Get-Date) -lt $deadline) {
+  try {
+    $resp = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -ErrorAction Stop
+    if ($resp.StatusCode -eq 200) { $ready = $true; break }
+  } catch { }
+  Start-Sleep -Seconds 1
+}
+if (-not $ready) {
+  Write-Host "WARNING: Service did not respond to health check within 30s. Check $LogDir for errors." -ForegroundColor Red
+}
 
 $svc = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
-if ($svc -and $svc.Status -eq "Running") {
+if ($svc -and $svc.Status -eq "Running" -and $ready) {
 
   # -- Write Claude Desktop config -----------------------------------------
   # Handles: new install (creates dir + file), re-run (updates existing entry),

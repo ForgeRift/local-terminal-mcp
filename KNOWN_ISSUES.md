@@ -60,6 +60,10 @@ Very verbose commands (e.g., `npm install` on a large project) will have their o
 
 Running `setup.ps1` a second time (e.g., after `git pull` to update) stops and removes the existing service, then reinstalls it. Your `.env` (auth token) is preserved. The process takes about 10 seconds during which Claude has no local-terminal connection.
 
+### Installing to a new location generates a new auth token
+
+If you clone the repo to a different directory and run `setup.ps1` there (e.g., for testing), the new install generates a fresh `.env` with a different bearer token. Any existing Claude session connected to the old token will lose the local-terminal connection immediately. Restart Claude Desktop after the new install to reconnect with the updated token. Your old install's `.env` token is not affected if you reinstall to the same directory.
+
 ---
 
 ## Reporting an issue

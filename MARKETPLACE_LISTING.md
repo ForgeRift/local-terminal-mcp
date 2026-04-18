@@ -57,6 +57,10 @@ See `KNOWN_ISSUES.md` in the repo for the full list of current limitations and c
 - No TLS. The server is localhost-only; TLS is not needed and is not provided.
 - No automatic rollback. If a command runs but produces unexpected results, reversing it is a decision you make.
 
+## Compatibility
+
+**Windows only — Claude Desktop and Cowork.** The plugin runs as a localhost-only Windows Service and cannot be reached from a browser or remote client. It does not work with Claude in Chrome, claude.ai web, or mobile. For remote Linux server access, see vps-control.
+
 ## Requirements
 
 - Windows 10 / 11

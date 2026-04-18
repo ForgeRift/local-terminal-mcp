@@ -69,6 +69,12 @@ Even read-only tools block access to credential and secret files:
 
 ---
 
+## Compatibility
+
+**Windows only.** Works with Claude Desktop (Windows) and Cowork. Does not work with Claude in Chrome, claude.ai web, or mobile — the plugin runs as a localhost-only Windows Service and cannot be reached from a browser or remote client.
+
+If you need remote Linux server access instead of local Windows access, see [vps-control-mcp](https://github.com/claudedussy/vps-control-mcp).
+
 ## Requirements
 
 - Windows 10 / 11
