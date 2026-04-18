@@ -6,6 +6,16 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## [1.4.1] — 2026-04-18
+
+### Fixed
+
+- **F-17 partial bypass**: `run_command` with `dry_run=false` on the first call to an AMBER-tier command was executing the command without ever showing the AMBER warning (`if (amberResult && isDryRun)` evaluated false, silently falling through to execution). Fixed: AMBER check is now unconditional — if `dry_run=true` the warning is returned; if `dry_run=false` the command executes but the warning is always included in the response. The CHANGELOG entry for v1.4.0 overclaimed this fix.
+- **run_npm_command tool description**: description listed `npm install` and `npm run <script>` as available sub-commands. Both are blocked since v1.4.0 (F-16). Description and command parameter hint now reflect the actual allowlist: `list`, `outdated`, `audit`, `view`, `why`, `explain`.
+- **Doc accuracy**: REVIEWER_GUIDE pattern count updated (120+ → 150+), execSync/execFileSync distinction corrected, ADVERSARIAL_REVIEW.md added to source section; KNOWN_ISSUES semicolon chaining description corrected; `.gitignore` adds `package-lock.json`.
+
+---
+
 ## [1.4.0] — 2026-04-18
 
 ### Security hardening — all 27 findings from the Opus adversarial review closed
