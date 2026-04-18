@@ -23,7 +23,8 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── File Deletion & Data Destruction ──────────────────────────────────────
   { pattern: /\brm\s/i,                           category: 'file-delete',    reason: 'File deletion (rm) is prohibited.' },
   { pattern: /\brmdir\b/i,                        category: 'file-delete',    reason: 'Directory removal (rmdir) is prohibited.' },
-  { pattern: /(?:^|[;&|])\s*del\b/i,                          category: 'file-delete',    reason: 'File deletion (del) is prohibited.' },
+  { pattern: /\brd\b/i,                           category: 'file-delete',    reason: 'Directory removal (rd) is prohibited.' },
+  { pattern: /\bdel\b/i,                          category: 'file-delete',    reason: 'File deletion (del) is prohibited.' },
   { pattern: /\berase\b/i,                        category: 'file-delete',    reason: 'File deletion (erase) is prohibited.' },
   { pattern: /\bunlink\b/i,                       category: 'file-delete',    reason: 'File deletion (unlink) is prohibited.' },
   { pattern: /\btruncate\b/i,                     category: 'file-delete',    reason: 'File truncation is prohibited.' },
@@ -31,7 +32,10 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bwipe\b/i,                         category: 'file-delete',    reason: 'Disk wipe is prohibited.' },
   { pattern: /\bdd\s.*if=/i,                      category: 'file-delete',    reason: 'Raw disk copy (dd) is prohibited.' },
   { pattern: /\bcipher\s+\/w/i,                   category: 'file-delete',    reason: 'Cipher wipe is prohibited.' },
-  { pattern: /remove-item/i,                      category: 'file-delete',    reason: 'PowerShell Remove-Item is prohibited.' },
+  { pattern: /\bremove-item\b/i,                  category: 'file-delete',    reason: 'PowerShell Remove-Item is prohibited.' },
+  { pattern: /\bremove-itemproperty\b/i,          category: 'file-delete',    reason: 'PowerShell Remove-ItemProperty is prohibited.' },
+  { pattern: /(?<!\w)ri\s+-/i,                    category: 'file-delete',    reason: 'PowerShell Remove-Item alias (ri) with flags is prohibited.' },
+  { pattern: /\bclear-item\b/i,                   category: 'file-delete',    reason: 'PowerShell Clear-Item is prohibited.' },
   { pattern: /clear-content/i,                    category: 'file-delete',    reason: 'PowerShell Clear-Content is prohibited.' },
   { pattern: /clear-recyclebin/i,                 category: 'file-delete',    reason: 'Emptying recycle bin is prohibited.' },
 
@@ -111,9 +115,18 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /set-service/i,                      category: 'service-mgmt',   reason: 'PowerShell Set-Service is prohibited.' },
   { pattern: /new-service/i,                      category: 'service-mgmt',   reason: 'PowerShell New-Service is prohibited.' },
 
+  // ── Shell Wrappers (F-2/F-4/F-5 fix) ────────────────────────────────────────
+  // Block cmd /c and powershell/pwsh -c/-Command/-File/-EncodedCommand outright.
+  // These are the canonical dispatch forms that let anything slip past verb blocks.
+  { pattern: /\bcmd(\.exe)?\s+\/[cCkK]\b/i,      category: 'code-exec',      reason: 'cmd /c shell dispatch is prohibited. Use structured tools instead.' },
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
+                                                  category: 'code-exec',      reason: 'PowerShell -c/-Command/-File/-EncodedCommand is prohibited.' },
+  { pattern: /\bpwsh(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
+                                                  category: 'code-exec',      reason: 'pwsh (PowerShell 7) -c/-Command/-File/-EncodedCommand is prohibited.' },
+
   // ── Code Execution & Shell Invocation ─────────────────────────────────────
   { pattern: /\beval\b/i,                         category: 'code-exec',      reason: 'eval() is prohibited.' },
-  { pattern: /(?:^|[;&|])\s*exec\b/i,                         category: 'code-exec',      reason: 'exec is prohibited.' },
+  { pattern: /\bexec\b/i,                         category: 'code-exec',      reason: 'exec is prohibited.' },
   { pattern: /invoke-expression/i,                category: 'code-exec',      reason: 'PowerShell Invoke-Expression is prohibited.' },
   { pattern: /\biex\b/i,                          category: 'code-exec',      reason: 'PowerShell IEX (Invoke-Expression alias) is prohibited.' },
   { pattern: /\bstart-process\b/i,                category: 'code-exec',      reason: 'PowerShell Start-Process is prohibited.' },
@@ -122,6 +135,18 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bmshta\b/i,                        category: 'code-exec',      reason: 'MSHTA execution is prohibited.' },
   { pattern: /\bregsvr32\b/i,                     category: 'code-exec',      reason: 'DLL registration/execution is prohibited.' },
   { pattern: /\brundll32\b/i,                     category: 'code-exec',      reason: 'DLL execution (rundll32) is prohibited.' },
+  { pattern: /\binstallutil\b/i,                  category: 'code-exec',      reason: 'InstallUtil LOLBin execution is prohibited.' },
+  { pattern: /\new-object\s+.*-com(object)?\b/i,  category: 'code-exec',      reason: 'PowerShell COM object instantiation is prohibited.' },
+  { pattern: /\bset-alias\b/i,                    category: 'code-exec',      reason: 'PowerShell Set-Alias is prohibited (alias indirection bypass).' },
+  { pattern: /\bnew-alias\b/i,                    category: 'code-exec',      reason: 'PowerShell New-Alias is prohibited.' },
+  { pattern: /&\s*\$[A-Za-z_]/,                   category: 'code-exec',      reason: 'PowerShell call operator on variable (&$x) is prohibited.' },
+
+  // ── .NET Type Accelerators (F-6 fix) ─────────────────────────────────────
+  // Bypass all verb-based blocks via [IO.File]::Delete, [Net.WebClient]::new(), etc.
+  { pattern: /\[\s*(System\.)?(IO|Net|Diagnostics|Reflection|Runtime\.InteropServices|Management\.Automation)\b/i,
+                                                  category: 'code-exec',      reason: '.NET type accelerator usage is prohibited (bypass vector).' },
+  { pattern: /::\s*(Delete|Move|Copy|WriteAllBytes|WriteAllText|DownloadFile|DownloadString|Start|Load|LoadFrom|LoadFile|Invoke)\b/i,
+                                                  category: 'code-exec',      reason: '.NET static method invocation for dangerous operations is prohibited.' },
 
   // ── Data Exfiltration ─────────────────────────────────────────────────────
   { pattern: /\bcurl\b/i,                         category: 'data-exfil',     reason: 'curl is prohibited. Data cannot leave the machine via MCP.' },
@@ -134,10 +159,16 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bnc\b\s+-/i,                       category: 'data-exfil',     reason: 'Netcat is prohibited.' },
   { pattern: /\bsocat\b/i,                        category: 'data-exfil',     reason: 'Socat is prohibited.' },
   { pattern: /\bftp\b/i,                          category: 'data-exfil',     reason: 'FTP is prohibited.' },
-  { pattern: /\bbitsadmin\b/i,                    category: 'data-exfil',     reason: 'BITS transfer is prohibited.' },
-  { pattern: /\bcertutil\s.*-urlcache/i,          category: 'data-exfil',     reason: 'certutil download is prohibited.' },
+  { pattern: /\bbitsadmin\b/i,                    category: 'data-exfil',     reason: 'BITS transfer (LOLBin) is prohibited.' },
+  { pattern: /\bcertutil\b/i,                     category: 'data-exfil',     reason: 'certutil is prohibited (LOLBin download/encode vector).' },
   { pattern: /new-object\s+.*webclient/i,         category: 'data-exfil',     reason: 'PowerShell WebClient download is prohibited.' },
   { pattern: /\bssh\b/i,                          category: 'data-exfil',     reason: 'SSH connections are prohibited via MCP.' },
+  { pattern: /\bmsbuild\b.*\.xml\b/i,             category: 'data-exfil',     reason: 'MSBuild inline task execution is prohibited (LOLBin).' },
+
+  // ── Environment Variable Enumeration (F-7 supplement) ────────────────────
+  { pattern: /\$env:[A-Za-z_]/i,                  category: 'info-leak',      reason: 'PowerShell $env: variable access is prohibited.' },
+  { pattern: /get-(childitem|item|content)\s+env:/i, category: 'info-leak',   reason: 'PowerShell environment variable enumeration is prohibited.' },
+  { pattern: /(?:^|[\s;&|])set\s*(?:$|[|>&])/i,  category: 'info-leak',      reason: 'cmd set (env dump) is prohibited.' },
 
   // ── Persistence Mechanisms ────────────────────────────────────────────────
   { pattern: /\breg\s+(add|delete|import|export)\b/i, category: 'persistence', reason: 'Registry modification is prohibited.' },
@@ -199,10 +230,16 @@ const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /get-credential/i,                   category: 'info-leak',      reason: 'PowerShell credential retrieval is prohibited.' },
   { pattern: /convertfrom-securestring/i,         category: 'info-leak',      reason: 'PowerShell secure string decryption is prohibited.' },
 
+  // ── WMI / WMIC / CIM (F-9 fix) ───────────────────────────────────────────
+  { pattern: /\bwmic\b/i,                         category: 'code-exec',      reason: 'WMIC is prohibited (process creation and file read bypass vector).' },
+  { pattern: /\b(invoke-cimmethod|get-wmiobject|gwmi|get-ciminstance|gcim)\b/i,
+                                                  category: 'code-exec',      reason: 'WMI/CIM cmdlets are prohibited.' },
+  { pattern: /\bWin32_Process\b/i,                category: 'code-exec',      reason: 'Win32_Process WMI class is prohibited.' },
+
   // ── Command Chaining Exploits ─────────────────────────────────────────────
   { pattern: /[;&|]{2}.*\b(rm|del|format|shutdown|kill|taskkill)\b/i, category: 'chaining', reason: 'Command chaining with destructive commands is prohibited.' },
   { pattern: /;\s*\b(rm|del|format|shutdown|kill|taskkill|erase|rmdir|unlink|truncate|shred|wipe|passwd|chmod|chown|curl|wget|ssh|scp|sftp|eval|exec|sudo|runas)\b/i, category: 'chaining', reason: 'Single-semicolon chaining with dangerous commands is prohibited.' },
-  { pattern: /\|\s*(bash|sh|cmd|powershell)\b/i,  category: 'chaining',       reason: 'Pipe-to-shell is prohibited.' },
+  { pattern: /\|\s*(bash|sh|cmd|powershell|pwsh)\b/i, category: 'chaining',   reason: 'Pipe-to-shell is prohibited.' },
   { pattern: /`[^`]*`/,                           category: 'chaining',       reason: 'Backtick command substitution is prohibited.' },
 
   // ── Variable Expansion / Obfuscation ──────────────────────────────────────
@@ -348,12 +385,32 @@ function isSensitiveFile(filePath: string): boolean {
 
 const COMMAND_TIMEOUT_MS = 30_000;
 
+// ─── Scrubbed environment for child processes (F-7 fix) ──────────────────────
+// The service runs with MCP_AUTH_TOKEN / MCP_PORT in its environment
+// (injected by NSSM AppEnvironmentExtra). Strip these and any secret-shaped
+// key names before passing env to any child process, so commands like
+// `powershell -c "$env:MCP_AUTH_TOKEN"` or `cmd /c set` cannot exfiltrate them.
+const SECRET_KEY_SUBSTRINGS = [
+  'AUTH_TOKEN', 'BEARER_TOKEN', 'ACCESS_TOKEN', 'REFRESH_TOKEN',
+  'API_KEY', 'SECRET', 'PRIVATE_KEY', 'MCP_AUTH',
+];
+function buildSafeEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (SECRET_KEY_SUBSTRINGS.some(s => key.toUpperCase().includes(s))) {
+      delete env[key];
+    }
+  }
+  return env;
+}
+
 function runCommand(cmd: string, timeoutMs = COMMAND_TIMEOUT_MS): string {
   try {
     return execSync(cmd, {
       timeout: timeoutMs,
       encoding: "utf8",
       windowsHide: true,
+      env: buildSafeEnv(),
     }).trim();
   } catch (err: unknown) {
     const e = err as { stdout?: string; stderr?: string; message?: string; killed?: boolean };
