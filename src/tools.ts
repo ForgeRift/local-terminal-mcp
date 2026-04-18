@@ -374,11 +374,47 @@ const SENSITIVE_FILE_PATTERNS: RegExp[] = [
 
   // Windows crypto
   /\.rdp$/i,
+
+  // F-13: additional credential stores missed in original list
+  /\.npmrc/i,                                   // NPM_TOKEN
+  /\.pypirc/i,                                  // PyPI token
+  /pip\.conf/i,                                 // pip credentials
+  /\.netrc/i,                                   // HTTP auth (many tools)
+  /[\\\/]gh[\\\/]hosts\.yml/i,                  // GitHub CLI token
+  /\.azure[\\\/]accessTokens/i,                 // Azure CLI
+  /\.azure[\\\/]azureProfile/i,
+  /application_default_credentials/i,           // GCP ADC
+  /\.terraformrc/i,                             // Terraform Cloud token
+  /terraform\.rc/i,
+  /\.m2[\\\/]settings\.xml/i,                   // Maven credentials
+  /\.gradle[\\\/]gradle\.properties/i,          // Gradle signing
+  /\.cargo[\\\/]credentials/i,                  // crates.io token
+  /composer[\\\/]auth\.json/i,                  // Composer
+  /\.kaggle[\\\/]kaggle\.json/i,                // Kaggle API key
+  /PSReadLine[\\\/]ConsoleHost_history/i,        // PowerShell history
+  /\.bash_history/i,                            // shell history
+  /\.zsh_history/i,
+  /\.history$/i,
+  /AppData[\\\/]Roaming[\\\/]npm[\\\/]etc[\\\/]npmrc/i,
+  /AppData[\\\/]Roaming[\\\/]GitHub CLI/i,
+  /Local State$/i,                              // Chrome encryption key
+  /\.kdbx$/i,                                   // KeePass
+  /wallet\.dat/i,                               // crypto wallets
 ];
 
 function isSensitiveFile(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
   return SENSITIVE_FILE_PATTERNS.some(p => p.test(normalized) || p.test(basename(normalized)));
+}
+
+// F-1 fix: scan a free-form command string for any token that looks like a path
+// to a sensitive file. Applies the same SENSITIVE_FILE_PATTERNS used by read_file
+// to every whitespace-delimited token in the command, so `type C:\..\.ssh\id_rsa`
+// is caught even though the verb `type` isn't in the blocked-pattern list.
+function commandContainsSensitivePath(cmd: string): boolean {
+  // Split on whitespace and common shell delimiters; strip surrounding quotes
+  const tokens = cmd.split(/[\s"']+/).map(t => t.trim()).filter(Boolean);
+  return tokens.some(token => isSensitiveFile(token));
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -707,7 +743,20 @@ export async function executeTool(
         };
       }
 
-      // AMBER check
+      // F-1: sensitive path scan — apply SENSITIVE_FILE_PATTERNS to command tokens
+      // so `type C:\..\.ssh\id_rsa` is caught regardless of the verb used.
+      if (commandContainsSensitivePath(cmd)) {
+        return {
+          result: formatBlockedError('sensitive-file', 'This command references a sensitive file path. Use read_file only for files you own and that are not credentials or keys.'),
+          tier: "red",
+          blocked: true,
+          dryRun: isDryRun,
+        };
+      }
+
+      // AMBER check — F-17: server always returns the warning first, regardless of
+      // dry_run value. Client cannot skip the warning by passing dry_run=false directly.
+      // A second call with dry_run=false after seeing the warning is required to execute.
       const amberResult = checkAmber(cmd);
       if (amberResult && isDryRun) {
         return {
