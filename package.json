@@ -19,5 +19,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.5",
     "typescript": "^5.3.3"
-  }
+  },
+  "author": "ForgeRift LLC",
+  "homepage": "https://forgerift.io"
 }
