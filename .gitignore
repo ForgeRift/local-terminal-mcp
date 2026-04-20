@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+logs/
+nssm/
+*.log
+.commit-msg.txt
+package-lock.json
