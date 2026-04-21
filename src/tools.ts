@@ -452,6 +452,11 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bphp\b[^|&;]*\s-r\b/i,              category: 'code-exec',     reason: 'php -r (inline code evaluation) is prohibited.' },
   { pattern: /\bperl\b[^|&;]*\s-[eE]\b/i,          category: 'code-exec',     reason: 'perl -e/-E (inline code evaluation) is prohibited.' },
   { pattern: /\bdeno\b[^|&;]*(eval|run)\b/i,       category: 'code-exec',     reason: 'deno eval/run is prohibited.' },
+  { pattern: /\bpython[\d.]*\s+-c\b/i,                        category: 'code-exec', reason: 'Python inline execution (-c) is prohibited.' },
+  { pattern: /\bnode\s+(-e\b|--eval\b)/i,                     category: 'code-exec', reason: 'Node.js inline execution (-e/--eval) is prohibited.' },
+  { pattern: /\bruby\s+-e\b/i,                                 category: 'code-exec', reason: 'Ruby inline execution (-e) is prohibited.' },
+  { pattern: /\bperl\s+-e\b/i,                                 category: 'code-exec', reason: 'Perl inline execution (-e) is prohibited.' },
+  { pattern: /\bphp\s+-r\b/i,                                  category: 'code-exec', reason: 'PHP inline execution (-r) is prohibited.' },
 
   // ── F-LT-32 + F-LT-40 (S52): Interpreter + scriptfile RCE ────────────────────
   // Any modern script interpreter running a script file has identical blast radius to
@@ -570,11 +575,21 @@ const BLOCKED_MANUAL_STEPS: Record<string, string> = {
   'container-nuclear':             'Run container/orchestration cleanup directly via SSH or kubectl after confirming the scope.',
   'ai-classified':                 'Review the AI classification above and perform this operation manually via SSH with appropriate safeguards.',
   'board-reviewed':                'Review the safety board assessment above and perform this operation manually via SSH.',
+  'download-cradle':  'Use a web browser or download manager directly. For file transfers, use secure file-sharing tools outside the Plugin.',
+  'lolbin':           'Execute scripts or binaries directly in your terminal outside the Plugin.',
+  'registry':         'Edit the registry using regedit.exe or reg.exe directly in your terminal outside the Plugin.',
+  'wmi-exec':         'Use PowerShell cmdlets or WMI tools directly in your terminal outside the Plugin.',
+  'com-exec':         'Execute COM automation scripts directly in your terminal outside the Plugin.',
+  'exec-policy':      'Run Set-ExecutionPolicy directly in an elevated PowerShell terminal outside the Plugin.',
+  'env-manip':        'Set environment variables using System Properties > Environment Variables, or via PowerShell outside the Plugin.',
+  'chaining':         'Run each command individually through the Plugin, or execute compound commands in your terminal outside the Plugin.',
+  'base64-exec':      'Decode and execute scripts directly in your terminal outside the Plugin.',
 };
 
 interface HardBlockedPattern {
   pattern: RegExp;
   category: string;
+  reason?: string;
 }
 
 // Layer 1 static patterns — the 11 S59 categories.
@@ -653,6 +668,69 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
   { pattern: /\bkubectl\b[^|&;\n]*\bdelete\b[^|&;\n]*(namespace\s+--all|--all\s+-A|--all-namespaces)/i, category: 'container-nuclear' },
   { pattern: /\bhelm\b[^|&;\n]*\buninstall\b[^|&;\n]*--all\b/i,              category: 'container-nuclear' },
   { pattern: /\bk3s-uninstall\.sh\b/i,                                         category: 'container-nuclear' },
+
+  // ─── Download / Exfil ───────────────────────────────────────────────────────
+  { pattern: /\binvoke-webrequest\b/i,                        category: 'download-cradle', reason: 'Invoke-WebRequest (download/exfil) is prohibited.' },
+  { pattern: /\biwr\b/i,                                      category: 'download-cradle', reason: 'iwr (Invoke-WebRequest alias) is prohibited.' },
+  { pattern: /\binvoke-restmethod\b/i,                        category: 'download-cradle', reason: 'Invoke-RestMethod (download/exfil) is prohibited.' },
+  { pattern: /\birm\b/i,                                      category: 'download-cradle', reason: 'irm (Invoke-RestMethod alias) is prohibited.' },
+  { pattern: /net\.webclient/i,                               category: 'download-cradle', reason: 'Net.WebClient (download cradle) is prohibited.' },
+  { pattern: /\bdownloadfile\b/i,                             category: 'download-cradle', reason: 'DownloadFile (download cradle) is prohibited.' },
+  { pattern: /\bdownloadstring\b/i,                           category: 'download-cradle', reason: 'DownloadString (download cradle) is prohibited.' },
+  { pattern: /\bstart-bitstransfer\b/i,                       category: 'download-cradle', reason: 'Start-BitsTransfer (download) is prohibited.' },
+  { pattern: /\bcertutil\b.*-urlcache\b/i,                   category: 'download-cradle', reason: 'certutil -urlcache (download cradle LOLBin) is prohibited.' },
+  { pattern: /\bcurl\b/i,                                     category: 'download-cradle', reason: 'curl (download/exfil) is prohibited.' },
+  { pattern: /\bwget\b/i,                                     category: 'download-cradle', reason: 'wget (download/exfil) is prohibited.' },
+  { pattern: /\bnc\b/i,                                       category: 'download-cradle', reason: 'netcat (nc) is prohibited.' },
+  { pattern: /\bncat\b/i,                                     category: 'download-cradle', reason: 'ncat is prohibited.' },
+  { pattern: /\bscp\b/i,                                      category: 'download-cradle', reason: 'scp (file transfer) is prohibited.' },
+  { pattern: /\bftp\b/i,                                      category: 'download-cradle', reason: 'ftp is prohibited.' },
+
+  // ─── LOLBins (Living-off-the-Land Binaries) ─────────────────────────────────
+  { pattern: /\bmshta(\.exe)?\b/i,                            category: 'lolbin', reason: 'mshta (HTA execution LOLBin) is prohibited.' },
+  { pattern: /\bwscript(\.exe)?\b/i,                          category: 'lolbin', reason: 'wscript (script host LOLBin) is prohibited.' },
+  { pattern: /\bcscript(\.exe)?\b/i,                          category: 'lolbin', reason: 'cscript (script host LOLBin) is prohibited.' },
+  { pattern: /\bregsvr32(\.exe)?\b/i,                         category: 'lolbin', reason: 'regsvr32 (DLL execution LOLBin) is prohibited.' },
+  { pattern: /\brundll32(\.exe)?\b/i,                         category: 'lolbin', reason: 'rundll32 (DLL execution LOLBin) is prohibited.' },
+  { pattern: /\bmsiexec(\.exe)?\s+.*\/[qixa]/i,              category: 'lolbin', reason: 'msiexec install/execute is prohibited.' },
+
+  // ─── Registry Modification ───────────────────────────────────────────────────
+  { pattern: /\breg\s+(add|delete|import|load|unload|restore|save)\b/i, category: 'registry', reason: 'Registry modification (reg add/delete/import) is prohibited.' },
+  { pattern: /\bregedit(\.exe)?\b/i,                          category: 'registry', reason: 'regedit is prohibited.' },
+  { pattern: /\bset-itemproperty\b.*hk[cl][mu]/i,            category: 'registry', reason: 'Set-ItemProperty on registry hive is prohibited.' },
+  { pattern: /\bnew-itemproperty\b.*hk[cl][mu]/i,            category: 'registry', reason: 'New-ItemProperty on registry hive is prohibited.' },
+  { pattern: /\bremove-itemproperty\b.*hk[cl][mu]/i,         category: 'registry', reason: 'Remove-ItemProperty on registry hive is prohibited.' },
+  { pattern: /\bnew-item\b.*hk[cl][mu]/i,                    category: 'registry', reason: 'New-Item on registry hive is prohibited.' },
+
+  // ─── WMI / CIM Code Execution ───────────────────────────────────────────────
+  { pattern: /\bwmic\b.*\bprocess\b.*\bcall\b.*\bcreate\b/i, category: 'wmi-exec', reason: 'wmic process call create (WMI code execution) is prohibited.' },
+  { pattern: /\binvoke-wmimethod\b/i,                         category: 'wmi-exec', reason: 'Invoke-WmiMethod is prohibited.' },
+  { pattern: /\bnew-ciminstance\b/i,                          category: 'wmi-exec', reason: 'New-CimInstance is prohibited.' },
+  { pattern: /\binvoke-cimmethod\b/i,                         category: 'wmi-exec', reason: 'Invoke-CimMethod is prohibited.' },
+
+  // ─── COM Shell Execution ─────────────────────────────────────────────────────
+  { pattern: /new-object\s+.*-comobject\s+(?:wscript\.shell|shell\.application)/i, category: 'com-exec', reason: 'New-Object -ComObject WScript.Shell/Shell.Application (COM code execution) is prohibited.' },
+  { pattern: /-comobject\s+(?:wscript\.shell|shell\.application)/i,               category: 'com-exec', reason: 'WScript.Shell/Shell.Application COM object is prohibited.' },
+
+  // ─── Execution Policy Bypass ─────────────────────────────────────────────────
+  { pattern: /\bset-executionpolicy\b.*\b(bypass|unrestricted|remotesigned)\b/i, category: 'exec-policy', reason: 'Set-ExecutionPolicy Bypass/Unrestricted is prohibited.' },
+  { pattern: /\bset-executionpolicy\b/i,                      category: 'exec-policy', reason: 'Set-ExecutionPolicy is prohibited.' },
+
+  // ─── Environment Variable Manipulation ──────────────────────────────────────
+  { pattern: /\[system\.environment\]::setenvironmentvariable/i, category: 'env-manip', reason: '[System.Environment]::SetEnvironmentVariable is prohibited.' },
+  { pattern: /\bsetx\b/i,                                     category: 'env-manip', reason: 'setx (permanent env var write) is prohibited.' },
+
+  // ─── Command Chaining ────────────────────────────────────────────────────────
+  { pattern: /;/,                                              category: 'chaining', reason: 'Command chaining with ; is prohibited.' },
+  { pattern: /&&/,                                             category: 'chaining', reason: 'Command chaining with && is prohibited.' },
+  { pattern: /\|\|/,                                           category: 'chaining', reason: 'Command chaining with || is prohibited.' },
+  { pattern: /(?<![|&])&(?![|&])/,                            category: 'chaining', reason: 'Command chaining with & (CMD) is prohibited.' },
+
+  // ─── Base64 Decode-to-Exec ───────────────────────────────────────────────────
+  { pattern: /\bcertutil\b.*-decode\b/i,                      category: 'base64-exec', reason: 'certutil -decode (base64 decode LOLBin) is prohibited.' },
+  { pattern: /\bbase64\b.*-d\b/i,                              category: 'base64-exec', reason: 'base64 -d (decode) is prohibited (obfuscation layer).' },
+  { pattern: /\[convert\]::frombase64string/i,                 category: 'base64-exec', reason: '[Convert]::FromBase64String (base64 decode) is prohibited.' },
+  { pattern: /\[system\.convert\]::frombase64string/i,         category: 'base64-exec', reason: '[System.Convert]::FromBase64String is prohibited.' },
 ];
 
 function checkHardBlocked(cmd: string): HardBlockedPattern | null {

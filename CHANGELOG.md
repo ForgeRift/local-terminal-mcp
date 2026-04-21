@@ -2,6 +2,22 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.9.1] — 2026-04-21
+
+### Security (S59-gap)
+- Layer 1: Added `download-cradle` category (Invoke-WebRequest, Net.WebClient, certutil -urlcache, curl, wget, nc, scp, ftp and aliases)
+- Layer 1: Added `lolbin` category (mshta, wscript, cscript, regsvr32, rundll32, msiexec)
+- Layer 1: Added `registry` category (reg add/delete/import, regedit, Set/New/Remove-ItemProperty on hives)
+- Layer 1: Added `wmi-exec` category (wmic process call create, Invoke-WmiMethod, New/Invoke-CimInstance)
+- Layer 1: Added `com-exec` category (New-Object -ComObject WScript.Shell/Shell.Application)
+- Layer 1: Added `exec-policy` category (Set-ExecutionPolicy Bypass/Unrestricted)
+- Layer 1: Added `env-manip` category ([System.Environment]::SetEnvironmentVariable, setx)
+- Layer 1: Added `chaining` category (;, &&, ||, single & CMD chaining)
+- Layer 1: Added `base64-exec` category (certutil -decode, base64 -d, [Convert]::FromBase64String)
+- Layer 1: Added Python/Node/Ruby/Perl/PHP inline execution patterns to `code-exec` category
+
+---
+
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
