@@ -543,6 +543,313 @@ export function checkBlocked(cmd: string): { blocked: true; category: string; re
   return { blocked: false };
 }
 
+// ─── BLOCKED Tier: Three-Layer Pipeline (ToS §8) ─────────────────────────────
+// This tier sits ABOVE RED. It implements the hard-block requirements from §8:
+// a three-layer classification pipeline that catches destructive operations that
+// cannot be executed through the Plugin under any circumstances.
+//
+// Layer 1 — Static pattern match (synchronous, zero latency)
+// Layer 2 — AI pre-classification via Claude API (async, ~500ms)
+// Layer 3 — Multi-persona adversarial board review (async, ~2-3s)
+//
+// All three layers log to audit regardless of outcome.
+// Layers 2 & 3 degrade gracefully if ANTHROPIC_API_KEY is unset.
+
+// Manual-steps lookup: per-category instructions returned in the structured error.
+const BLOCKED_MANUAL_STEPS: Record<string, string> = {
+  'recursive-file-deletion':       'Connect to the system via SSH and run the deletion command directly with full awareness of scope.',
+  'redirect-truncation-overwrite': 'Connect via SSH to truncate or overwrite files directly.',
+  'destructive-git-history-rewrite': 'Run git push --force / filter-branch locally after creating a full backup and notifying collaborators.',
+  'database-destruction':          'Connect to the database via its CLI directly (psql/mysql/redis-cli) after taking a backup.',
+  'disk-level-write':              'Connect via SSH to run disk-level commands directly, with full knowledge of the target device.',
+  'system-power-state':            'Use your cloud provider console or a direct SSH session to issue power/halt/reboot commands.',
+  'credential-key-destruction':    'Back up key material to a secure location first, then manage credentials directly via SSH.',
+  'os-permission-destruction':     'Connect via SSH to modify permissions/accounts, with awareness of the access impact.',
+  'firewall-destruction':          'Connect via SSH to modify firewall rules, saving the current ruleset first.',
+  'audit-log-destruction':         'Manage log files directly via SSH after confirming compliance and forensic requirements.',
+  'container-nuclear':             'Run container/orchestration cleanup directly via SSH or kubectl after confirming the scope.',
+  'ai-classified':                 'Review the AI classification above and perform this operation manually via SSH with appropriate safeguards.',
+  'board-reviewed':                'Review the safety board assessment above and perform this operation manually via SSH.',
+};
+
+interface HardBlockedPattern {
+  pattern: RegExp;
+  category: string;
+}
+
+// Layer 1 static patterns — the 11 S59 categories.
+// These are deterministic and catch obvious cases with zero latency.
+const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
+  // ── Category 1: Recursive / bulk file deletion ────────────────────────────
+  { pattern: /\brm\b[^|&;\n]*(-[a-zA-Z]*r[a-zA-Z]*|-rf|-fr|--recursive)/i,  category: 'recursive-file-deletion' },
+  { pattern: /\bfind\b[^|&;\n]*(-delete|-exec\s+rm)/i,                        category: 'recursive-file-deletion' },
+  { pattern: /\b(srm|secure-delete)\b/i,                                       category: 'recursive-file-deletion' },
+  { pattern: /\brsync\b[^|&;\n]*--delete/i,                                    category: 'recursive-file-deletion' },
+
+  // ── Category 2: Redirect / truncation overwrite ───────────────────────────
+  { pattern: /\btruncate\b[^|&;\n]*-s\s*0\b/i,                               category: 'redirect-truncation-overwrite' },
+  { pattern: /\bcat\s+\/dev\/null\s*>/i,                                       category: 'redirect-truncation-overwrite' },
+
+  // ── Category 3: Destructive git history rewrite ───────────────────────────
+  { pattern: /\bgit\b[^|&;\n]*\bpush\b[^|&;\n]*(--force|-f\b|\s\+[a-zA-Z0-9\/_.-])/i, category: 'destructive-git-history-rewrite' },
+  { pattern: /\bgit\b[^|&;\n]*\bpush\b[^|&;\n]*--mirror\b/i,                 category: 'destructive-git-history-rewrite' },
+  { pattern: /\bgit\b[^|&;\n]*(filter-branch|filter-repo)\b/i,                category: 'destructive-git-history-rewrite' },
+  { pattern: /\bgit\b[^|&;\n]*\bpush\b[^|&;\n]*--delete\b/i,                 category: 'destructive-git-history-rewrite' },
+
+  // ── Category 4: Database destruction ─────────────────────────────────────
+  { pattern: /\bDROP\s+(DATABASE|TABLE|SCHEMA)\b/i,                            category: 'database-destruction' },
+  { pattern: /\bTRUNCATE\s+TABLE\b/i,                                          category: 'database-destruction' },
+  { pattern: /\bDELETE\s+FROM\s+\w[\w.]*\s*(?:;|$)/im,                       category: 'database-destruction' },
+  { pattern: /\bALTER\s+TABLE\b[^;]*\bDROP\s+COLUMN\b/i,                     category: 'database-destruction' },
+  { pattern: /\bredis-cli\b[^|&;\n]*\bFLUSH(ALL|DB)\b/i,                     category: 'database-destruction' },
+  { pattern: /\bmongod\b[^|&;\n]*--repair\b/i,                                category: 'database-destruction' },
+
+  // ── Category 5: Disk-level write operations ───────────────────────────────
+  { pattern: /\bmkfs(\.\w+)?\b/i,                                              category: 'disk-level-write' },
+  { pattern: /\b(gdisk|wipefs)\b/i,                                            category: 'disk-level-write' },
+  { pattern: /\bhdparm\b[^|&;\n]*--security-erase\b/i,                        category: 'disk-level-write' },
+  { pattern: /\bnvme\b[^|&;\n]*\bformat\b/i,                                  category: 'disk-level-write' },
+  { pattern: /\bblkdiscard\b/i,                                                category: 'disk-level-write' },
+  { pattern: /\bdd\b[^|&;\n]*\bif=\/dev\/(zero|random|urandom|null)\b/i,     category: 'disk-level-write' },
+  { pattern: /\bdd\b[^|&;\n]*\bof=\/dev\//i,                                  category: 'disk-level-write' },
+
+  // ── Category 6: System power / init ──────────────────────────────────────
+  { pattern: /\b(poweroff|halt)\b/i,                                            category: 'system-power-state' },
+  { pattern: /\btelinit\s+[06]\b/i,                                            category: 'system-power-state' },
+  { pattern: /\bsystemctl\s+(poweroff|halt|reboot)\b/i,                        category: 'system-power-state' },
+  { pattern: /\bkill\s+(-9\s+1|-KILL\s+1|--signal\s+KILL\s+1)\b/i,           category: 'system-power-state' },
+  { pattern: /\bpkill\s+(-9|--signal\s+KILL)\s+(systemd|init)\b/i,            category: 'system-power-state' },
+
+  // ── Category 7: Credential / key material destruction ────────────────────
+  { pattern: /\b(shred|srm|wipe)\b[^|&;\n]*(\.pem|\.key|\.p12|\.pfx|\.cert|\.crt|id_rsa|id_ed25519|authorized_keys|\/etc\/ssl|\/etc\/shadow|\/etc\/passwd)\b/i, category: 'credential-key-destruction' },
+  { pattern: /\brm\b[^|&;\n]*(\.ssh\/|\.aws\/|\.gcloud\/|\.azure\/|\.pem|\.key|\.p12|\.pfx|id_rsa|id_ed25519)\b/i, category: 'credential-key-destruction' },
+  { pattern: />\s*(~\/\.ssh\/|\/etc\/ssl\/|\/root\/\.ssh\/)/i,                category: 'credential-key-destruction' },
+
+  // ── Category 8: OS permission / user destruction ──────────────────────────
+  { pattern: /\bchmod\b[^|&;\n]*-R\s+0{3}\b/i,                               category: 'os-permission-destruction' },
+  { pattern: /\bchmod\b[^|&;\n]*-R\s+777\s+(\/|~\/|\/etc|\/home|\/var|\/usr|\/sys)\b/i, category: 'os-permission-destruction' },
+  { pattern: /\bchown\b[^|&;\n]*-R\b[^|&;\n]*(\/\s|\/etc\/|\/home\/|~\/|\/root\/)/i, category: 'os-permission-destruction' },
+  { pattern: /\busermod\b[^|&;\n]*-L\b/i,                                     category: 'os-permission-destruction' },
+  { pattern: /\bvisudo\b|\/etc\/sudoers\b(?!\.d)/i,                            category: 'os-permission-destruction' },
+
+  // ── Category 9: Firewall / network security destruction ───────────────────
+  { pattern: /\biptables\b[^|&;\n]*(-F\b|-X\b|--flush\b)/i,                  category: 'firewall-destruction' },
+  { pattern: /\bufw\b[^|&;\n]*(disable|reset)\b/i,                            category: 'firewall-destruction' },
+  { pattern: /\bfirewall-cmd\b[^|&;\n]*--panic-off\b/i,                       category: 'firewall-destruction' },
+  { pattern: /\bnft\b[^|&;\n]*\bflush\s+ruleset\b/i,                         category: 'firewall-destruction' },
+  { pattern: /\bsetenforce\s+0\b/i,                                            category: 'firewall-destruction' },
+  { pattern: /\baa-teardown\b/i,                                               category: 'firewall-destruction' },
+
+  // ── Category 10: Audit log / evidence destruction ─────────────────────────
+  { pattern: /\b(rm|truncate|shred)\b[^|&;\n]*\/var\/log\//i,                 category: 'audit-log-destruction' },
+  { pattern: /\bhistory\b[^|&;\n]*-c\b/i,                                     category: 'audit-log-destruction' },
+  { pattern: /\bunset\s+HISTFILE\b/i,                                          category: 'audit-log-destruction' },
+  { pattern: /\bcat\s+\/dev\/null\s*>\s*~?\/\.bash_history\b/i,               category: 'audit-log-destruction' },
+  { pattern: /\bjournalctl\b[^|&;\n]*--vacuum-size=0\b/i,                     category: 'audit-log-destruction' },
+  { pattern: /\bsystemctl\b[^|&;\n]*(stop|disable)\b[^|&;\n]*\bauditd\b/i,   category: 'audit-log-destruction' },
+
+  // ── Category 11: Container / orchestration nuclear ────────────────────────
+  { pattern: /\bdocker\b[^|&;\n]*\bsystem\b[^|&;\n]*\bprune\b[^|&;\n]*-[a-zA-Z]*[af]/i, category: 'container-nuclear' },
+  { pattern: /\bkubectl\b[^|&;\n]*\bdelete\b[^|&;\n]*(namespace\s+--all|--all\s+-A|--all-namespaces)/i, category: 'container-nuclear' },
+  { pattern: /\bhelm\b[^|&;\n]*\buninstall\b[^|&;\n]*--all\b/i,              category: 'container-nuclear' },
+  { pattern: /\bk3s-uninstall\.sh\b/i,                                         category: 'container-nuclear' },
+];
+
+function checkHardBlocked(cmd: string): HardBlockedPattern | null {
+  // Non-ASCII and per-line checks mirror checkBlocked() defensive logic.
+  const lines = cmd.split(/\r?\n/).filter(l => l.trim().length > 0);
+  for (const line of lines) {
+    for (const entry of HARD_BLOCKED_PATTERNS) {
+      if (entry.pattern.test(line)) return entry;
+    }
+  }
+  for (const entry of HARD_BLOCKED_PATTERNS) {
+    if (entry.pattern.test(cmd)) return entry;
+  }
+  return null;
+}
+
+function formatBlockedTierError(
+  category: string,
+  detectedBy: string,
+  aiDetail?: string
+): string {
+  const manualSteps = BLOCKED_MANUAL_STEPS[category] ?? BLOCKED_MANUAL_STEPS['ai-classified'];
+  return [
+    `BLOCKED: This action cannot be executed through the Plugin.`,
+    `Category: ${category}`,
+    `Reason: Automation of this operation is disabled to prevent unrecoverable harm to your environment.`,
+    `Detected by: ${detectedBy}`,
+    ...(aiDetail ? [`Detail: ${aiDetail}`] : []),
+    `To proceed manually: ${manualSteps}`,
+  ].join('\n');
+}
+
+// Layer 2 — AI pre-classification. Async. Returns null if PASS, error string if BLOCKED.
+async function blockedTierLayer2(cmd: string, context: string): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.warn('[BLOCKED-TIER] ANTHROPIC_API_KEY not set — Layer 2 AI classification skipped.');
+    return null;
+  }
+  try {
+    // Dynamic import to avoid hard import-time failure if SDK not installed
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey });
+    const prompt =
+      `You are a pre-execution safety classifier for a system automation plugin.\n` +
+      `Your job is to determine whether the following command falls into any BLOCKED category before it is executed.\n\n` +
+      `Command: ${cmd}\n` +
+      `Context (what the user asked for): ${context}\n\n` +
+      `BLOCKED categories — respond BLOCKED if the command matches ANY of these:\n` +
+      `1. Recursive or bulk file deletion (including creative variants like redirect truncation, rsync --delete from empty)\n` +
+      `2. Destructive git history rewrite (including + prefix syntax, --mirror, filter-branch)\n` +
+      `3. Database destruction (including operations without WHERE clauses, NoSQL flush commands)\n` +
+      `4. Disk-level write operations (format, partition, dd with destructive sources)\n` +
+      `5. System power-state changes (including kill -9 1 and equivalent)\n` +
+      `6. Credential or key material destruction (any write, delete, or overwrite of key files or credential directories)\n` +
+      `7. OS permission or user account destruction (chmod -R 000, userdel, sudoers edits)\n` +
+      `8. Firewall or network security rule destruction\n` +
+      `9. Audit log or shell history destruction (evidence tampering)\n` +
+      `10. Container or orchestration nuclear operations (prune all, delete all namespaces)\n\n` +
+      `Also flag if this command appears to be a component of a multi-step destructive sequence, even if individually it seems benign.\n\n` +
+      `Respond with exactly one of:\n` +
+      `- PASS\n` +
+      `- BLOCKED: <category number and name> — <one sentence explaining why>`;
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 120,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = ((message.content[0] as { type: string; text: string }).text ?? '').trim();
+    if (text.toUpperCase().startsWith('BLOCKED')) {
+      return text;
+    }
+    return null;
+  } catch (err) {
+    console.error('[BLOCKED-TIER] Layer 2 failed:', (err as Error).message);
+    return null; // fail-open — don't block on API error
+  }
+}
+
+// Layer 3 — Multi-persona adversarial board. Async. Returns null (PASS), warning string
+// (PROCEED WITH CAUTION), or error string (BLOCKED).
+async function blockedTierLayer3(cmd: string, context: string): Promise<{ blocked: string | null; warning: string | null }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.warn('[BLOCKED-TIER] ANTHROPIC_API_KEY not set — Layer 3 board review skipped.');
+    return { blocked: null, warning: null };
+  }
+  try {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey });
+    const prompt =
+      `You are a multi-perspective pre-execution safety board reviewing a command before it runs on a production system.\n` +
+      `Review the command from each of the following perspectives and flag any concerns.\n\n` +
+      `Command: ${cmd}\n` +
+      `User intent: ${context}\n\n` +
+      `Review perspectives:\n` +
+      `1. DEVELOPER: What could go wrong if this runs on a production system right now? Are there unintended side effects?\n` +
+      `2. CISO: Does this command expose credentials, weaken access controls, create backdoors, disable security tooling, or leave the system in a less secure state?\n` +
+      `3. PENETRATION TESTER: Could this command be a component of a multi-step attack? Is it establishing persistence, exfiltrating data, or weakening defenses?\n` +
+      `4. DATABASE ADMINISTRATOR: Does this modify data in ways that cannot be rolled back without a backup? Are there missing WHERE clauses or scope limits?\n` +
+      `5. SRE / OPS: Does this affect system availability, service uptime, or the ability to recover from failure? Could this cause an outage?\n` +
+      `6. FORENSICS INVESTIGATOR: Does this destroy evidence, audit trails, or log data? Would this impede an investigation if something goes wrong afterward?\n\n` +
+      `For each perspective that identifies a concern, state: CONCERN: <perspective> — <specific risk>\n` +
+      `If a perspective finds no concern, state: CLEAR: <perspective>\n\n` +
+      `Final verdict (last line of your response, exactly):\n` +
+      `- If ANY perspective raises a CONCERN of severity HIGH or CRITICAL: BLOCKED: <summary of highest-severity concern>\n` +
+      `- If concerns are LOW or INFORMATIONAL only: PROCEED WITH CAUTION: <summary>\n` +
+      `- If all clear: PASS`;
+
+    const message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text = ((message.content[0] as { type: string; text: string }).text ?? '').trim();
+    const lastLine = text.split('\n').reverse().find(l => l.trim().length > 0) ?? '';
+    if (lastLine.toUpperCase().startsWith('BLOCKED')) {
+      return { blocked: lastLine, warning: null };
+    }
+    if (lastLine.toUpperCase().startsWith('PROCEED WITH CAUTION')) {
+      return { blocked: null, warning: `\u26a0\ufe0f  SAFETY BOARD WARNING (Layer 3)\n${lastLine}` };
+    }
+    return { blocked: null, warning: null };
+  } catch (err) {
+    console.error('[BLOCKED-TIER] Layer 3 failed:', (err as Error).message);
+    return { blocked: null, warning: null }; // fail-open
+  }
+}
+
+// ── Entry point: run all three layers for a given command. ────────────────────
+// Returns: blocked error string | null (pass), and optional warning string.
+// auditLayer: callback to log each layer verdict to the audit trail.
+async function runBlockedTierPipeline(
+  cmd: string,
+  context: string,
+  isElevatedRisk: boolean,
+  auditLayer: (layer: string, verdict: string, detail: string) => void
+): Promise<{ blocked: string | null; warning: string | null }> {
+
+  // Layer 1 — synchronous static patterns
+  const l1 = checkHardBlocked(cmd);
+  if (l1) {
+    auditLayer('layer-1', 'BLOCKED', `category: ${l1.category}`);
+    return {
+      blocked: formatBlockedTierError(l1.category, 'Layer 1 — pattern match'),
+      warning: null,
+    };
+  }
+  auditLayer('layer-1', 'PASS', 'no static pattern matched');
+
+  // Layer 2 — AI pre-classification (always)
+  // Layer 3 — multi-persona board (only for elevated-risk commands)
+  // Run in parallel when both are needed.
+  if (isElevatedRisk) {
+    const [l2Result, l3Result] = await Promise.all([
+      blockedTierLayer2(cmd, context),
+      blockedTierLayer3(cmd, context),
+    ]);
+
+    if (l2Result) {
+      auditLayer('layer-2', 'BLOCKED', l2Result);
+      return {
+        blocked: formatBlockedTierError('ai-classified', 'Layer 2 — AI classification', l2Result),
+        warning: null,
+      };
+    }
+    auditLayer('layer-2', 'PASS', 'AI pre-classification passed');
+
+    if (l3Result.blocked) {
+      auditLayer('layer-3', 'BLOCKED', l3Result.blocked);
+      return {
+        blocked: formatBlockedTierError('board-reviewed', 'Layer 3 — multi-perspective safety board', l3Result.blocked),
+        warning: null,
+      };
+    }
+    if (l3Result.warning) {
+      auditLayer('layer-3', 'PROCEED WITH CAUTION', l3Result.warning);
+      return { blocked: null, warning: l3Result.warning };
+    }
+    auditLayer('layer-3', 'PASS', 'safety board passed');
+  } else {
+    // Non-elevated risk: only Layer 2
+    const l2Result = await blockedTierLayer2(cmd, context);
+    if (l2Result) {
+      auditLayer('layer-2', 'BLOCKED', l2Result);
+      return {
+        blocked: formatBlockedTierError('ai-classified', 'Layer 2 — AI classification', l2Result),
+        warning: null,
+      };
+    }
+    auditLayer('layer-2', 'PASS', 'AI pre-classification passed');
+  }
+
+  return { blocked: null, warning: null };
+}
+
 // ─── AMBER Tier: Warning-Required Commands ──────────────────────────────────────
 
 interface AmberWarning {
@@ -1721,6 +2028,22 @@ export async function executeTool(
       const _rcSz = checkSize(cmd, 'command');
       if (_rcSz) return { result: _rcSz, tier: "green", blocked: false, dryRun: isDryRun };
 
+      // ── BLOCKED Tier (ToS §8): Three-layer pipeline runs before RED ───────
+      // Layer 3 triggers for AMBER-tier commands (elevated risk).
+      const isElevatedRisk = checkAmber(cmd) !== null;
+      const { blocked: hardBlocked, warning: boardWarning } = await runBlockedTierPipeline(
+        cmd,
+        (args.justification as string | undefined) ?? '(no context provided)',
+        isElevatedRisk,
+        (layer, verdict, detail) => {
+          // Audit each layer verdict — logged regardless of outcome per spec
+          console.log(`[audit] run_command [blocked-tier] layer=${layer} verdict=${verdict} detail=${detail}`);
+        }
+      );
+      if (hardBlocked) {
+        return { result: hardBlocked, tier: 'red', blocked: true, dryRun: isDryRun };
+      }
+
       // RED check
       const blockResult = checkBlocked(cmd);
       if (blockResult.blocked) {
@@ -1784,8 +2107,9 @@ export async function executeTool(
         // dry_run=false — execute but always surface the warning so it is never silently skipped
         // F-25: scrub token shapes from command output
         const amberOutput = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
+        const amberPrefix = boardWarning ? `${boardWarning}\n\n` : '';
         return {
-          result: `⚠️ AMBER command executed (acknowledged risk: ${amberResult.risk})\n\n${amberOutput}`,
+          result: `${amberPrefix}⚠️ AMBER command executed (acknowledged risk: ${amberResult.risk})\n\n${amberOutput}`,
           tier: "amber",
           blocked: false,
           dryRun: false,
@@ -1803,7 +2127,8 @@ export async function executeTool(
       }
 
       // GREEN execution — F-25: scrub token shapes from command output
-      const result = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
+      const rawResult = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
+      const result = boardWarning ? `${boardWarning}\n\n--- Command output ---\n${rawResult}` : rawResult;
       return {
         result,
         tier: "green",

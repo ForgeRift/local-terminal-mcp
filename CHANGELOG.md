@@ -6,6 +6,26 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## [1.9.0] — 2026-04-21
+
+### Added
+
+- **BLOCKED Tier — Three-Layer Classification Pipeline (ToS §8)** — New hard-block tier above RED implementing the contractual requirement from §8. All commands pass through three sequential gates before RED/AMBER/GREEN execution:
+  - **Layer 1 — Static Pattern Match** (synchronous, zero latency): Deterministic regex matching across 11 BLOCKED categories: recursive file deletion, redirect/truncation overwrite, destructive git history rewrite, database destruction, disk-level write operations, system power/init, credential/key material destruction, OS permission/user destruction, firewall/network security destruction, audit log/evidence destruction, and container/orchestration nuclear operations.
+  - **Layer 2 — AI Pre-Classification** (async, ~500ms): Claude API call for intent-based classification that catches creative variants, chained commands, and obfuscated patterns missed by static matching. Degrades gracefully if `ANTHROPIC_API_KEY` is unset.
+  - **Layer 3 — Multi-Persona Adversarial Board** (async, parallel with Layer 2 for elevated-risk commands): Six expert perspectives (Developer, CISO, Penetration Tester, DBA, SRE, Forensics Investigator) reviewing each command. `BLOCKED` verdicts hard-block; `PROCEED WITH CAUTION` prepends a warning to the tool response.
+
+- **Structured BLOCKED Error Format** — Blocked commands return a structured error surfaced directly to the Claude conversation, including: category name, reason, detecting layer, and per-category manual steps so the user is never left without a path forward.
+
+- **`ANTHROPIC_API_KEY` environment variable** — Required for Layer 2 and Layer 3 AI classification. Both layers fail-open (log warning, proceed to next gate) if the key is not configured, preserving backward compatibility.
+
+### Changed
+
+- Version bumped from 1.8.3 → 1.9.0.
+- `@anthropic-ai/sdk` added as a dependency.
+
+---
+
 ## [1.8.3] — 2026-04-19
 
 ### Token frugality patch — Policy §5.B alignment (S58)
