@@ -2,6 +2,16 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.9.3] — 2026-04-22
+
+### Security (S61 Phase 2 — architectural hardening)
+- C11/D4: Hardened Layer 2 + Layer 3 prompts against injection — command wrapped in nonce-tagged `<cmd nonce="…">` delimiter; anti-injection clause added to both user and system prompts; classifiers now require nonce echo on PASS verdicts; default-BLOCKED on any unexpected response format; post-classifier Layer 1 re-check after every L2 PASS so a forged PASS cannot bypass static patterns (`tools.ts`)
+- C12/D6: Fail-closed on Layer 2 + Layer 3 errors — missing `ANTHROPIC_API_KEY` or any API exception now returns BLOCKED instead of silently passing; opt-out via `LAYER_STRICT_MODE=false` env var; all skip/error events logged at WARN/ERROR severity (`tools.ts`)
+- C13/D1: Removed `isElevatedRisk` branch — Layer 2 and Layer 3 now always run in parallel on every blocked-tier command regardless of caller-assigned risk level (`tools.ts`)
+- D7: Startup-time audit log path validation — `MCP_LOG_DIR` values of `/dev/null`, `NUL`, `/dev/zero`, `/dev/stdout`, `/dev/stderr`, and any `/tmp/*` path are rejected with a hard error at boot (`audit.ts`)
+
+---
+
 ## [1.9.2] — 2026-04-22
 
 ### Security (S60 Phase 1)

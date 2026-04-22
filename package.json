@@ -1,6 +1,6 @@
 {
   "name": "local-terminal-mcp",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "Local terminal MCP server - gives Claude controlled access to your Windows shell",
   "type": "module",
   "main": "dist/index.js",
