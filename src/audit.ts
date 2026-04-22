@@ -1,7 +1,21 @@
 import { appendFileSync, mkdirSync, existsSync, statSync, unlinkSync, renameSync } from "fs";
-import { join } from "path";
+import { join, normalize } from "path";
 
-const LOG_DIR  = process.env.MCP_LOG_DIR ?? join(process.cwd(), "logs");
+// D7: Validate MCP_LOG_DIR at startup — reject paths that would silently
+// disable or compromise the audit trail.
+function validateLogDir(p: string): string {
+  const n = normalize(p).toLowerCase();
+  const FORBIDDEN = ['/dev/null', '/dev/zero', '/dev/random', 'nul', 'con', '/dev/stdout', '/dev/stderr'];
+  if (FORBIDDEN.includes(n)) {
+    throw new Error(`MCP_LOG_DIR "${p}" is a forbidden sink — audit logging would be silently disabled.`);
+  }
+  if (n.startsWith('/tmp/') || n.startsWith('/var/tmp/') || n === '/tmp' || n === '/var/tmp') {
+    throw new Error(`MCP_LOG_DIR "${p}" is in a world-writable temp directory — use a hardened log path.`);
+  }
+  return p;
+}
+
+const LOG_DIR  = validateLogDir(process.env.MCP_LOG_DIR ?? join(process.cwd(), "logs"));
 const LOG_FILE = join(LOG_DIR, "audit.log");
 
 // Maximum audit log size before rotation (10 MB default, configurable via AUDIT_MAX_SIZE_MB)
