@@ -109,4 +109,4 @@ The following actions are considered ToS violations and may result in account te
 
 ## Contact & Reporting
 
-Report security vulnerabilities to security@forgerift.io. Please allow 90 days for a fix before public disclosure.
+Report security vulnerabilities to security@sharpedge.io. Please allow 90 days for a fix before public disclosure.
