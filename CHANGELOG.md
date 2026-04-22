@@ -2,6 +2,15 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.9.6] — 2026-04-22
+
+### Security — H18: Per-binary bypass allowlist
+
+- **H18** — `BYPASS_BINARIES` env var allows admins to demote specific binary+category pairs from hard-block (Layer 1) to AI-reviewed (L2/L3 pipeline); disabled by default; every bypass is logged with `[SECURITY-BYPASS]` prefix; Windows-aware (supports `git`, `winget`, `choco`, etc.)
+- **Legal** — Added Disclaimer of Warranties and Limitation of Liability section to SECURITY.md; explicit acknowledgement requirements for `BYPASS_BINARIES` users
+
+---
+
 ## [1.9.5] — 2026-04-22
 
 ### Security — D10, M7, H17, H20, M8
