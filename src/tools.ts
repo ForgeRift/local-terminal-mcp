@@ -601,9 +601,13 @@ const BLOCKED_MANUAL_STEPS: Record<string, string> = {
 };
 
 interface HardBlockedPattern {
-  pattern: RegExp;
-  category: string;
-  reason?: string;
+  pattern?:  RegExp;
+  // D2: argv-aware matcher — receives the raw command string and the
+  // tokenized argv array. Use instead of `pattern` when the check
+  // requires inspecting specific argument positions or flag combinations.
+  matcher?:  (cmd: string, argv: string[]) => boolean;
+  category:  string;
+  reason?:   string;
 }
 
 // Layer 1 static patterns — the 11 S59 categories.
@@ -747,16 +751,68 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
   { pattern: /\[system\.convert\]::frombase64string/i,         category: 'base64-exec', reason: '[System.Convert]::FromBase64String is prohibited.' },
 ];
 
-function checkHardBlocked(cmd: string): HardBlockedPattern | null {
-  // Non-ASCII and per-line checks mirror checkBlocked() defensive logic.
-  const lines = cmd.split(/\r?\n/).filter(l => l.trim().length > 0);
-  for (const line of lines) {
-    for (const entry of HARD_BLOCKED_PATTERNS) {
-      if (entry.pattern.test(line)) return entry;
+// D2: Windows CommandLineToArgvW-style tokenizer. Handles double-quoted
+// strings (including backslash-count escaping before quotes), and the
+// CMD.exe caret (^) escape. Used by checkHardBlocked to enable argv-aware
+// pattern matchers for Phase 3 hardening items.
+function tokenizeCommand(cmd: string): string[] {
+  const tokens: string[] = [];
+  let cur = '';
+  let i = 0;
+  let inDQ = false;
+
+  while (i < cmd.length) {
+    const ch = cmd[i];
+
+    if (inDQ) {
+      if (ch === '"') {
+        // "" inside double-quotes = literal "
+        if (i + 1 < cmd.length && cmd[i + 1] === '"') { cur += '"'; i += 2; continue; }
+        inDQ = false;
+      } else if (ch === '\\') {
+        // Count consecutive backslashes before a closing "
+        let bs = 0;
+        while (i < cmd.length && cmd[i] === '\\') { bs++; i++; }
+        if (i < cmd.length && cmd[i] === '"') {
+          // N backslashes before ": floor(N/2) literal backslashes
+          cur += '\\'.repeat(Math.floor(bs / 2));
+          if (bs % 2 === 1) { cur += '"'; i++; } // odd N -> literal "
+          continue;
+        } else {
+          cur += '\\'.repeat(bs); continue;
+        }
+      } else { cur += ch; }
+    } else if (ch === '"') {
+      inDQ = true;
+    } else if (ch === '^' && i + 1 < cmd.length) {
+      // CMD.exe caret: escape next char
+      cur += cmd[i + 1]; i += 2; continue;
+    } else if (/[\s|&;]/.test(ch)) {
+      if (cur.length > 0) { tokens.push(cur); cur = ''; }
+    } else {
+      cur += ch;
     }
+    i++;
   }
+
+  if (cur.length > 0) tokens.push(cur);
+  return tokens;
+}
+
+function checkHardBlocked(cmd: string): HardBlockedPattern | null {
+  const argv = tokenizeCommand(cmd);
+  const lines = cmd.split(/\r?\n/).filter(l => l.trim().length > 0);
   for (const entry of HARD_BLOCKED_PATTERNS) {
-    if (entry.pattern.test(cmd)) return entry;
+    if (entry.matcher) {
+      // Argv-aware check: receives raw string + tokenized argv
+      if (entry.matcher(cmd, argv)) return entry;
+    } else if (entry.pattern) {
+      // Legacy regex: test per-line (multi-line commands) then full string
+      for (const line of lines) {
+        if (entry.pattern.test(line)) return entry;
+      }
+      if (entry.pattern.test(cmd)) return entry;
+    }
   }
   return null;
 }
