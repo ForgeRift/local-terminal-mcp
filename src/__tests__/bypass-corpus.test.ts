@@ -265,3 +265,129 @@ describe('M7: redirect path traversal', () => {
   it('blocks >> /etc/crontab', () => assertBlocked('echo "* * * * * curl|bash" >> /etc/crontab'));
   it('blocks > /root/.bashrc', () => assertBlocked('echo "curl|bash" > /root/.bashrc'));
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// S61 Eighth-Pass Regression Tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── F-OP-49: PowerShell cmdlet destination-path protection ────────────────
+describe('F-OP-49: PowerShell Copy-Item / Move-Item / Out-File etc.', () => {
+  it('blocks Copy-Item file.dll C:\\Windows\\System32\\evil.dll', () =>
+    assertBlocked('Copy-Item file.dll C:\\Windows\\System32\\evil.dll'));
+  it('blocks Copy-Item -Path src -Destination C:\\Windows\\System32\\evil', () =>
+    assertBlocked('Copy-Item -Path src -Destination C:\\Windows\\System32\\evil'));
+  it('blocks Move-Item -Path X -Destination C:\\Windows\\', () =>
+    assertBlocked('Move-Item -Path X -Destination C:\\Windows\\'));
+  it('blocks New-Item -Path C:\\Windows\\System32\\evil.dll -ItemType File', () =>
+    assertBlocked('New-Item -Path C:\\Windows\\System32\\evil.dll -ItemType File'));
+  it('blocks Out-File C:\\Windows\\System32\\evil.txt', () =>
+    assertBlocked('Out-File C:\\Windows\\System32\\evil.txt'));
+  it('blocks Set-Content C:\\Windows\\System32\\evil.dll some_content', () =>
+    assertBlocked('Set-Content C:\\Windows\\System32\\evil.dll some_content'));
+  it('blocks Add-Content C:\\Windows\\System32\\hosts extra', () =>
+    assertBlocked('Add-Content C:\\Windows\\System32\\hosts extra'));
+  it('blocks cpi via alias', () =>
+    assertBlocked('cpi evil.dll C:\\Windows\\System32\\evil.dll'));
+  it('blocks mi via alias', () =>
+    assertBlocked('mi evil.dll C:\\Windows\\System32\\evil.dll'));
+});
+
+// ── F-OP-51: Absolute-path binary invocation ──────────────────────────────
+describe('F-OP-51: absolute-path binary invocation (LT)', () => {
+  it('blocks /bin/cp file /etc/foo', () => assertBlocked('/bin/cp file /etc/foo'));
+  it('blocks /usr/bin/install file /usr/bin/evil', () => assertBlocked('/usr/bin/install file /usr/bin/evil'));
+  it('blocks C:\\Windows\\System32\\copy.exe evil C:\\Windows\\System32\\evil', () =>
+    assertBlocked('C:\\Windows\\System32\\copy.exe evil C:\\Windows\\System32\\evil'));
+});
+
+// ── F-OP-52: Path-traversal in destination ────────────────────────────────
+describe('F-OP-52: path-traversal destination canonicalization (LT)', () => {
+  it('blocks copy file /var/../etc/passwd', () => assertBlocked('copy file /var/../etc/passwd'));
+  it('blocks cp file /tmp/../etc/passwd', () => assertBlocked('cp file /tmp/../etc/passwd'));
+  it('blocks Copy-Item src C:\\Windows\\..\\Windows\\System32\\evil', () =>
+    assertBlocked('Copy-Item src C:\\Windows\\..\\Windows\\System32\\evil'));
+});
+
+// ── F-OP-54: Windows env-var expansion in destination ────────────────────
+describe('F-OP-54: Windows env-var expansion (fail-closed)', () => {
+  it('blocks copy file %SystemRoot%\\System32\\evil', () =>
+    assertBlocked('copy file %SystemRoot%\\System32\\evil'));
+  it('blocks copy file %WINDIR%\\System32\\evil', () =>
+    assertBlocked('copy file %WINDIR%\\System32\\evil'));
+  it('blocks Copy-Item src %SystemRoot%\\System32\\evil', () =>
+    assertBlocked('Copy-Item src %SystemRoot%\\System32\\evil'));
+});
+
+// ── F-OP-55: Single-quote tokenizer bypass ────────────────────────────────
+describe("F-OP-55: single-quoted cmdlet name bypass", () => {
+  it("blocks 'copy' file C:\\Windows\\System32\\evil.dll", () =>
+    assertBlocked("'copy' file C:\\Windows\\System32\\evil.dll"));
+  it('blocks "copy" file C:\\Windows\\System32\\evil.dll', () =>
+    assertBlocked('"copy" file C:\\Windows\\System32\\evil.dll'));
+  it("blocks 'Copy-Item' src C:\\Windows\\System32\\evil.dll", () =>
+    assertBlocked("'Copy-Item' src C:\\Windows\\System32\\evil.dll"));
+});
+
+// ── F-OP-56: Redirect traversal with ./ prefix(es) ────────────────────────
+describe('F-OP-56: redirect path traversal with ./ obfuscation (LT)', () => {
+  it('blocks echo x > ./../etc/passwd', () => assertBlocked('echo x > ./../etc/passwd'));
+  it('blocks echo x > .//./../etc/passwd', () => assertBlocked('echo x > .//./../etc/passwd'));
+  it('blocks echo x >> ./../etc/cron.d/evil', () => assertBlocked('echo x >> ./../etc/cron.d/evil'));
+  it('blocks echo x > /tmp/../etc/passwd', () => assertBlocked('echo x > /tmp/../etc/passwd'));
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// S62 Ninth-Pass Regression Tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── F-OP-62: -LiteralPath gated on isPathCmd (Copy-Item source bypass) ────
+describe('F-OP-62: -LiteralPath gated on isPathCmd (LT)', () => {
+  it('blocks Copy-Item -LiteralPath benign -Destination C:\\Windows\\System32\\evil.dll', () =>
+    assertBlocked('Copy-Item -LiteralPath C:\\tmp\\src.txt -Destination C:\\Windows\\System32\\evil.dll'));
+  it('blocks Move-Item -LiteralPath benign -Destination C:\\Windows\\System32\\evil.dll', () =>
+    assertBlocked('Move-Item -LiteralPath C:\\tmp\\src.txt -Destination C:\\Windows\\System32\\evil.dll'));
+  it('blocks cpi -LiteralPath benign -Destination C:\\Windows\\evil', () =>
+    assertBlocked('cpi -LiteralPath C:\\tmp\\ok.txt -Destination C:\\Windows\\evil.dll'));
+  it('allows Copy-Item benign -Destination C:\\Users\\user\\file.txt (not sensitive)', () =>
+    assertNotBlocked('Copy-Item src.txt -Destination C:\\Users\\user\\file.txt'));
+});
+
+// ── F-OP-63: Forward-slash Windows paths bypass normalizePath separator ────
+describe('F-OP-63: forward-slash Windows path in Copy-Item (LT)', () => {
+  it('blocks Copy-Item src.txt /Windows/System32/evil.dll', () =>
+    assertBlocked('Copy-Item src.txt /Windows/System32/evil.dll'));
+  it('blocks copy src.txt /Windows/System32/evil.dll', () =>
+    assertBlocked('copy src.txt /Windows/System32/evil.dll'));
+  it('blocks Copy-Item src.txt C:/Windows\\System32/evil.dll (mixed seps)', () =>
+    assertBlocked('Copy-Item src.txt C:/Windows\\System32/evil.dll'));
+  it('allows Copy-Item src.txt /Users/user/file.txt (not sensitive)', () =>
+    assertNotBlocked('Copy-Item src.txt C:\\Users\\user\\file.txt'));
+});
+
+// ── F-OP-64: PowerShell parameter abbreviation bypass ─────────────────────
+describe('F-OP-64: PowerShell parameter abbreviation (LT)', () => {
+  it('blocks Copy-Item -De C:\\Windows\\System32\\evil.dll src.txt', () =>
+    assertBlocked('Copy-Item -De C:\\Windows\\System32\\evil.dll src.txt'));
+  it('blocks Copy-Item -Des C:\\Windows\\System32\\evil.dll src.txt', () =>
+    assertBlocked('Copy-Item -Des C:\\Windows\\System32\\evil.dll src.txt'));
+  it('blocks Move-Item -D C:\\Windows\\System32\\evil.dll src.txt', () =>
+    assertBlocked('Move-Item -D C:\\Windows\\System32\\evil.dll src.txt'));
+  it('allows Copy-Item -De C:\\Users\\user\\file.txt src.txt (not sensitive)', () =>
+    assertNotBlocked('Copy-Item src.txt C:\\Users\\user\\file.txt'));
+});
+
+// ── F-OP-65: N/A — VPS only; see VPS review ──────────────────────────────
+
+// ── F-OP-66: M7-extended no-.. redirect bypass (LT) ──────────────────────
+describe('F-OP-66: M7-extended no-.. redirect to sensitive path (LT)', () => {
+  it('blocks echo x > ./Windows/System32/drivers/etc/hosts', () =>
+    assertBlocked('echo x > ./Windows/System32/drivers/etc/hosts'));
+  it('blocks echo x >> .\\Windows\\System32\\evil.dll', () =>
+    assertBlocked('echo x >> .\\Windows\\System32\\evil.dll'));
+  it('blocks echo x > ./system32/evil.dll', () =>
+    assertBlocked('echo x > ./system32/evil.dll'));
+  it('allows echo x > ./out.txt (benign relative)', () =>
+    assertNotBlocked('echo x > ./out.txt'));
+  it('allows echo x > .\\build\\report.log (benign relative)', () =>
+    assertNotBlocked('echo x > .\\build\\report.log'));
+});

@@ -829,17 +829,67 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
   { pattern: /\bgit\b[^|&;\n]*(filter-branch|filter-repo)\b/i,           category: 'git-history-rewrite' },
 
   // D10: Destination-path write protection (Windows + cross-platform)
-  // Blocks copy/move/xcopy/robocopy writing to OS-critical paths,
-  // tee writing to sensitive files, and dd of=<sensitive> writes.
+  // F-OP-49/51/52/54 hardened — S61
   { matcher: (_cmd: string, argv: string[]) => {
-      const DEST_CMDS = new Set(['copy', 'move', 'xcopy', 'robocopy', 'cp', 'mv', 'install']);
+      // F-OP-49: Added PowerShell cmdlets and non-colliding aliases
+      const DEST_CMDS = new Set([
+        'copy', 'move', 'xcopy', 'robocopy', 'cp', 'mv', 'install',
+        'copy-item', 'cpi', 'move-item', 'mi', 'new-item', 'ni',
+        'out-file', 'set-content', 'add-content',
+      ]);
       const SENSITIVE_WIN = /^[A-Za-z]?:?\\(windows|system32|syswow64|program files|programdata)/i;
       const SENSITIVE_NIX = /^\/(etc|root|usr\/bin|usr\/sbin|bin|sbin|lib|lib64|boot)\//;
-      const isSensitive = (p: string) => SENSITIVE_WIN.test(p) || SENSITIVE_NIX.test(p);
-      const cmdIdx = argv.findIndex(a => DEST_CMDS.has(a.toLowerCase()));
+      // F-OP-52: canonicalize path segments (handles ../ and ./ sequences)
+      const normalizePath = (p: string): string => {
+        const sep = '\\'; // F-OP-63: always normalize to backslash so SENSITIVE_WIN matches /Windows/... forward-slash form
+        const parts = p.split(/[/\\]+/).filter(s => s !== '');
+        const out: string[] = [];
+        for (const s of parts) {
+          if (s === '..') { if (out.length > 0) out.pop(); }
+          else if (s !== '.') out.push(s);
+        }
+        // Preserve leading separator for UNC/absolute paths (not drive letters — they need no prefix)
+        const leading = /^[/\\]/.test(p) ? sep : '';
+        return leading + out.join(sep);
+      };
+      // F-OP-54: Windows env-var expansion fail-closed; F-OP-52: normalize before test
+      const isSensitive = (p: string): boolean => {
+        if (p.includes('%')) return true; // F-OP-54: %SystemRoot% etc — fail closed
+        const n = normalizePath(p);
+        // Append trailing sep so bare directories like C:\Windows match the regex
+        const nSlash = (n.endsWith('/') || n.endsWith('\\')) ? n : n + '\\';
+        return SENSITIVE_WIN.test(nSlash) || SENSITIVE_NIX.test(nSlash);
+      };
+      // F-OP-51: strip absolute path prefix and .exe suffix before DEST_CMDS lookup
+      const normCmd = (a: string): string => basename(a).toLowerCase().replace(/\.exe$/i, '');
+      const cmdIdx = argv.findIndex(a => DEST_CMDS.has(normCmd(a)));
       if (cmdIdx >= 0) {
-        const positional = argv.slice(cmdIdx + 1).filter(a => !a.startsWith('-') && (!/^\//.test(a) || /^\/.*[\/\\]/.test(a)));
-        const dest = positional[positional.length - 1];
+        const cmdName = normCmd(argv[cmdIdx]);
+        const rest = argv.slice(cmdIdx + 1);
+        // F-OP-49: PowerShell cmdlets use named parameters for destination
+        const isPS = /^(copy-item|cpi|move-item|mi|new-item|ni|out-file|set-content|add-content)$/.test(cmdName);
+        let dest: string | undefined;
+        if (isPS) {
+          const isCopyMove = /^(copy-item|cpi|move-item|mi)$/.test(cmdName);
+          const isPathCmd  = /^(new-item|ni|out-file|set-content|add-content)$/.test(cmdName);
+          for (let j = 0; j < rest.length - 1; j++) {
+            const f = rest[j];
+            // F-OP-64: accept every unambiguous PS param prefix (-De, -Des, -Dest, ..., -Destination)
+            if (isCopyMove && /^-d(?:e(?:s(?:t(?:i(?:n(?:a(?:t(?:i(?:o(?:n)?)?)?)?)?)?)?)?)?)?$/i.test(f)) { dest = rest[j + 1]; break; }
+            // F-OP-62: -LiteralPath is the SOURCE for Copy-Item/Move-Item; only use it as dest for path-write cmdlets
+            if (isPathCmd && /^-literal(?:path)?$/i.test(f)) { dest = rest[j + 1]; break; }
+            // F-OP-64: accept -Pa, -Pat, -Path and -FileP, ..., -FilePath prefixes
+            if (isPathCmd && /^-(?:p(?:a(?:t(?:h)?)?)?|f(?:i(?:l(?:e(?:p(?:a(?:t(?:h)?)?)?)?)?)?)?)$/i.test(f)) { dest = rest[j + 1]; break; }
+          }
+          if (dest === undefined) {
+            const positional = rest.filter(a => !a.startsWith('-'));
+            dest = isCopyMove ? positional[positional.length - 1] : positional[0];
+          }
+        } else {
+          // Traditional cmds: last positional is the destination
+          const positional = rest.filter(a => !a.startsWith('-') && (!/^\//.test(a) || /^\/.*[/\\]/.test(a)));
+          dest = positional[positional.length - 1];
+        }
         if (dest && isSensitive(dest)) return true;
       }
       const teeIdx = argv.findIndex(a => a === 'tee');
@@ -848,28 +898,55 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
       return argv.some(a => /^of=/i.test(a) && isSensitive(a.slice(3)));
     }, category: 'sensitive-path-write' },
 
-  // M7: Redirect path traversal and sensitive-target writes (Windows + cross-platform).
-  // Detects shell redirections to ../ or ..\ relative escapes and OS-critical absolute paths.
-  { pattern: />>?\s*\.\.[/\\]/,  category: 'sensitive-path-write' },
+  // M7: Redirect path traversal — F-OP-56: tolerates ./ or .\ prefix(es) before ..
+  { pattern: />>?\s*(?:\.[\\/])*\.\.[/\\]/,  category: 'sensitive-path-write' },
+  // M7-extended: canonicalize redirect target and check against sensitive paths.
+  // Catches > /tmp/../etc/passwd and > .//./../etc/passwd obfuscations (F-OP-56).
+  { matcher: (cmd: string, _argv: string[]) => {
+      const m = />>?\s*([^\s|&;<>\r\n]+)/.exec(cmd);
+      if (!m) return false;
+      const rawPath = m[1];
+      // F-OP-66: removed fast-path — > ./Windows/System32/... (no ..) must still be caught after normalization
+      // Normalize: collapse // \\ and resolve . and .. segments
+      const parts = rawPath.split(/[/\\]+/).filter(s => s !== '');
+      const out: string[] = [];
+      for (const s of parts) {
+        if (s === '..') { if (out.length > 0) out.pop(); }
+        else if (s !== '.') out.push(s);
+      }
+      const normalized = '/' + out.join('/') + '/';
+      // F-OP-66: drive letter made optional — relative Windows paths normalize without one
+      const SENSITIVE_WIN = /^\/(?:[A-Za-z]:\/)?(?:windows|system32|syswow64|program files|programdata)/i;
+      const SENSITIVE_NIX = /^\/(etc|root|usr\/bin|usr\/sbin|bin|sbin|lib|lib64|boot)\//;
+      return SENSITIVE_WIN.test(normalized) || SENSITIVE_NIX.test(normalized);
+    }, category: 'sensitive-path-write' },
   { pattern: />>?\s*[A-Za-z]?:?\\(windows|system32|syswow64|program files|programdata)/i, category: 'sensitive-path-write' },
   { pattern: />>?\s*\/(etc|root|boot|usr\/bin|usr\/sbin|bin\/|sbin\/)/i, category: 'sensitive-path-write' },
 
 ];
 
 // D2: Windows CommandLineToArgvW-style tokenizer. Handles double-quoted
-// strings (including backslash-count escaping before quotes), and the
-// CMD.exe caret (^) escape. Used by checkHardBlocked to enable argv-aware
-// pattern matchers for Phase 3 hardening items.
+// strings (including backslash-count escaping before quotes), single-quoted
+// strings (PowerShell semantics: '' = literal '), and the CMD.exe caret (^)
+// escape. Used by checkHardBlocked to enable argv-aware pattern matchers.
+// F-OP-55: added single-quote branch (PowerShell literal-string semantics).
 function tokenizeCommand(cmd: string): string[] {
   const tokens: string[] = [];
   let cur = '';
   let i = 0;
   let inDQ = false;
+  let inSQ = false; // F-OP-55: PowerShell single-quote state
 
   while (i < cmd.length) {
     const ch = cmd[i];
 
-    if (inDQ) {
+    if (inSQ) {
+      // Single-quoted (PowerShell): everything is literal except '' = one '
+      if (ch === "'") {
+        if (i + 1 < cmd.length && cmd[i + 1] === "'") { cur += "'"; i += 2; continue; }
+        inSQ = false;
+      } else { cur += ch; }
+    } else if (inDQ) {
       if (ch === '"') {
         // "" inside double-quotes = literal "
         if (i + 1 < cmd.length && cmd[i + 1] === '"') { cur += '"'; i += 2; continue; }
@@ -887,6 +964,8 @@ function tokenizeCommand(cmd: string): string[] {
           cur += '\\'.repeat(bs); continue;
         }
       } else { cur += ch; }
+    } else if (ch === "'") {
+      inSQ = true; // F-OP-55: enter PowerShell single-quote mode
     } else if (ch === '"') {
       inDQ = true;
     } else if (ch === '^' && i + 1 < cmd.length) {
@@ -920,7 +999,7 @@ function checkHardBlocked(cmd: string): HardBlockedPattern | null {
       const binary = argv[0]?.toLowerCase() ?? '';
       if (binary && BYPASS_BINARIES.get(binary)?.has(entry.category)) {
         // Bypass active: demote to AI review. Log for audit trail.
-        console.warn(`[SECURITY-BYPASS] H18 bypass: binary='${binary}' category='${entry.category}' cmd=${JSON.stringify(cmd.slice(0, 120))}`);
+        console.warn(`[SECURITY-BYPASS] H18 bypass: binary='${binary}' category='${entry.category}' cmd=${JSON.stringify(cmd.slice(0, 512))}`);
         continue;
       }
     }
@@ -969,6 +1048,11 @@ function commandRiskMeta(cmd: string): {
     /\b(schtasks|at\.exe|cron|systemd|authorized_keys)\b/i,
     /\b(icacls|cacls|takeown|chmod|chown)\b[^|&;\n]*(\/grant|\-[Rr])\b/i,
     /\b(netsh|iptables|ufw|firewall|Set-NetFirewall|setenforce)\b/i,
+    // F-OP-58: additional destructive Windows patterns omitted from prior HIGH_RISK list
+    /\bcipher\s+\/w:/i,
+    /\bicacls\b[^|&;\n]*\/grant\b/i,
+    /\bnetsh\b[^|&;\n]*\badvfirewall\b[^|&;\n]*\breset\b/i,
+    /\bkill\s+-9\s+1\b/,
   ];
   for (const p of HIGH_RISK) if (p.test(cmd)) score++;
   const riskLevel = score >= 4 ? 'high' : score >= 1 ? 'medium' : 'low';
@@ -977,7 +1061,13 @@ function commandRiskMeta(cmd: string): {
 
 // H20: L3 uses a configurable, more capable model for the critical safety-board
 // review. Override with LAYER3_MODEL=claude-haiku-4-5-20251001 to revert.
-const LAYER3_MODEL = process.env.LAYER3_MODEL ?? 'claude-sonnet-4-6';
+// F-OP-59: explicit allowlist prevents injection of arbitrary / weaker model strings.
+const _ALLOWED_L3_MODELS = new Set(['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001']);
+const _envL3Model = process.env.LAYER3_MODEL;
+if (_envL3Model && !_ALLOWED_L3_MODELS.has(_envL3Model)) {
+  console.warn(`[SECURITY] LAYER3_MODEL='${_envL3Model}' is not in the allowlist; defaulting to claude-sonnet-4-6`);
+}
+const LAYER3_MODEL = (_envL3Model && _ALLOWED_L3_MODELS.has(_envL3Model)) ? _envL3Model : 'claude-sonnet-4-6';
 
 // H18: Per-binary bypass allowlist -- allows specific named binaries to skip the
 // hard-block for specific categories and proceed to AI review (L2/L3) instead.
@@ -986,12 +1076,22 @@ const LAYER3_MODEL = process.env.LAYER3_MODEL ?? 'claude-sonnet-4-6';
 // Every bypass is logged. Requires machine-level (env) access to change.
 const BYPASS_BINARIES: Map<string, Set<string>> = new Map();
 (process.env.BYPASS_BINARIES ?? '').split(',').filter(Boolean).forEach(entry => {
-  const [bin, cat] = entry.trim().split(':');
+  // F-OP-57: trim and lowercase bin so 'Git:git-history-rewrite' activates correctly
+  const [rawBin, rawCat] = entry.trim().split(':');
+  const bin = rawBin?.trim().toLowerCase();
+  const cat = rawCat?.trim();
   if (bin && cat) {
     if (!BYPASS_BINARIES.has(bin)) BYPASS_BINARIES.set(bin, new Set());
-    BYPASS_BINARIES.get(bin)!.add(cat.trim());
+    BYPASS_BINARIES.get(bin)!.add(cat);
   }
 });
+// F-OP-57: startup audit — enumerate active bypass map so operators can verify config
+if (BYPASS_BINARIES.size > 0) {
+  console.info('[SECURITY-BYPASS] H18 active bypass map:');
+  for (const [bin, cats] of BYPASS_BINARIES) {
+    console.info(`  binary='${bin}' categories=[${[...cats].join(', ')}]`);
+  }
+}
 
 async function blockedTierLayer2(cmd: string, context: string): Promise<string | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
