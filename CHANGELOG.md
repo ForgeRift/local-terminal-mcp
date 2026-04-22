@@ -2,6 +2,32 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.9.4] — 2026-04-22
+
+### Security — Phase 3 hardening (H4–H15 + M4–M6 + M12–M13)
+
+#### Hard-block additions to `HARD_BLOCKED_PATTERNS` (Layer 1)
+
+- **H4** — Registry query/export: `reg query`, `reg export`, `reg compare`, `reg copy`, `reg save`
+- **H5** — Additional Windows LOLBins: `installutil`, `odbcconf`, `ieexec`, `pcalua`, `infdefaultinstall`, `mavinject`, `presentationhost`, `syncappvpublishingserver`, `appvlp`
+- **H10** — Defender/EDR disable: `Set-MpPreference -Disable*`, `Disable-WindowsOptionalFeature Windows-Defender`, `net/sc stop WinDefend/MSSense`, `sc delete sense`, Linux EDR stop (clamav, auditd, falco, osquery)
+- **H11** — .NET Reflection assembly loading: `[Reflection.Assembly]::Load*`, `[System.Reflection.Assembly]::Load*`, `[AppDomain]::CurrentDomain.Load`
+- **H12** — `xargs` fan-out (available via Git Bash / WSL on Windows)
+- **H15** — Windows package managers: `winget`, `choco`, `scoop`, `npm -g`, `pip`, `gem`, `cargo install`
+- **M4** — `wmic` expansion: shadow-copy delete, service stop/start, OS shutdown via WMI
+- **M5** — COM-exec expansion: `microsoft.xmlhttp`, `msxml2.xmlhttp`, `schedule.service`, `adodb.stream/connection`
+- **M6** — `net` subcommand expansion: `net share/session/use/view/accounts/config/file/statistics/start/stop`
+- **M12** — `start /b` background process detachment
+- **M13** — Git history-rewrite: `git reset --hard`, `git clean -f`, `git push --force/--mirror`, `git filter-branch/filter-repo`
+
+#### Architecture
+
+- `checkBlocked` now also calls `checkHardBlocked` synchronously so all `HARD_BLOCKED_PATTERNS` are enforced in every code path, not only when the async three-layer pipeline runs.
+
+#### Tests
+
+- 53 new Phase 3 bypass-corpus tests added (319 total, 319 pass).
+
 ## [1.9.3] — 2026-04-22
 
 ### Security (S61 Phase 2 — architectural hardening)
@@ -262,14 +288,4 @@ This release closes every finding in `ADVERSARIAL_REVIEW.md`. The original Opus 
 - **SessionStart hook** (`hooks/briefing.js`) that plants a behavioral briefing into Claude's context every time a new session starts, resumes, clears, or compacts. The briefing maps common user intents to the correct structured tool ("What's in this folder?" → `list_directory`, "Read this file" → `read_file`), restates the three-tier RED/AMBER/GREEN model, and makes the sensitive-file block and dry-run-first rules explicit. Wired in `.claude-plugin/plugin.json` via `"hooks": "./hooks/hooks.json"`. Fails closed — any error in the hook exits 0 silently so a broken briefing never blocks a customer's session.
 
 ### Changed
-- **Every tool description now embeds an explicit "USE THIS — never ask the user to …" anti-pattern clause.** Tool descriptions are re-sent to the model on every tool-list request and are not subject to system-prompt truncation, making them the strongest behavioral lever available. All eight tools updated (`list_directory`, `read_file`, `get_system_info`, `find_files`, `run_npm_command`, `run_git_command`, `run_command`, `search_file`).
-
-### Why
-- This is the Windows-CMD mirror of the behavioral hardening that shipped in `vps-control-mcp` v1.4.0. Observation across S35–S41 was that Claude sometimes regressed to "open CMD and run this" suggestions despite the system-prompt rules, because system-prompt rules compete with every other context pressure for placement. Tool descriptions and SessionStart hooks land closer to the freshest part of the context window every turn, and targeting both surfaces gives two independent behavioral levers rather than one.
-- No validation contracts changed; no tier boundaries moved. The RED/AMBER/GREEN classifier is untouched.
-
----
-
-## [1.2.0] — earlier
-
-Baseline: three-tier command security model (RED/AMBER/GREEN), sensitive file guard, rate limiting, CORS, audit rotation. Tool annotations (`title`, `readOn
+- **Every tool description now embeds an explicit "USE THIS — never ask the user to …" anti-pattern clause.** Too

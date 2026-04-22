@@ -559,6 +559,18 @@ export function checkBlocked(cmd: string): { blocked: true; category: string; re
     }
   }
 
+  // HARD_BLOCKED_PATTERNS (Layer 1 of BLOCKED tier) — also enforce synchronously
+  // so checkBlocked provides complete single-call safety coverage regardless of
+  // whether the async three-layer pipeline is invoked.
+  const hardBlocked = checkHardBlocked(cmd);
+  if (hardBlocked) {
+    return {
+      blocked: true,
+      category: hardBlocked.category,
+      reason: hardBlocked.reason ?? `Command matches a hard-blocked pattern (${hardBlocked.category}).`,
+    };
+  }
+
   return { blocked: false };
 }
 
@@ -749,6 +761,73 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
   { pattern: /\bbase64\b.*-d\b/i,                              category: 'base64-exec', reason: 'base64 -d (decode) is prohibited (obfuscation layer).' },
   { pattern: /\[convert\]::frombase64string/i,                 category: 'base64-exec', reason: '[Convert]::FromBase64String (base64 decode) is prohibited.' },
   { pattern: /\[system\.convert\]::frombase64string/i,         category: 'base64-exec', reason: '[System.Convert]::FromBase64String is prohibited.' },
+  // H4: reg query / export expose sensitive key contents and can exfiltrate
+  // hive data; current pattern only covers add/delete/import/load/unload/restore/save.
+  { pattern: /\breg\b[^|&;\n]*\b(query|export|compare|copy|flags|save)\b/i,  category: 'registry' },
+
+  // H5: Additional Windows LOLBins not yet in the block-list (LOLBAS catalogue).
+  { pattern: /\binstallutil(\.exe)?\b/i,             category: 'lolbin' },
+  { pattern: /\bodbcconf(\.exe)?\b/i,               category: 'lolbin' },
+  { pattern: /\bieexec(\.exe)?\b/i,                 category: 'lolbin' },
+  { pattern: /\bpcalua(\.exe)?\b/i,                 category: 'lolbin' },
+  { pattern: /\binfdefaultinstall(\.exe)?\b/i,      category: 'lolbin' },
+  { pattern: /\bmavinject(\.exe)?\b/i,              category: 'lolbin' },
+  { pattern: /\bpresentationhost(\.exe)?\b/i,       category: 'lolbin' },
+  { pattern: /\bsyncappvpublishingserver(\.exe)?\b/i, category: 'lolbin' },
+  { pattern: /\bappvlp(\.exe)?\b/i,                 category: 'lolbin' },
+
+  // H10: Disabling Defender/EDR/AV defeats the security stack.
+  { pattern: /\bset-mppreference\b[^|&;\n]*-disable/i,                             category: 'edr-disable' },
+  { pattern: /\bset-mppreference\b[^|&;\n]*-tamperprotection\b[^|&;\n]*0\b/i,  category: 'edr-disable' },
+  { pattern: /\bdisable-windowsoptionalfeature\b[^|&;\n]*windows-defender/i,        category: 'edr-disable' },
+  { pattern: /\bnet\b[^|&;\n]*\bstop\b[^|&;\n]*\b(windefend|mssense|sense)\b/i,   category: 'edr-disable' },
+  { pattern: /\bsc\b[^|&;\n]*\b(stop|delete)\b[^|&;\n]*\b(windefend|mssense|sense)\b/i, category: 'edr-disable' },
+  { pattern: /\bsystemctl\b[^|&;\n]*\b(stop|disable)\b[^|&;\n]*\b(clamav|auditd|aide|osquery|falco)\b/i, category: 'edr-disable' },
+
+  // H11: .NET Reflection::Load* bypasses AppLocker and WDAC allowlisting.
+  { pattern: /\[(?:system\.)?reflection\.assembly\]::\bload(?:file|from|with|bytes)?\b/i, category: 'dotnet-reflection' },
+  { pattern: /\[appdomain\]::currentdomain\.load\b/i,                                       category: 'dotnet-reflection' },
+
+  // H12: xargs available in Git Bash / WSL; gives find -exec equivalent fan-out.
+  { pattern: /\bxargs\b/i,   category: 'recursive-file-deletion' },
+
+  // H15: Windows package managers can install/remove arbitrary software.
+  { pattern: /\bwinget\b[^|&;\n]*\b(install|uninstall|upgrade|remove)\b/i,           category: 'pkg-mgr-destructive' },
+  { pattern: /\bchoco\b[^|&;\n]*\b(install|uninstall|upgrade|remove)\b/i,             category: 'pkg-mgr-destructive' },
+  { pattern: /\bscoop\b[^|&;\n]*\b(install|uninstall|update|reset)\b/i,               category: 'pkg-mgr-destructive' },
+  { pattern: /\bnpm\b[^|&;\n]*\b(install|uninstall|update|remove)\b[^|&;\n]*-g\b/i, category: 'pkg-mgr-destructive' },
+  { pattern: /\bpip\b[^|&;\n]*\b(install|uninstall)\b/i,                               category: 'pkg-mgr-destructive' },
+  { pattern: /\bgem\b[^|&;\n]*\b(install|uninstall)\b/i,                               category: 'pkg-mgr-destructive' },
+  { pattern: /\bcargo\b[^|&;\n]*\binstall\b/i,                                          category: 'pkg-mgr-destructive' },
+
+  // M4: Expand wmic blocking beyond "process call create" to cover shadow
+  // copy deletion, service manipulation, and OS-level reconnaissance.
+  { pattern: /\bwmic\b[^|&;\n]*\bshadowcopy\b[^|&;\n]*\bdelete\b/i,                       category: 'wmi-exec' },
+  { pattern: /\bwmic\b[^|&;\n]*\bservice\b[^|&;\n]*\bcall\b[^|&;\n]*\b(stopservice|startservice)\b/i, category: 'wmi-exec' },
+  { pattern: /\bwmic\b[^|&;\n]*\bos\b[^|&;\n]*\bcall\b[^|&;\n]*\bshutdown\b/i,          category: 'wmi-exec' },
+
+  // M5: Expand COM object blocking to cover XMLHTTP (download cradle),
+  // Schedule.Service (task persistence), and ADODB.Stream (file write).
+  { pattern: /-comobject\s+(?:microsoft\.xmlhttp|msxml2\.xmlhttp|msxml2\.serverxmlhttp)/i, category: 'com-exec' },
+  { pattern: /-comobject\s+(?:schedule\.service|taskscheduler)/i,                            category: 'com-exec' },
+  { pattern: /-comobject\s+(?:adodb\.stream|adodb\.connection)/i,                           category: 'com-exec' },
+
+  // M6: net user/localgroup already blocked. Add remaining subcommands that
+  // expose shares, sessions, services, and account-policy configuration.
+  { pattern: /\bnet\b[^|&;\n]*\b(share|session|use|view|accounts|computer|config|file|statistics)\b/i, category: 'net-subcommand' },
+  { pattern: /\bnet\b[^|&;\n]*\b(start|stop)\b/i,  category: 'net-subcommand' },
+
+  // M12: CMD "start /b" spawns a background process detached from the console;
+  // commonly used to daemonise a reverse shell or persistence payload.
+  { pattern: /\bstart\b[^|&;\n]*\/b\b/i,   category: 'background-exec' },
+
+  // M13: git operations that rewrite or permanently discard history.
+  { pattern: /\bgit\b[^|&;\n]*\breset\b[^|&;\n]*--hard\b/i,          category: 'git-history-rewrite' },
+  { pattern: /\bgit\b[^|&;\n]*\bclean\b[^|&;\n]*-[a-zA-Z]*f[a-zA-Z]*/i, category: 'git-history-rewrite' },
+  { pattern: /\bgit\b[^|&;\n]*\bpush\b[^|&;\n]*(--force|-f)\b/i,     category: 'git-history-rewrite' },
+  { pattern: /\bgit\b[^|&;\n]*\bpush\b[^|&;\n]*--mirror\b/i,          category: 'git-history-rewrite' },
+  { pattern: /\bgit\b[^|&;\n]*(filter-branch|filter-repo)\b/i,           category: 'git-history-rewrite' },
+
 ];
 
 // D2: Windows CommandLineToArgvW-style tokenizer. Handles double-quoted
