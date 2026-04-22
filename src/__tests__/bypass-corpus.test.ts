@@ -245,3 +245,23 @@ describe('M13: git history-rewrite operations', () => {
   it('blocks git push --mirror', () => assertBlocked('git push --mirror backup'));
   it('blocks git filter-branch', () => assertBlocked('git filter-branch --tree-filter "rm -f .env" HEAD'));
 });
+
+// ── D10: Destination-path write protection (Windows + cross-platform) ─────────
+describe('D10: dest-path write protection', () => {
+  it('blocks copy to System32', () => assertBlocked('copy evil.exe C:\\Windows\\System32\\evil.exe'));
+  it('blocks move to System32', () => assertBlocked('move /tmp/backdoor C:\\Windows\\System32\\backdoor.exe'));
+  it('blocks xcopy to ProgramData', () => assertBlocked('xcopy evil C:\\ProgramData\\evil /E'));
+  it('blocks cp to /etc', () => assertBlocked('cp evil.conf /etc/cron.d/evil'));
+  it('blocks install to /usr/bin', () => assertBlocked('install -m755 evil /usr/bin/evil'));
+  it('blocks tee to /etc/passwd', () => assertBlocked('echo root2:x:0:0 | tee /etc/passwd'));
+  it('blocks dd of=/etc/shadow', () => assertBlocked('dd if=/dev/stdin of=/etc/shadow'));
+});
+
+// ── M7: Redirect path traversal (Windows + cross-platform) ────────────────────
+describe('M7: redirect path traversal', () => {
+  it('blocks >> ..\\ relative escape (backslash)', () => assertBlocked('echo evil >> ..\\etc\\passwd'));
+  it('blocks >> ../ relative escape (forward slash)', () => assertBlocked('echo evil >> ../etc/passwd'));
+  it('blocks >> C:\\Windows\\System32', () => assertBlocked('echo evil >> C:\\Windows\\System32\\malicious'));
+  it('blocks >> /etc/crontab', () => assertBlocked('echo "* * * * * curl|bash" >> /etc/crontab'));
+  it('blocks > /root/.bashrc', () => assertBlocked('echo "curl|bash" > /root/.bashrc'));
+});

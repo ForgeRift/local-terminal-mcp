@@ -2,6 +2,22 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.9.5] — 2026-04-22
+
+### Security — D10, M7, H17, H20, M8
+
+#### Hard-block additions to `HARD_BLOCKED_PATTERNS` (Layer 1)
+
+- **D10** — Destination-path write protection (Windows + cross-platform): argv-aware matcher blocks `copy`/`move`/`xcopy`/`robocopy`/`cp`/`mv`/`install` writing to `C:\Windows`, `System32`, `SysWOW64`, `Program Files`, `ProgramData`, and Unix paths `/etc`, `/root`, `/usr/bin`, etc.; also blocks `tee` and `dd of=<sensitive>`
+- **M7** — Redirect path traversal (Windows + cross-platform): blocks `>>?` redirections to `..\` or `../` relative escapes, Windows OS paths (`C:\Windows\System32` etc.), and Unix OS paths (`/etc`, `/root`, `/boot`, etc.)
+
+#### AI classifier enhancements (Layer 2 + Layer 3)
+
+- **H17 / M8** — `commandRiskMeta()` helper: detects chain operators (`|`, `&&`, `||`, `;`, `&`) and scores a risk level (`low`/`medium`/`high`) with Windows-aware high-risk patterns (`schtasks`, `netsh`, `icacls`, `Invoke-WebRequest`, PowerShell download cradles); risk metadata injected into both L2 and L3 prompts; chained commands trigger a `CHAIN WARNING` directive
+- **H20** — L3 safety-board now uses `LAYER3_MODEL` (default `claude-sonnet-4-6`) instead of Haiku; overridable via `LAYER3_MODEL` env var
+
+---
+
 ## [1.9.4] — 2026-04-22
 
 ### Security — Phase 3 hardening (H4–H15 + M4–M6 + M12–M13)
