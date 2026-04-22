@@ -131,9 +131,9 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── F-LT-42 (S52): cmd /c and /k bypass when other /-flags precede. Scan all tokens.
   { pattern: /\bcmd(\.exe)?\b(?:\s+\/[a-zA-Z:][^\s]*)*\s+\/[cCkK]\b/i,
                                                   category: 'code-exec',      reason: 'cmd /c (or /k) shell dispatch is prohibited anywhere in the arg list (F-LT-42).' },
-  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+.*-[cfe][a-zA-Z]*\b/i,
                                                   category: 'code-exec',      reason: 'PowerShell -c/-Command/-File/-EncodedCommand is prohibited.' },
-  { pattern: /\bpwsh(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
+  { pattern: /\bpwsh(\.exe)?\s+.*-[cfe][a-zA-Z]*\b/i,
                                                   category: 'code-exec',      reason: 'pwsh (PowerShell 7) -c/-Command/-File/-EncodedCommand is prohibited.' },
   // ── F-LT-80 (S54): `powershell -` / `pwsh -` stdin-as-source forms — PowerShell
   // reads the script from stdin. Analogous to python `-` (F-LT-48). A bare `-`
@@ -389,7 +389,7 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
                                                   category: 'code-exec',      reason: 'PowerShell dot-source (`. script.ps1`) is prohibited (F-LT-77).' },
   // ── F-LT-78 (S54): bare `bash -c` / `sh -c` / `zsh -c` etc. without .exe suffix.
   // Git-for-Windows ships `bash` on PATH for any dev machine; existing rule only caught bash.exe.
-  { pattern: /\b(bash|zsh|dash|fish|sh|ash)(\.exe)?\b[^\n]*\s-c\b/i,
+  { pattern: /\b(bash|zsh|dash|fish|ksh|sh|ash)(\.exe)?\b[^\n]*\s-c\b/i,
                                                   category: 'code-exec',      reason: 'POSIX shell -c (bash/sh/zsh/dash/fish/ash) is prohibited (F-LT-78).' },
   { pattern: /\bbusybox\s+sh\b[^\n]*\s-c\b/i,     category: 'code-exec',      reason: 'busybox sh -c is prohibited (F-LT-78).' },
   { pattern: /\bregedit\s+\/s\b/i,               category: 'persistence',    reason: 'regedit /s (silent registry import) is prohibited.' },
@@ -510,6 +510,19 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /System\.Management\.Automation\.(PSCmdlet|Utils|Runspaces)\b/i,
                                                        category: 'code-exec', reason: 'System.Management.Automation internals are prohibited (F-LT-44).' },
   { pattern: /&\s*\(\s*\[type\]/i,                      category: 'code-exec', reason: '& ([type]…) invocation is prohibited (F-LT-44: reflection-mediated dispatch).' },
+  // ── C7 (S60): Dynamic-linker env-var injection (LD_PRELOAD / LD_AUDIT / LD_LIBRARY_PATH) ─
+  // These vars make every subsequently-exec'd ELF load an attacker-supplied .so — effectively
+  // code execution. Block the bare var name regardless of how it's set (export, env, assignment).
+  { pattern: /\bLD_PRELOAD\b/,                    category: 'code-exec',      reason: 'LD_PRELOAD is prohibited (dynamic-linker injection, C7).' },
+  { pattern: /\bLD_AUDIT\b/,                      category: 'code-exec',      reason: 'LD_AUDIT is prohibited (dynamic-linker audit injection, C7).' },
+  { pattern: /\bLD_LIBRARY_PATH\b/,               category: 'code-exec',      reason: 'LD_LIBRARY_PATH is prohibited (dynamic-linker path injection, C7).' },
+  // ── C10 (S60): Windows anti-forensics / backup-destruction toolkit ──────────
+  // vssadmin delete shadows, wbadmin delete, wevtutil cl — used by ransomware to
+  // destroy recovery points and wipe event logs before exfil/encrypt.
+  { pattern: /\bvssadmin\b/i,                     category: 'data-destruction', reason: 'vssadmin is prohibited (VSS shadow-copy manipulation, C10).' },
+  { pattern: /\bwbadmin\b/i,                      category: 'data-destruction', reason: 'wbadmin is prohibited (Windows Backup destruction, C10).' },
+  { pattern: /\bwevtutil\b/i,                     category: 'data-destruction', reason: 'wevtutil is prohibited (Windows Event Log tampering, C10).' },
+  { pattern: /\bntdsutil\b/i,                     category: 'data-destruction', reason: 'ntdsutil is prohibited (Active Directory database extraction, C10).' },
 ];
 
 export function checkBlocked(cmd: string): { blocked: true; category: string; reason: string } | { blocked: false } {
