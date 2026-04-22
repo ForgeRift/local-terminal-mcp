@@ -2,6 +2,17 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.9.2] — 2026-04-22
+
+### Security (S60 Phase 1)
+- Widened `-EncodedCommand` prefix pattern from `e(nc(odedcommand)?)?` to `[cfe][a-zA-Z]*`, catching every unambiguous PowerShell CLI prefix (`-e`, `-en`, `-enc`, `-enco`, etc.) (C1)
+- Blocked `LD_PRELOAD`, `LD_AUDIT`, `LD_LIBRARY_PATH` in command strings (C7 — dynamic-linker injection)
+- Added `ksh` to blocked shell list (C8 — shell -c flag injection)
+- Blocked `vssadmin`, `wbadmin`, `wevtutil`, `ntdsutil` (C10 — Windows anti-forensics toolkit)
+- Added bypass-corpus test suite: 64 adversarial vectors, all blocked
+
+---
+
 ## [1.9.1] — 2026-04-21
 
 ### Security (S59-gap)
