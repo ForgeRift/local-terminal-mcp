@@ -131,10 +131,14 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── F-LT-42 (S52): cmd /c and /k bypass when other /-flags precede. Scan all tokens.
   { pattern: /\bcmd(\.exe)?\b(?:\s+\/[a-zA-Z:][^\s]*)*\s+\/[cCkK]\b/i,
                                                   category: 'code-exec',      reason: 'cmd /c (or /k) shell dispatch is prohibited anywhere in the arg list (F-LT-42).' },
-  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
-                                                  category: 'code-exec',      reason: 'PowerShell -c/-Command/-File/-EncodedCommand is prohibited.' },
-  { pattern: /\bpwsh(\.exe)?\s+.*-(c(om(mand)?)?|f(ile)?|e(nc(odedcommand)?)?)\b/i,
-                                                  category: 'code-exec',      reason: 'pwsh (PowerShell 7) -c/-Command/-File/-EncodedCommand is prohibited.' },
+  // ── C1 (S60): PowerShell -EncodedCommand prefix bypass ───────────────────────
+  // PowerShell CLI accepts any unambiguous prefix of a parameter name.
+  // -EncodedCommand has 13 accepted short forms beyond -e and -enc.
+  // Fix: [a-zA-Z]* after -c/-f/-e catches ALL prefixes of -Command/-File/-EncodedCommand.
+  { pattern: /\bp(ower)?sh(ell)?(\.exe)?\s+.*-[cfe][a-zA-Z]*\b/i,
+                                                  category: 'code-exec',      reason: 'PowerShell -c/-Command/-e/-EncodedCommand/-f/-File (any prefix) is prohibited (C1).' },
+  { pattern: /\bpwsh(\.exe)?\s+.*-[cfe][a-zA-Z]*\b/i,
+                                                  category: 'code-exec',      reason: 'pwsh -c/-Command/-e/-EncodedCommand/-f/-File (any prefix) is prohibited (C1).' },
   // ── F-LT-80 (S54): `powershell -` / `pwsh -` stdin-as-source forms — PowerShell
   // reads the script from stdin. Analogous to python `-` (F-LT-48). A bare `-`
   // that ends the line or precedes a redirect/pipe/chain token.
@@ -387,11 +391,11 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // in the current scope, but the leading `.` slips past the call-operator block.
   { pattern: /(?:^|[;&|\s])\.\s+[\w\\\/:.\-]+\.(ps1|psm1)\b/i,
                                                   category: 'code-exec',      reason: 'PowerShell dot-source (`. script.ps1`) is prohibited (F-LT-77).' },
-  // ── F-LT-78 (S54): bare `bash -c` / `sh -c` / `zsh -c` etc. without .exe suffix.
-  // Git-for-Windows ships `bash` on PATH for any dev machine; existing rule only caught bash.exe.
-  { pattern: /\b(bash|zsh|dash|fish|sh|ash)(\.exe)?\b[^\n]*\s-c\b/i,
-                                                  category: 'code-exec',      reason: 'POSIX shell -c (bash/sh/zsh/dash/fish/ash) is prohibited (F-LT-78).' },
-  { pattern: /\bbusybox\s+sh\b[^\n]*\s-c\b/i,     category: 'code-exec',      reason: 'busybox sh -c is prohibited (F-LT-78).' },
+  // ── F-LT-78 / C8 (S54/S60): bare `bash -c` / `sh -c` / `zsh -c` etc. without .exe suffix.
+  // Git-for-Windows ships `bash` on PATH; C8 adds ksh to the shell list.
+  { pattern: /\b(bash|zsh|dash|fish|ksh|sh|ash)(\.exe)?\b[^\n]*\s+-c\b/i,
+                                                  category: 'code-exec',      reason: 'POSIX shell -c (bash/sh/zsh/dash/fish/ksh/ash) is prohibited (F-LT-78/C8).' },
+  { pattern: /\bbusybox\s+sh\b[^\n]*\s+-c\b/i,     category: 'code-exec',      reason: 'busybox sh -c is prohibited (F-LT-78).' },
   { pattern: /\bregedit\s+\/s\b/i,               category: 'persistence',    reason: 'regedit /s (silent registry import) is prohibited.' },
   // F-NEW-11: ln --symbolic long-form bypass
   { pattern: /\bln\s+--symbolic\b/i,              category: 'permissions',    reason: 'ln --symbolic (symlink creation, long-form) is prohibited.' },
@@ -505,6 +509,74 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /System\.Management\.Automation\.(PSCmdlet|Utils|Runspaces)\b/i,
                                                        category: 'code-exec', reason: 'System.Management.Automation internals are prohibited (F-LT-44).' },
   { pattern: /&\s*\(\s*\[type\]/i,                      category: 'code-exec', reason: '& ([type]…) invocation is prohibited (F-LT-44: reflection-mediated dispatch).' },
+
+  // ── C7 (S60): LD_PRELOAD / LD_AUDIT / LD_LIBRARY_PATH injection ─────────────
+  // These dynamic-linker env vars redirect library loading in every child process,
+  // defeating security hooks regardless of which binary is invoked next.
+  // Covers bare assignment, `env VAR=...`, and prefix-wrapper forms (nice, taskset,
+  // stdbuf, timeout). Any mention of these vars in a command is an attack vector.
+  { pattern: /\bLD_PRELOAD\s*=/i,
+                                                   category: 'code-exec',      reason: 'LD_PRELOAD= is prohibited — dynamic-linker injection bypasses security controls (C7).' },
+  { pattern: /\bLD_AUDIT\s*=/i,
+                                                   category: 'code-exec',      reason: 'LD_AUDIT= is prohibited — dynamic-linker audit-hook injection (C7).' },
+  { pattern: /\bLD_LIBRARY_PATH\s*=/i,
+                                                   category: 'code-exec',      reason: 'LD_LIBRARY_PATH= is prohibited — shared-library hijack vector (C7).' },
+
+  // ── C10 (S60): Windows anti-recovery / ransomware-preamble toolkit ───────────
+  // These commands destroy VSS snapshots, backup catalogues, event logs, the USN
+  // journal, and the Windows Recovery Environment — classic ransomware precursors.
+  // vssadmin/wbadmin: block unconditionally (no safe subcommand exists in this MCP).
+  // wevtutil: allow query (qe) but block log-destroy subcommands (cl/sl).
+  // fsutil: allow read-only queries; block usn deletejournal.
+  { pattern: /\bvssadmin\b/i,
+                                                   category: 'anti-recovery',  reason: 'vssadmin is prohibited — VSS shadow-copy manipulation (C10).' },
+  { pattern: /\bwbadmin\b/i,
+                                                   category: 'anti-recovery',  reason: 'wbadmin is prohibited — Windows backup administration (C10).' },
+  { pattern: /\bwevtutil\s+(cl|clear-log|sl|set-log)\b/i,
+                                                   category: 'anti-recovery',  reason: 'wevtutil cl/sl (clear-log/set-log) is prohibited — event-log destruction (C10).' },
+  { pattern: /\bClear-EventLog\b/i,
+                                                   category: 'anti-recovery',  reason: 'Clear-EventLog is prohibited — PowerShell event-log destruction (C10).' },
+  { pattern: /\bfsutil\s+usn\s+deletejournal\b/i,
+                                                   category: 'anti-recovery',  reason: 'fsutil usn deletejournal is prohibited — USN change-journal destruction (C10).' },
+  { pattern: /\bfsutil\s+behavior\s+set\b/i,
+                                                   category: 'anti-recovery',  reason: 'fsutil behavior set is prohibited — filesystem behaviour modification (C10).' },
+  { pattern: /\breagentc\b/i,
+                                                   category: 'anti-recovery',  reason: 'reagentc is prohibited — Windows Recovery Environment manipulation (C10).' },
+
+  // ── C6 (S60): Write-destination blocking for sensitive system paths ───────────
+  // A write primitive targeting any of these paths is a persistence, privilege-
+  // escalation, or integrity-destruction attack regardless of the binary used.
+  // Pattern strategy: match the path substring anywhere — cp, mv, tee, echo >,
+  // install, dd, and pipe-redirect variants are all covered by one rule.
+  { pattern: /[/\\]etc[/\\]ld\.so\.(preload|conf)\b/i,
+                                                   category: 'persistence',    reason: '/etc/ld.so.preload|conf write is prohibited — dynamic-linker hijack (C6).' },
+  { pattern: /[/\\]etc[/\\]sudoers(\.d)?(\/|\\|\b)/i,
+                                                   category: 'persistence',    reason: '/etc/sudoers write is prohibited — privilege-escalation vector (C6).' },
+  { pattern: /[/\\]etc[/\\]cron(tab|\.(d|hourly|daily|weekly|monthly))(\/|\\|\b)/i,
+                                                   category: 'persistence',    reason: '/etc/cron.* write is prohibited — cron-based persistence (C6).' },
+  { pattern: /[/\\]etc[/\\]systemd[/\\](system|user)[/\\]/i,
+                                                   category: 'persistence',    reason: '/etc/systemd/system|user write is prohibited — systemd service persistence (C6).' },
+  { pattern: /[/\\]etc[/\\]pam\.d[/\\]/i,
+                                                   category: 'persistence',    reason: '/etc/pam.d write is prohibited — PAM authentication-module hijack (C6).' },
+  { pattern: /[/\\]etc[/\\]profile\.d[/\\]/i,
+                                                   category: 'persistence',    reason: '/etc/profile.d write is prohibited — login-shell persistence (C6).' },
+  { pattern: /[/\\]etc[/\\]environment\b/i,
+                                                   category: 'persistence',    reason: '/etc/environment write is prohibited — global env persistence (C6).' },
+  { pattern: /[/\\]etc[/\\]rc\.local\b/i,
+                                                   category: 'persistence',    reason: '/etc/rc.local write is prohibited — init-time persistence (C6).' },
+  { pattern: /[/\\]etc[/\\]hosts\b/i,
+                                                   category: 'persistence',    reason: '/etc/hosts write is prohibited — DNS-poisoning vector (C6).' },
+  { pattern: /[/\\]boot[/\\]grub[/\\]/i,
+                                                   category: 'persistence',    reason: '/boot/grub write is prohibited — bootloader persistence (C6).' },
+  { pattern: /[/\\]lib[/\\]modules[/\\]/i,
+                                                   category: 'persistence',    reason: '/lib/modules write is prohibited — kernel module injection (C6).' },
+  { pattern: /[/\\]usr[/\\]local[/\\]bin[/\\]/i,
+                                                   category: 'persistence',    reason: '/usr/local/bin write is prohibited — system binary replacement (C6).' },
+  { pattern: /[/\\]etc[/\\]init\.d[/\\]/i,
+                                                   category: 'persistence',    reason: '/etc/init.d write is prohibited — SysV init persistence (C6).' },
+  { pattern: /[/\\]drivers[/\\]etc[/\\]hosts\b/i,
+                                                   category: 'persistence',    reason: 'Windows drivers\\etc\\hosts write is prohibited — DNS-poisoning vector (C6).' },
+
 ];
 
 export function checkBlocked(cmd: string): { blocked: true; category: string; reason: string } | { blocked: false } {
