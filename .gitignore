@@ -1,12 +1,26 @@
 node_modules/
 dist/
 .env
+.env.test
+.env.test.local
 logs/
 nssm/
 *.log
+*.bak
+*~
 
-# F-OP-75: block merge-conflict artifacts from being committed
+# F-OP-75 / F-OP-85: block merge-conflict artifacts and backup files from being committed.
+# Patterns kept in sync with .githooks/pre-commit for defense-in-depth — the hook is
+# authoritative; .gitignore is a first-pass guard that can be bypassed by `git add -f`.
 src/*_BRANCH.ts
 src/*_HEAD.ts
+src/*_LOCAL.ts
+src/*_REMOTE.ts
+src/*_BASE.ts
+src/*_MERGED.ts
+src/*_YOURS.ts
+src/*_THEIRS.ts
 *.orig
-
+*.orig.*
+*.rej
+*.swp

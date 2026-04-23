@@ -629,7 +629,13 @@ interface HardBlockedPattern {
 // `> /C:/Windows/System32/evil.dll` was blocked by M7-extended. Hoisting to module
 // scope means the two surfaces cannot drift again. The WIN shape accepts all three
 // drive-letter forms: `C:/windows/...`, `/windows/...`, and `/C:/windows/...`.
-const SENSITIVE_PATH_WIN = /^\/?(?:[A-Za-z]:\/)?(?:windows|system32|syswow64|program files|programdata)/i;
+// F-OP-80 (v1.10.4): the v1.10.3 unified WIN regex had no leading-prefix anchor —
+// `^\/?(?:[A-Za-z]:\/)?` made both optional, so bare filenames like
+// `windows-update.log`, `system32.bak`, `programdata-export.zip` matched as prefix
+// and got blocked as consumer-safety false-positives. v1.10.4 requires an explicit
+// `/` after the optional drive-letter prefix AND a trailing separator / EOL after
+// the keyword, so a benign CWD-relative name can no longer match.
+const SENSITIVE_PATH_WIN = /^(?:\/?[A-Za-z]:)?\/(?:windows|system32|syswow64|program files|programdata)(?=[\/\\]|$)/i;
 const SENSITIVE_PATH_NIX = /^\/(etc|root|usr\/bin|usr\/sbin|bin|sbin|lib|lib64|boot)\//;
 
 // Layer 1 static patterns — the 11 S59 categories.
@@ -903,14 +909,28 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
             // real sensitive path gets checked. Pre-v1.10.3 set inlineVal='' which short-circuited
             // both the positional fallback (dest='' is not undefined) and the sensitive-path test
             // (if(dest && ...) short-circuits on falsy empty string).
+            // F-OP-82 (v1.10.4): two coupled fixes.
+            //  (a) nextVal() returns undefined when the fallback rest[j+1] is itself a flag
+            //      (starts with `-`), so we never absorb a flag token as a destination.
+            //  (b) the three param matchers break ONLY when nextVal() produced a real value;
+            //      when it returned undefined, the loop continues so a later param-name token
+            //      (commonly `-LiteralPath` on Set-Content / Out-File / Add-Content / New-Item)
+            //      can still bind. Example attack silent in v1.10.3:
+            //      `Set-Content -Path: -Value x -LiteralPath /etc/passwd` — v1.10.3 consumed
+            //      `-Value` at j=0 and broke; v1.10.4 rejects `-Value`, continues, and catches
+            //      `-LiteralPath /etc/passwd` at j=3.
             const inlineVal = (colonIdx > 0 && colonIdx < raw.length - 1) ? raw.slice(colonIdx + 1) : undefined;
-            const nextVal = (): string | undefined => inlineVal !== undefined ? inlineVal : rest[j + 1];
+            const nextVal = (): string | undefined => {
+              if (inlineVal !== undefined) return inlineVal;
+              const nv = rest[j + 1];
+              return nv !== undefined && !nv.startsWith('-') ? nv : undefined;
+            };
             // F-OP-64: accept every unambiguous PS param prefix (-De, -Des, -Dest, ..., -Destination)
-            if (isCopyMove && /^-d(?:e(?:s(?:t(?:i(?:n(?:a(?:t(?:i(?:o(?:n)?)?)?)?)?)?)?)?)?)?$/i.test(f)) { dest = nextVal(); break; }
+            if (isCopyMove && /^-d(?:e(?:s(?:t(?:i(?:n(?:a(?:t(?:i(?:o(?:n)?)?)?)?)?)?)?)?)?)?$/i.test(f)) { const v = nextVal(); if (v !== undefined) { dest = v; break; } continue; }
             // F-OP-62: -LiteralPath is the SOURCE for Copy-Item/Move-Item; only use it as dest for path-write cmdlets
-            if (isPathCmd && /^-literal(?:path)?$/i.test(f)) { dest = nextVal(); break; }
+            if (isPathCmd && /^-literal(?:path)?$/i.test(f)) { const v = nextVal(); if (v !== undefined) { dest = v; break; } continue; }
             // F-OP-64: accept -Pa, -Pat, -Path and -FileP, ..., -FilePath prefixes
-            if (isPathCmd && /^-(?:p(?:a(?:t(?:h)?)?)?|f(?:i(?:l(?:e(?:p(?:a(?:t(?:h)?)?)?)?)?)?)?)$/i.test(f)) { dest = nextVal(); break; }
+            if (isPathCmd && /^-(?:p(?:a(?:t(?:h)?)?)?|f(?:i(?:l(?:e(?:p(?:a(?:t(?:h)?)?)?)?)?)?)?)$/i.test(f)) { const v = nextVal(); if (v !== undefined) { dest = v; break; } continue; }
           }
           if (dest === undefined) {
             const positional = rest.filter(a => !a.startsWith('-'));

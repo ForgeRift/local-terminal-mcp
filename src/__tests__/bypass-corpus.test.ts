@@ -455,6 +455,29 @@ describe('F-OP-74: unified SENSITIVE_WIN must accept /C:/windows/... form (LT)',
     assertBlocked('Copy-Item src.txt /Windows/System32/evil.dll'));
 });
 
+// ── F-OP-80: benign CWD-relative filenames starting with Windows keywords ──
+describe('F-OP-80: SENSITIVE_PATH_WIN must not false-positive on CWD-relative names (LT)', () => {
+  // v1.10.3 unified WIN regex had no leading-prefix anchor — `^\/?(?:[A-Za-z]:\/)?`
+  // made both optional, so bare filenames matching a keyword prefix got blocked as
+  // "sensitive path". v1.10.4 requires explicit leading `/` (with optional drive)
+  // AND a trailing separator after the keyword.
+  it('allows cp src.txt windows-update.log (benign log with keyword prefix)', () =>
+    assertNotBlocked('cp src.txt windows-update.log'));
+  it('allows Copy-Item src.txt windows-backup.zip (benign PS copy)', () =>
+    assertNotBlocked('Copy-Item src.txt windows-backup.zip'));
+  it('allows Out-File -FilePath programdata-export.zip -InputObject x (benign export)', () =>
+    assertNotBlocked('Out-File -FilePath programdata-export.zip -InputObject x'));
+  it('allows mv report.bak system32.bak (benign backup rename)', () =>
+    assertNotBlocked('mv report.bak system32.bak'));
+  it('allows Set-Content -Path syswow64-report.txt -Value data (benign report)', () =>
+    assertNotBlocked('Set-Content -Path syswow64-report.txt -Value data'));
+  // Still blocks when path is truly under a sensitive dir
+  it('blocks Copy-Item src.txt /Windows/System32/windows-update.log (truly under Windows)', () =>
+    assertBlocked('Copy-Item src.txt /Windows/System32/windows-update.log'));
+  it('blocks Copy-Item src.txt /Windows/notepad.exe (under /Windows root)', () =>
+    assertBlocked('Copy-Item src.txt /Windows/notepad.exe'));
+});
+
 // ── F-OP-78: leading-colon token in inlineVal must fail closed (LT) ─────────
 describe('F-OP-78: leading-colon path inputs fail closed in isSensitive (LT)', () => {
   // Input `-Destination::C:\Windows\…` → colonIdx=12 → inlineVal=':C:\Windows\…'.
@@ -494,6 +517,26 @@ describe('F-OP-72: empty colon-inline param must not short-circuit sensitive-pat
   // Benign empty-colon followed by non-sensitive positional must still allow
   it('allows Copy-Item -Destination: C:\\Users\\user\\out.txt src.txt (benign empty-colon)', () =>
     assertNotBlocked('Copy-Item -Destination: C:\\Users\\user\\out.txt src.txt'));
+});
+
+// ── F-OP-82: flag-after-empty-colon must not consume the flag as dest (LT) ──
+describe('F-OP-82: empty colon-inline followed by a flag token falls through to later params (LT)', () => {
+  // v1.10.3 F-OP-72 fix made inlineVal undefined on trailing colon, but the matcher
+  // then did `dest = nextVal()` with no check that nextVal was a real path. When
+  // rest[j+1] starts with `-`, it's a flag, not a dest. v1.10.4 returns undefined
+  // from nextVal() for flag tokens AND skips the `break` so a later param-name
+  // (commonly `-LiteralPath`) can still bind and get sensitivity-checked.
+  it('blocks Set-Content -Path: -Value x -LiteralPath /etc/passwd (LiteralPath catches after -Path: rejects)', () =>
+    assertBlocked('Set-Content -Path: -Value x -LiteralPath /etc/passwd'));
+  it('blocks Out-File -FilePath: -InputObject data -LiteralPath C:\\Windows\\System32\\evil.dll', () =>
+    assertBlocked('Out-File -FilePath: -InputObject data -LiteralPath C:\\Windows\\System32\\evil.dll'));
+  it('blocks Add-Content -Path: -NoNewline -LiteralPath /etc/sudoers', () =>
+    assertBlocked('Add-Content -Path: -NoNewline -LiteralPath /etc/sudoers'));
+  it('blocks New-Item -Path: -ItemType File -Value x -LiteralPath /etc/cron.d/evil', () =>
+    assertBlocked('New-Item -Path: -ItemType File -Value x -LiteralPath /etc/cron.d/evil'));
+  // Benign: empty-colon followed by flag but NO sensitive LiteralPath — must pass
+  it('allows Set-Content -Path: -Value x -LiteralPath C:\\Users\\user\\out.txt (benign fallthrough)', () =>
+    assertNotBlocked('Set-Content -Path: -Value x -LiteralPath C:\\Users\\user\\out.txt'));
 });
 
 // ── F-OP-70: N/A — VPS only; see VPS review ──────────────────────────────
