@@ -378,6 +378,65 @@ describe('F-OP-64: PowerShell parameter abbreviation (LT)', () => {
 
 // ── F-OP-65: N/A — VPS only; see VPS review ──────────────────────────────
 
+// ═══════════════════════════════════════════════════════════════════════════
+// S63 Tenth-Pass Regression Tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── F-OP-68: normalizePath NIX-path regression (was sep='\\', now sep='/') ─
+describe('F-OP-68: NIX-path matching after normalizePath sep fix (LT)', () => {
+  // Core NIX-path blocks that regressed in v1.10.1
+  it('blocks cp file /etc/passwd', () =>
+    assertBlocked('cp file /etc/passwd'));
+  it('blocks mv src /root/.ssh/authorized_keys', () =>
+    assertBlocked('mv src /root/.ssh/authorized_keys'));
+  it('blocks Copy-Item -Destination /etc/passwd src.txt', () =>
+    assertBlocked('Copy-Item -Destination /etc/passwd src.txt'));
+  // Re-assertion of F-OP-52 traversal case that regressed
+  it('blocks cp file /tmp/../etc/passwd (F-OP-52 regression)', () =>
+    assertBlocked('cp file /tmp/../etc/passwd'));
+  // tee to NIX sensitive path (adjacency)
+  it('blocks tee /etc/shadow < evil', () =>
+    assertBlocked('tee /etc/shadow < evil'));
+  // Forward-slash Windows path must still block (F-OP-63 closure must hold)
+  it('blocks Copy-Item src.txt /Windows/System32/evil.dll (F-OP-63 still holds)', () =>
+    assertBlocked('Copy-Item src.txt /Windows/System32/evil.dll'));
+  // Backslash Windows path must still block
+  it('blocks Copy-Item -Destination C:\\Windows\\System32\\evil.dll src.txt (backslash form)', () =>
+    assertBlocked('Copy-Item -Destination C:\\Windows\\System32\\evil.dll src.txt'));
+  // Benign NIX paths must not false-positive
+  it('allows cp file /tmp/output.txt (benign)', () =>
+    assertNotBlocked('cp file /tmp/output.txt'));
+  it('allows Copy-Item src.txt /Users/user/file.txt (benign)', () =>
+    assertNotBlocked('Copy-Item src.txt /Users/user/file.txt'));
+});
+
+// ── F-OP-69: PowerShell colon-syntax -Param:Value bypass ──────────────────
+describe('F-OP-69: PowerShell colon-syntax -Param:Value (LT)', () => {
+  it('blocks Copy-Item -Destination:C:\\Windows\\System32\\evil.dll src.txt', () =>
+    assertBlocked('Copy-Item -Destination:C:\\Windows\\System32\\evil.dll src.txt'));
+  it('blocks Copy-Item -D:C:\\Windows\\System32\\evil.dll src.txt', () =>
+    assertBlocked('Copy-Item -D:C:\\Windows\\System32\\evil.dll src.txt'));
+  it('blocks Copy-Item -Dest:/Windows/System32/evil.dll src.txt', () =>
+    assertBlocked('Copy-Item -Dest:/Windows/System32/evil.dll src.txt'));
+  it('blocks Move-Item -Destination:/Windows/System32/evil.dll src.txt', () =>
+    assertBlocked('Move-Item -Destination:/Windows/System32/evil.dll src.txt'));
+  it('blocks Out-File -LiteralPath:C:\\Windows\\System32\\evil.dll -InputObject x', () =>
+    assertBlocked('Out-File -LiteralPath:C:\\Windows\\System32\\evil.dll -InputObject x'));
+  it('blocks Set-Content -Path:/Windows/System32/evil.dll -Value x', () =>
+    assertBlocked('Set-Content -Path:/Windows/System32/evil.dll -Value x'));
+  it('blocks Copy-Item -LiteralPath:C:\\Windows\\System32\\evil.dll (path-write variant)', () =>
+    assertBlocked('Out-File -LiteralPath:C:\\Windows\\System32\\evil.dll -InputObject x'));
+  it('blocks Add-Content -FilePath:C:\\Windows\\System32\\drivers\\etc\\hosts -Value x', () =>
+    assertBlocked('Add-Content -FilePath:C:\\Windows\\System32\\drivers\\etc\\hosts -Value x'));
+  // Benign colon-syntax must not false-positive
+  it('allows Copy-Item -Destination:C:\\Users\\user\\file.txt src.txt (benign)', () =>
+    assertNotBlocked('Copy-Item -Destination:C:\\Users\\user\\file.txt src.txt'));
+  it('allows Out-File -FilePath:C:\\Users\\user\\out.txt -InputObject x (benign)', () =>
+    assertNotBlocked('Out-File -FilePath:C:\\Users\\user\\out.txt -InputObject x'));
+});
+
+// ── F-OP-70: N/A — VPS only; see VPS review ──────────────────────────────
+
 // ── F-OP-66: M7-extended no-.. redirect bypass (LT) ──────────────────────
 describe('F-OP-66: M7-extended no-.. redirect to sensitive path (LT)', () => {
   it('blocks echo x > ./Windows/System32/drivers/etc/hosts', () =>

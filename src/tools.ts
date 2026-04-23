@@ -837,11 +837,12 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
         'copy-item', 'cpi', 'move-item', 'mi', 'new-item', 'ni',
         'out-file', 'set-content', 'add-content',
       ]);
-      const SENSITIVE_WIN = /^[A-Za-z]?:?\\(windows|system32|syswow64|program files|programdata)/i;
+      // F-OP-68: forward-slash form (sep normalized to '/' so both SENSITIVE_WIN and SENSITIVE_NIX use '/')
+      const SENSITIVE_WIN = /^(?:[A-Za-z]:)?\/(windows|system32|syswow64|program files|programdata)/i;
       const SENSITIVE_NIX = /^\/(etc|root|usr\/bin|usr\/sbin|bin|sbin|lib|lib64|boot)\//;
       // F-OP-52: canonicalize path segments (handles ../ and ./ sequences)
       const normalizePath = (p: string): string => {
-        const sep = '\\'; // F-OP-63: always normalize to backslash so SENSITIVE_WIN matches /Windows/... forward-slash form
+        const sep = '/'; // F-OP-68: canonical '/' so both SENSITIVE_WIN (forward-slash variant) and SENSITIVE_NIX match consistently
         const parts = p.split(/[/\\]+/).filter(s => s !== '');
         const out: string[] = [];
         for (const s of parts) {
@@ -857,7 +858,7 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
         if (p.includes('%')) return true; // F-OP-54: %SystemRoot% etc — fail closed
         const n = normalizePath(p);
         // Append trailing sep so bare directories like C:\Windows match the regex
-        const nSlash = (n.endsWith('/') || n.endsWith('\\')) ? n : n + '\\';
+        const nSlash = (n.endsWith('/') || n.endsWith('\\')) ? n : n + '/';
         return SENSITIVE_WIN.test(nSlash) || SENSITIVE_NIX.test(nSlash);
       };
       // F-OP-51: strip absolute path prefix and .exe suffix before DEST_CMDS lookup
@@ -872,14 +873,19 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
         if (isPS) {
           const isCopyMove = /^(copy-item|cpi|move-item|mi)$/.test(cmdName);
           const isPathCmd  = /^(new-item|ni|out-file|set-content|add-content)$/.test(cmdName);
-          for (let j = 0; j < rest.length - 1; j++) {
-            const f = rest[j];
+          for (let j = 0; j < rest.length; j++) {
+            const raw = rest[j];
+            // F-OP-69: PowerShell `-Param:Value` syntax — split so regex matches param name only
+            const colonIdx = raw.startsWith('-') ? raw.indexOf(':') : -1;
+            const f = colonIdx > 0 ? raw.slice(0, colonIdx) : raw;
+            const inlineVal = colonIdx > 0 ? raw.slice(colonIdx + 1) : undefined;
+            const nextVal = (): string | undefined => inlineVal !== undefined ? inlineVal : rest[j + 1];
             // F-OP-64: accept every unambiguous PS param prefix (-De, -Des, -Dest, ..., -Destination)
-            if (isCopyMove && /^-d(?:e(?:s(?:t(?:i(?:n(?:a(?:t(?:i(?:o(?:n)?)?)?)?)?)?)?)?)?)?$/i.test(f)) { dest = rest[j + 1]; break; }
+            if (isCopyMove && /^-d(?:e(?:s(?:t(?:i(?:n(?:a(?:t(?:i(?:o(?:n)?)?)?)?)?)?)?)?)?)?$/i.test(f)) { dest = nextVal(); break; }
             // F-OP-62: -LiteralPath is the SOURCE for Copy-Item/Move-Item; only use it as dest for path-write cmdlets
-            if (isPathCmd && /^-literal(?:path)?$/i.test(f)) { dest = rest[j + 1]; break; }
+            if (isPathCmd && /^-literal(?:path)?$/i.test(f)) { dest = nextVal(); break; }
             // F-OP-64: accept -Pa, -Pat, -Path and -FileP, ..., -FilePath prefixes
-            if (isPathCmd && /^-(?:p(?:a(?:t(?:h)?)?)?|f(?:i(?:l(?:e(?:p(?:a(?:t(?:h)?)?)?)?)?)?)?)$/i.test(f)) { dest = rest[j + 1]; break; }
+            if (isPathCmd && /^-(?:p(?:a(?:t(?:h)?)?)?|f(?:i(?:l(?:e(?:p(?:a(?:t(?:h)?)?)?)?)?)?)?)$/i.test(f)) { dest = nextVal(); break; }
           }
           if (dest === undefined) {
             const positional = rest.filter(a => !a.startsWith('-'));
