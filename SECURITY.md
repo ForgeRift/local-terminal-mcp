@@ -54,6 +54,31 @@ Beyond command-level blocking, local-terminal-mcp enforces file-level access con
 - `.gitconfig`, `.git-credentials`, `.rdp`
 - `NTUSER.DAT`
 
+### Destination-Path Write Protection (D10)
+
+Command-surface destination-path protection (D10) blocks writes to OS-critical paths across the `cp` / `mv` / `install` / `copy-item` (`cpi`) / `move-item` (`mi`) / `new-item` (`ni`) / `out-file` / `set-content` / `add-content` command set — plus `tee` and `dd of=...`. After `../` canonicalization and Windows env-var guard (`%SystemRoot%` fails closed), a normalized destination matching any of the following sensitive prefixes is blocked:
+
+- **Windows:** `/windows/`, `/system32/`, `/syswow64/`, `/program files/`, `/programdata/` (accepted with or without leading drive letter: `C:/windows`, `/windows`, `/C:/windows`)
+- **Unix:** `/etc/`, `/root/`, `/usr/bin/`, `/usr/sbin/`, `/bin/`, `/sbin/`, `/lib/`, `/lib64/`, `/boot/`
+
+PowerShell parameter forms supported:
+- Positional: `Copy-Item src.txt C:\Windows\System32\evil.dll`
+- Space-separated named: `Copy-Item -Destination C:\Windows\…`
+- Colon-inline named: `Copy-Item -Destination:C:\Windows\…`
+- Abbreviated prefixes: `-De`, `-Des`, `-Dest`, …, `-Destination` (and `-Pa`/`-Pat`/`-Path`, `-FileP`/`-FilePath` for path-write cmdlets)
+- Empty colon-inline: `Copy-Item -Destination: C:\Windows\…` (falls through to positional, F-OP-72)
+
+### Security Release Notes — v1.10.x
+
+| Version | Closed | Scope |
+|---|---|---|
+| v1.10.0 | F-OP-62 / F-OP-63 / F-OP-64 | PowerShell destination detection: `-LiteralPath` gated on path-write cmdlets; forward-slash Windows paths; parameter-prefix abbreviations |
+| v1.10.1 | F-OP-66 | M7-extended redirect no-`..` form (`> ./Windows/System32/evil.dll`) |
+| v1.10.2 | F-OP-68 / F-OP-69 | `normalizePath` separator unified to `/` so both NIX and Windows paths route through the same matcher; PowerShell colon-syntax (`-Destination:<path>`) token-split so parameter-name regex matches reliably |
+| v1.10.3 | F-OP-72 / F-OP-74 | Empty colon-inline (`-Destination: <next-token>`) now falls through to positional fallback instead of short-circuiting (F-OP-72); `SENSITIVE_WIN` regex unified between D10 and M7-extended so `/C:/Windows/...` drive-letter-after-slash form cannot evade D10 while being blocked by redirect matcher (F-OP-74); `src/tools_BRANCH.ts` / `src/tools_HEAD.ts` merge-conflict artifacts removed from the shipped tree (F-OP-75). |
+
+**Known pre-v1.10.3 scope:** operators running v1.10.0–v1.10.2 of local-terminal-mcp could bypass D10 on `Copy-Item` and `Move-Item` by placing a trailing `:` on the `-Destination` flag followed by a space before the sensitive path (F-OP-72). PowerShell's own parameter binding varies across host versions in how it accepts this form; upgrading to v1.10.3 closes the D10 defense-in-depth gap regardless.
+
 ## Rate Limiting
 
 All requests are rate-limited to 120 requests per minute per authentication token (configurable via `RATE_LIMIT_PER_MIN`). Violations return HTTP 429. The limit is applied uniformly regardless of command tier.

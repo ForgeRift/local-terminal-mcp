@@ -4,3 +4,9 @@ dist/
 logs/
 nssm/
 *.log
+
+# F-OP-75: block merge-conflict artifacts from being committed
+src/*_BRANCH.ts
+src/*_HEAD.ts
+*.orig
+

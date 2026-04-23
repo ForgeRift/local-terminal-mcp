@@ -622,6 +622,16 @@ interface HardBlockedPattern {
   reason?:   string;
 }
 
+// F-OP-74 (v1.10.3): unified sensitive-path regexes. Before v1.10.3, D10 and
+// M7-extended each defined local SENSITIVE_WIN/NIX regexes with divergent shapes
+// (L841's drive-letter anchor preceded `/`; L930's sat inside the leading-slash
+// anchor). That inconsistency let `/C:/Windows/System32/evil.dll` evade D10 while
+// `> /C:/Windows/System32/evil.dll` was blocked by M7-extended. Hoisting to module
+// scope means the two surfaces cannot drift again. The WIN shape accepts all three
+// drive-letter forms: `C:/windows/...`, `/windows/...`, and `/C:/windows/...`.
+const SENSITIVE_PATH_WIN = /^\/?(?:[A-Za-z]:\/)?(?:windows|system32|syswow64|program files|programdata)/i;
+const SENSITIVE_PATH_NIX = /^\/(etc|root|usr\/bin|usr\/sbin|bin|sbin|lib|lib64|boot)\//;
+
 // Layer 1 static patterns — the 11 S59 categories.
 // These are deterministic and catch obvious cases with zero latency.
 const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
@@ -837,9 +847,11 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
         'copy-item', 'cpi', 'move-item', 'mi', 'new-item', 'ni',
         'out-file', 'set-content', 'add-content',
       ]);
-      // F-OP-68: forward-slash form (sep normalized to '/' so both SENSITIVE_WIN and SENSITIVE_NIX use '/')
-      const SENSITIVE_WIN = /^(?:[A-Za-z]:)?\/(windows|system32|syswow64|program files|programdata)/i;
-      const SENSITIVE_NIX = /^\/(etc|root|usr\/bin|usr\/sbin|bin|sbin|lib|lib64|boot)\//;
+      // F-OP-68: sep normalized to '/' so both WIN and NIX regexes match consistently.
+      // F-OP-74 (v1.10.3): reuse module-level SENSITIVE_PATH_* (see L627 block) — keeps
+      // shape in sync with M7-extended redirect matcher and adds `/C:/...` coverage.
+      const SENSITIVE_WIN = SENSITIVE_PATH_WIN;
+      const SENSITIVE_NIX = SENSITIVE_PATH_NIX;
       // F-OP-52: canonicalize path segments (handles ../ and ./ sequences)
       const normalizePath = (p: string): string => {
         const sep = '/'; // F-OP-68: canonical '/' so both SENSITIVE_WIN (forward-slash variant) and SENSITIVE_NIX match consistently
@@ -856,6 +868,14 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
       // F-OP-54: Windows env-var expansion fail-closed; F-OP-52: normalize before test
       const isSensitive = (p: string): boolean => {
         if (p.includes('%')) return true; // F-OP-54: %SystemRoot% etc — fail closed
+        // F-OP-78 (v1.10.3): leading-colon tokens (e.g. inlineVal=':C:\\Windows\\…' from
+        // a double-colon arg like `-Destination::C:\\Windows\\…`) produce a leading-colon
+        // canonical path that neither SENSITIVE_WIN nor SENSITIVE_NIX matches. Fail closed.
+        if (p.startsWith(':')) return true;
+        // F-OP-79 (v1.10.3): UNC / extended-length paths (`\\server\share`, `\\?\…`, `//s/s`)
+        // don't match the Unix/Windows regexes because the path prefix is server-relative.
+        // An attacker-controlled share destination is still a sensitive write. Fail closed.
+        if (/^[\\/]{2,}[^\\/]/.test(p)) return true;
         const n = normalizePath(p);
         // Append trailing sep so bare directories like C:\Windows match the regex
         const nSlash = (n.endsWith('/') || n.endsWith('\\')) ? n : n + '/';
@@ -878,7 +898,12 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
             // F-OP-69: PowerShell `-Param:Value` syntax — split so regex matches param name only
             const colonIdx = raw.startsWith('-') ? raw.indexOf(':') : -1;
             const f = colonIdx > 0 ? raw.slice(0, colonIdx) : raw;
-            const inlineVal = colonIdx > 0 ? raw.slice(colonIdx + 1) : undefined;
+            // F-OP-72 (v1.10.3): trailing-colon-only form (`-Destination:`, no inline value)
+            // must return undefined, not '', so nextVal() falls through to rest[j+1] and the
+            // real sensitive path gets checked. Pre-v1.10.3 set inlineVal='' which short-circuited
+            // both the positional fallback (dest='' is not undefined) and the sensitive-path test
+            // (if(dest && ...) short-circuits on falsy empty string).
+            const inlineVal = (colonIdx > 0 && colonIdx < raw.length - 1) ? raw.slice(colonIdx + 1) : undefined;
             const nextVal = (): string | undefined => inlineVal !== undefined ? inlineVal : rest[j + 1];
             // F-OP-64: accept every unambiguous PS param prefix (-De, -Des, -Dest, ..., -Destination)
             if (isCopyMove && /^-d(?:e(?:s(?:t(?:i(?:n(?:a(?:t(?:i(?:o(?:n)?)?)?)?)?)?)?)?)?)?$/i.test(f)) { dest = nextVal(); break; }
@@ -921,10 +946,10 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
         else if (s !== '.') out.push(s);
       }
       const normalized = '/' + out.join('/') + '/';
-      // F-OP-66: drive letter made optional — relative Windows paths normalize without one
-      const SENSITIVE_WIN = /^\/(?:[A-Za-z]:\/)?(?:windows|system32|syswow64|program files|programdata)/i;
-      const SENSITIVE_NIX = /^\/(etc|root|usr\/bin|usr\/sbin|bin|sbin|lib|lib64|boot)\//;
-      return SENSITIVE_WIN.test(normalized) || SENSITIVE_NIX.test(normalized);
+      // F-OP-66: drive letter made optional — relative Windows paths normalize without one.
+      // F-OP-74 (v1.10.3): reuse module-level SENSITIVE_PATH_* so this cannot drift from
+      // the D10 destination check at L846-849.
+      return SENSITIVE_PATH_WIN.test(normalized) || SENSITIVE_PATH_NIX.test(normalized);
     }, category: 'sensitive-path-write' },
   { pattern: />>?\s*[A-Za-z]?:?\\(windows|system32|syswow64|program files|programdata)/i, category: 'sensitive-path-write' },
   { pattern: />>?\s*\/(etc|root|boot|usr\/bin|usr\/sbin|bin\/|sbin\/)/i, category: 'sensitive-path-write' },
