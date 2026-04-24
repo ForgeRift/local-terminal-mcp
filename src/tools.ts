@@ -1191,13 +1191,16 @@ async function blockedTierLayer2(cmd: string, context: string): Promise<string |
       messages: [{ role: 'user', content: prompt }],
     });
     const text = ((message.content[0] as { type: string; text: string }).text ?? '').trim();
-    if (text.toUpperCase().startsWith('BLOCKED')) {
-      return text;
+    // Scan all lines with BLOCKED priority — prevents trailing-note bypass where model
+    // appends a remark after the verdict (mirrors vps-control; Opus eighth-pass H-1 fix).
+    const lines2 = text.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+    for (const line of lines2) {
+      if (line.toUpperCase().startsWith('BLOCKED')) return line;
     }
-    if (text.toUpperCase().startsWith('PASS') && text.includes(nonce)) {
-      return null;
+    for (const line of lines2) {
+      if (line.toUpperCase().startsWith('PASS') && line.includes(nonce)) return null;
     }
-    console.warn('[BLOCKED-TIER] Layer 2 unexpected response format — defaulting to BLOCKED');
+    console.warn('[BLOCKED-TIER] Layer 2 unexpected response format — defaulting to BLOCKED. Response:', text.slice(0, 200));
     return `BLOCKED: parse-failure — classifier returned unexpected response format`;
   } catch (err) {
     const reason = (err as Error).message;
@@ -1252,17 +1255,17 @@ async function blockedTierLayer3(cmd: string, context: string): Promise<{ blocke
       messages: [{ role: 'user', content: prompt }],
     });
     const text = ((message.content[0] as { type: string; text: string }).text ?? '').trim();
-    const lastLine = text.split('\n').reverse().find(l => l.trim().length > 0) ?? '';
-    if (lastLine.toUpperCase().startsWith('BLOCKED')) {
-      return { blocked: lastLine, warning: null };
+    const lines3 = text.split('\n').map((l: string) => l.trim()).filter((l: string) => l.length > 0);
+    for (const line of lines3) {
+      if (line.toUpperCase().startsWith('BLOCKED')) return { blocked: line, warning: null };
     }
-    if (lastLine.toUpperCase().startsWith('PROCEED WITH CAUTION')) {
-      return { blocked: null, warning: `⚠️  SAFETY BOARD WARNING (Layer 3)\n${lastLine}` };
+    for (const line of lines3) {
+      if (line.toUpperCase().startsWith('PROCEED WITH CAUTION')) return { blocked: null, warning: `⚠️  SAFETY BOARD WARNING (Layer 3)\n${line}` };
     }
-    if (lastLine.toUpperCase().startsWith('PASS') && lastLine.includes(nonce)) {
-      return { blocked: null, warning: null };
+    for (const line of lines3) {
+      if (line.toUpperCase().startsWith('PASS') && line.includes(nonce)) return { blocked: null, warning: null };
     }
-    console.warn('[BLOCKED-TIER] Layer 3 unexpected response format — defaulting to BLOCKED');
+    console.warn('[BLOCKED-TIER] Layer 3 unexpected response format — defaulting to BLOCKED. Response:', text.slice(0, 200));
     return { blocked: `BLOCKED: parse-failure — board returned unexpected response format`, warning: null };
   } catch (err) {
     const reason = (err as Error).message;

@@ -2,6 +2,13 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.10.5] - 2026-04-24
+
+### Security — H-1 / H-2 (S62 parse-failure parity fix)
+
+- **H-1** — Layer 2 (Haiku classifier) response parsing: replaced `lastLine`-only scan with all-lines BLOCKED-priority scan. Any line starting with `BLOCKED` in the classifier response now correctly triggers a block, regardless of trailing content or extra lines added by the model. Closes parse-failure false-passes when the classifier prefaced its verdict with explanatory text.
+- **H-2** — Layer 3 (Sonnet safety board) response parsing: same fix applied. All-lines scan with priority order BLOCKED > PROCEED WITH CAUTION > PASS. Adds response excerpt to the `console.warn` on unexpected format for easier debugging.
+
 ## [1.10.4] - 2026-04-23
 
 ### Security - F-OP-80 / F-OP-82 / F-OP-83 / F-OP-84 / F-OP-85 (S65 closure)
