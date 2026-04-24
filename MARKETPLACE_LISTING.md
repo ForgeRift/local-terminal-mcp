@@ -3,6 +3,8 @@
 
 ## Product Overview
 
+![local-terminal tools panel](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_01_tools.gif)
+
 **local-terminal-mcp** gives Claude secure, audited access to your local Windows shell. Browse files, read code, run approved commands, and manage development projects from Cowork — without ever handing Claude an unguarded terminal.
 
 Runs as a Windows Service so Claude stays connected across sessions. Every command passes through a three-tier security model with 120+ hard-blocked dangerous patterns. Full audit logging. No network exposure — binds to `127.0.0.1` only.
@@ -24,6 +26,8 @@ Runs as a Windows Service so Claude stays connected across sessions. Every comma
 - **Twelve Adversarial Review Rounds** — Hardened against 80+ filed bypass findings (F-OP-1 through F-OP-85). Every closure is documented in `ADVERSARIAL_REVIEW.md`.
 
 ## What Claude Can Do
+
+![Directory listing and search demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_03_search.gif)
 
 Eight tools across three tiers:
 
@@ -77,6 +81,8 @@ All settings live in `.env` (auto-generated):
 | `MCP_LOG_DIR` | `./logs` | Audit and service logs |
 | `RATE_LIMIT_PER_MIN` | `120` | Max requests per minute |
 | `AUDIT_MAX_SIZE_MB` | `10` | Audit log rotation threshold |
+
+![RED-tier block demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_04_red-block.gif)
 
 ## Security Highlights
 
