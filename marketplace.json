@@ -1,0 +1,14 @@
+{
+  "plugins": [
+    {
+      "id": "local-terminal",
+      "name": "Local Terminal (ForgeRift)",
+      "description": "Audited Windows shell access for Claude - three-tier security, 120+ hard-blocked patterns, no network exposure. Runs as a Windows Service.",
+      "source": {
+        "type": "github",
+        "repo": "forgerift/local-terminal-mcp",
+        "ref": "main"
+      }
+    }
+  ]
+}
