@@ -2,6 +2,26 @@
 
 All notable changes to local-terminal-mcp.
 
+## [1.10.4] - 2026-04-23
+
+### Security - F-OP-80 / F-OP-82 / F-OP-83 / F-OP-84 / F-OP-85 (S65 closure)
+
+#### Matcher fixes
+- **F-OP-80** - `SENSITIVE_PATH_WIN` regex at `src/tools.ts:639` anchored: `^(?:\/?[A-Za-z]:)?\/(?:windows|system32|syswow64|program files|programdata)(?=[\/\\]|$)`. Leading `/` now required (with optional drive-letter prefix) and trailing separator or EOL enforced via lookahead. Closes a v1.10.3 regression where benign CWD-relative filenames like `windows-update.log`, `system32.bak`, `programdata-export.zip` incorrectly matched the regex as prefix and triggered `sensitive-path-write` blocks.
+- **F-OP-82** - `src/tools.ts:917-935` in the D10 PowerShell matcher loop: `nextVal()` now returns `undefined` when the fallback `rest[j+1]` starts with `-` (flag token), and the three param matchers `continue` the loop on undef instead of `break`ing. Closes a v1.10.3 F-OP-72 derivative gap where `Set-Content -Path: -Value x -LiteralPath /etc/passwd` had `-Value` absorbed as dest, skipping the sensitivity check on the real target.
+
+#### Documentation
+- **F-OP-83** - SECURITY.md D10 subsection now points at `BYPASS_BINARIES` as the documented operator override for the F-OP-79 UNC fail-closed guard and the broader sensitive-path class.
+
+#### Supply-chain hygiene
+- **F-OP-84** - `.githooks/pre-commit` enforces refusal of merge-conflict artifacts (`_BRANCH`/`_HEAD`/`_LOCAL`/`_REMOTE`/`_BASE`/`_MERGED`/`_YOURS`/`_THEIRS.ts`) plus backup/editor files (`.orig`, `.orig.N`, `.rej`, `.bak`, `.swp`, `*~`, `.env.test`). `package.json` `prepare` script wires `core.hooksPath` to `.githooks` automatically on `npm install`, so the guard activates on every fresh clone.
+- **F-OP-85** - `.gitignore` expanded from 3 merge-artifact patterns (`_BRANCH`, `_HEAD`, `.orig`) to the full class matched by the pre-commit hook.
+
+#### Testing
+- `bypass-corpus.test.ts` gains 12 new tests (7 for F-OP-80, 5 for F-OP-82). Full LT suite now passes **419/419**.
+
+---
+
 ## [1.9.6] — 2026-04-22
 
 ### Security — H18: Per-binary bypass allowlist
@@ -10,6 +30,7 @@ All notable changes to local-terminal-mcp.
 - **Legal** — Added Disclaimer of Warranties and Limitation of Liability section to SECURITY.md; explicit acknowledgement requirements for `BYPASS_BINARIES` users
 
 ---
+
 
 ## [1.9.5] — 2026-04-22
 

@@ -552,3 +552,46 @@ S64 was produced against a sandbox mount that silently truncated several files (
 ---
 
 *End of S64 eleventh-pass findings.*
+
+
+## Twelfth Pass - S65 - 2026-04-23
+
+Twelfth-pass audit run against the v1.10.3 S64-fix surfaces. Scope: the v1.10.3 delta (VPS e3563876, LT a1340adc) only; F-OP-1..F-OP-79 and C1..C24 out of scope unless regression evidence surfaced in the touched function bodies. Six findings opened (F-OP-80..F-OP-85); all six closed in v1.10.4.
+
+### Findings table
+
+| ID | Severity | Persona | Repo | Summary |
+| --- | --- | --- | --- | --- |
+| F-OP-80 | MEDIUM | Consumer Safety | LT | `SENSITIVE_PATH_WIN` at `src/tools.ts:632` had no leading-prefix anchor - `^\/?(?:[A-Za-z]:\/)?` made both optional, so bare CWD-relative filenames starting with `windows`/`system32`/`syswow64`/`programdata` matched as prefix and got blocked as sensitive destinations. Consumer workflows like `cp src.txt windows-update.log` refused with `sensitive-path-write` with no security gain. |
+| F-OP-81 | MEDIUM | Supply Chain | VPS only | See VPS ADVERSARIAL_REVIEW.md. |
+| F-OP-82 | LOW | Red Team | LT | v1.10.3 F-OP-72 fix left a derivative gap at `src/tools.ts:912-919`: empty colon-inline (`-Destination:`) followed by a flag token (e.g. `-LiteralPath`) got the flag consumed as dest and the loop broke, skipping the real sensitive path at `rest[j+2]`. PowerShell parameter-set rules bounded end-to-end exploitability across tested host versions, but D10 defense-in-depth was degraded. |
+| F-OP-83 | LOW | Consumer Safety | both | D10 `SECURITY.md` sections did not point operators at `BYPASS_BINARIES` as the documented override for legitimate UNC (LT) and `/home`-persistence (VPS) workflows. The block-by-default surface was undiscoverable without separately reading the H18 section. |
+| F-OP-84 | LOW | Supply Chain | both | Merge-artifact and backup-file guards were `.gitignore`-only with no pre-commit or CI enforcement. `git add -f` or non-standard filename shapes (`_LOCAL`, `_MERGED`, `.bak`, `.rej`, `~`, `.swp`, `.env.test`) could re-introduce the same class of regressions through the normal commit flow. |
+| F-OP-85 | LOW | Supply Chain | LT + VPS parity | F-OP-75 `.gitignore` patterns were narrow-shape-only (`_BRANCH`/`_HEAD` on `.ts`). Other merge-tool outputs (`_LOCAL`/`_REMOTE`/`_BASE`/`_MERGED`/`_YOURS`/`_THEIRS`) and editor artifacts (`.rej`, `.bak`, `.swp`, `*~`) were not covered. |
+
+### S65 Fixes - v1.10.4 (LT)
+
+LT-applicable findings closed in one commit (`43eb6e1`). Patch bump `1.10.3 -> 1.10.4` reflects matcher regex tightening, matcher-loop semantics tightening, doc expansion, and defensive-hygiene additions - no config-surface break.
+
+| ID | Fix | Verification |
+| --- | --- | --- |
+| F-OP-80 | `src/tools.ts:639` - `SENSITIVE_PATH_WIN` regex changed from `/^\/?(?:[A-Za-z]:\/)?(?:windows\|...)/i` to `/^(?:\/?[A-Za-z]:)?\/(?:windows\|...)(?=[\/\\]\|$)/i`. Leading `/` is now required (with optional drive-letter prefix), and a lookahead enforces trailing separator or EOL after the keyword. Three accepted forms preserved: `C:/windows/...`, `/windows/...`, `/C:/windows/...`. | `bypass-corpus.test.ts` new F-OP-80 describe block: 5 negative tests covering `cp`/`Copy-Item`/`Out-File`/`mv`/`Set-Content` with filenames like `windows-update.log`, `windows-backup.zip`, `programdata-export.zip`, `system32.bak`, `syswow64-report.txt`; plus 2 positive regression tests for `/Windows/System32/windows-update.log` and `/Windows/notepad.exe`. All pass. |
+| F-OP-82 | `src/tools.ts:917-935` - two coupled changes. (a) `nextVal()` now returns `undefined` when the fallback `rest[j+1]` starts with `-`, so flag tokens are never absorbed as destinations. (b) The three param matchers `break` only when `nextVal` returned a real value; on undef they `continue` the loop so a later `-LiteralPath` / `-Path` / `-FilePath` still binds and gets sensitivity-checked. | `bypass-corpus.test.ts` new F-OP-82 describe block: 4 positive tests (`Set-Content -Path: -Value x -LiteralPath /etc/passwd`; `Out-File -FilePath: -InputObject data -LiteralPath C:\Windows\...`; `Add-Content -Path: -NoNewline -LiteralPath /etc/sudoers`; `New-Item -Path: -ItemType File -Value x -LiteralPath /etc/cron.d/evil`) plus 1 benign allow for `Set-Content -Path: -Value x -LiteralPath C:\Users\user\out.txt`. All pass. |
+| F-OP-83 | `SECURITY.md` D10 subsection gained an "Operator override" paragraph pointing at `BYPASS_BINARIES` (H18) with a concrete example string and a note that UNC destinations blocked by the F-OP-79 fail-closed guard can be re-enabled through the same mechanism. | Grep `SECURITY.md` for `BYPASS_BINARIES=copy-item:sensitive-path-write` returns the new paragraph. |
+| F-OP-84 | `.githooks/pre-commit` added (checked-in shell script refusing commits matching `(_BRANCH\|_HEAD\|_LOCAL\|_REMOTE\|_BASE\|_MERGED\|_YOURS\|_THEIRS)\.ts$`, `.orig`, `.orig.N`, `.rej`, `.bak`, `.swp`, `~`, `.env.test`). `package.json` `prepare` script wires `core.hooksPath` to `.githooks` so the guard activates on every `npm install`. | Smoke test on VPS (identical hook): staging `test_MERGED.ts` then `git commit` is refused with `[pre-commit] Refusing to commit merge-conflict / backup / test-env artifacts: test_MERGED.ts`. Verified. |
+| F-OP-85 | `.gitignore` expanded from `src/*_BRANCH.ts`, `src/*_HEAD.ts`, `*.orig` to the full pattern class matched by the pre-commit hook (9 additional patterns plus `.env.test*` and `*.bak` for parity with VPS). The hook is authoritative; `.gitignore` is the first-pass guard. | Pattern grep on `.gitignore` returns all 9 new patterns. |
+
+### Test outcome
+- LT `bypass-corpus.test.ts`: **407/407 pass before new additions, 419/419 pass after.** New additions: 7 F-OP-80 tests, 5 F-OP-82 tests = 12 new tests, all passing.
+- LT full test suite: **419/419 pass.** Zero regressions.
+- `core.hooksPath` wired automatically on `npm install` via the `prepare` script - verified.
+
+### Honest note on audit method
+
+S65 was produced against the same Cowork sandbox mount that had previously silently truncated files in S64. This time, before opening findings, the full content for each reviewed file was pulled via `git show <commit>:<path>` directly from `.git/objects`, bypassing the mount layer entirely. Verified byte counts confirmed no truncation: the git-blob LF-normalized byte counts were approximately 1-2% below the handoff's Windows-side CRLF-counted figures, a delta entirely attributable to line endings. No findings were retracted.
+
+During implementation, the Cowork mount's `Edit` tool was confirmed to silently truncate files to their pre-edit byte count on growing writes. All edits were applied in an isolated `/tmp` working area and bulk-copied to the mount via `cp` / `dd`, which preserved full file content (256KB round-trip SHA-matched write verified before touching real files).
+
+---
+
+*End of S65 twelfth-pass findings.*
