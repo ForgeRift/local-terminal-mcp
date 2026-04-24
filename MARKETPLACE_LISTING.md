@@ -7,11 +7,11 @@
 
 **local-terminal-mcp** gives Claude secure, audited access to your local Windows shell. Browse files, read code, run approved commands, and manage development projects from Cowork — without ever handing Claude an unguarded terminal.
 
-Runs as a Windows Service so Claude stays connected across sessions. Every command passes through a three-tier security model with 120+ hard-blocked dangerous patterns. Full audit logging. No network exposure — binds to `127.0.0.1` only.
+Runs as a Windows Service so Claude stays connected across sessions. Every command passes through a three-tier security model with 450+ hard-blocked dangerous patterns. Full audit logging. No network exposure — binds to `127.0.0.1` only.
 
 ## Key Features
 
-- **Three-Tier Command Authorization** — RED (hard-blocked), AMBER (warning-required), GREEN (allowed with audit). 120+ security patterns across 20 categories prevent file deletion, privilege escalation, credential theft, and data exfiltration.
+- **Three-Tier Command Authorization** — RED (hard-blocked), AMBER (warning-required), GREEN (allowed with audit). 450+ security patterns across 27 categories prevent file deletion, privilege escalation, credential theft, and data exfiltration.
 
 - **Sensitive File Protection** — Blocks reads of `.env`, SSH keys, Windows credential stores, browser login data, cloud credentials, and more — even through read-only tools.
 
@@ -55,7 +55,7 @@ Eight tools across three tiers:
 
 ```powershell
 # 1. Clone the repo
-git clone https://github.com/forgerift/local-terminal-mcp
+git clone https://github.com/ForgeRift/local-terminal-mcp
 cd local-terminal-mcp
 
 # 2. Run the installer as Administrator
@@ -87,10 +87,10 @@ All settings live in `.env` (auto-generated):
 ## Security Highlights
 
 - **No network exposure** — Binds to `127.0.0.1` only. Not reachable from the network.
-- **Hard command blocks** — 120+ dangerous patterns permanently blocked. Operator override available via `BYPASS_BINARIES` env var for legitimate admin workflows; every bypass is logged as `[SECURITY-BYPASS]`.
+- **Hard command blocks** — 450+ dangerous patterns permanently blocked across 27 categories. Operator override available via `BYPASS_BINARIES` env var for legitimate admin workflows; every bypass is logged as `[SECURITY-BYPASS]`.
 - **Credential protection** — Sensitive files blocked at the filesystem level, even in read-only tools.
 - **Audit trail** — Every call logged with full context. Secrets auto-redacted.
-- **Responsible disclosure** — Report security issues to `support@forgerift.io` (90-day responsible disclosure).
+- **Responsible disclosure** — Report security issues to `security@forgerift.io` (90-day responsible disclosure).
 
 See `SECURITY.md` for the full threat model and the S65 adversarial-review trail.
 
@@ -113,16 +113,23 @@ Removes the Windows Service. Config is preserved if you want to reinstall later.
 
 ## Pricing
 
-Free during launch. When paid tiers activate, existing users get **30 days' written notice** before any charge. Free, read-only access to GREEN-tier tools stays free indefinitely.
+| Plan | Monthly | Annual |
+|------|---------|--------|
+| Individual (this plugin) | $14.99/mo | $149/yr |
+| Bundle (both plugins) | $19.99/mo | $199/yr |
 
-See [forgerift.io/#pricing](https://forgerift.io/#pricing) for the current plan list.
+**14-day free trial** included. No charge during trial period. No refunds after trial ends.
+
+**Founder Cohort:** First 100 subscribers or 3 months post-marketplace approval (whichever comes first) lock in $9.99/mo (individual) or $14.99/mo (bundle) for life.
+
+See [forgerift.io/#pricing](https://forgerift.io/#pricing) for full details.
 
 ## Support & Security
 
 - **Documentation** — See `README.md`, `SECURITY.md`, and `TROUBLESHOOTING.md` in the repository.
 - **Issues** — Report bugs via GitHub issues.
-- **Security** — Report vulnerabilities to `support@forgerift.io`.
+- **Security** — Report vulnerabilities to `security@forgerift.io`.
 
 ## License
 
-MIT — ForgeRift LLC, 2026
+Source available under the [Business Source License 1.1](LICENSE) (BUSL 1.1). Converts to MIT four years after each version's release date.

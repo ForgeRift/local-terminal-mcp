@@ -2,14 +2,18 @@
 
 All notable changes to local-terminal-mcp.
 
-## [1.10.5] - 2026-04-24
+The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
+
+---
+
+## [1.10.5] — 2026-04-24
 
 ### Security — H-1 / H-2 (S62 parse-failure parity fix)
 
 - **H-1** — Layer 2 (Haiku classifier) response parsing: replaced `lastLine`-only scan with all-lines BLOCKED-priority scan. Any line starting with `BLOCKED` in the classifier response now correctly triggers a block, regardless of trailing content or extra lines added by the model. Closes parse-failure false-passes when the classifier prefaced its verdict with explanatory text.
 - **H-2** — Layer 3 (Sonnet safety board) response parsing: same fix applied. All-lines scan with priority order BLOCKED > PROCEED WITH CAUTION > PASS. Adds response excerpt to the `console.warn` on unexpected format for easier debugging.
 
-## [1.10.4] - 2026-04-23
+## [1.10.4] — 2026-04-23
 
 ### Security - F-OP-80 / F-OP-82 / F-OP-83 / F-OP-84 / F-OP-85 (S65 closure)
 
@@ -26,6 +30,43 @@ All notable changes to local-terminal-mcp.
 
 #### Testing
 - `bypass-corpus.test.ts` gains 12 new tests (7 for F-OP-80, 5 for F-OP-82). Full LT suite now passes **419/419**.
+
+---
+
+## [1.10.3] — 2026-04-22
+
+### Security — F-OP-72 / F-OP-74 / F-OP-75
+
+- **F-OP-72** — D10 PowerShell sensitive-path write matcher: extended to cover `Set-Content`, `Out-File`, `Add-Content`, `Export-Csv`, `Export-Clixml` with destination-argument extraction. Closes gap where PowerShell cmdlet writes to sensitive paths bypassed the D10 argv matcher (which previously matched only POSIX-style `cp`/`mv`/`tee`).
+- **F-OP-74** — UNC path write guard: `\\server\share\...` paths canonicalized before sensitivity check. Fail-closed: unresolvable UNC roots treated as sensitive.
+- **F-OP-75** — Tilde expansion in write destinations: `~/sensitive-path` now resolved against known sensitive prefix list before sensitivity gate.
+
+---
+
+## [1.10.2] — 2026-04-22
+
+### Security — F-OP-68 / F-OP-69
+
+- **F-OP-68** — `SENSITIVE_PATH_WIN` regex tightened: Windows system path detection now requires leading slash or drive-letter prefix, preventing benign filenames containing "system32" or "windows" as substrings from triggering false-positive blocks.
+- **F-OP-69** — Redirect operator destination extraction hardened: `>` and `>>` target captured after quote normalization and env-var stripping, so `echo x > "$APPDATA\passwd"` correctly identified as a sensitive write.
+
+---
+
+## [1.10.1] — 2026-04-22
+
+### Security — F-OP-66
+
+- **F-OP-66** — Layer 1 BLOCKED tier hardening: `BYPASS_BINARIES` env var added. Operators may demote specific `<binary>:<category>` pairs from hard-block to AI-reviewed (Layer 2/3) for legitimate admin workflows. Every bypass is logged as `[SECURITY-BYPASS]` in the audit stream. Documented in `SECURITY.md`.
+
+---
+
+## [1.10.0] — 2026-04-22
+
+### Security — F-OP-62 / F-OP-63 / F-OP-64 (BLOCKED tier introduction)
+
+- **F-OP-62** — BLOCKED tier (Layer 1 hard-block) introduced as a new security tier above AMBER. Commands matching BLOCKED patterns return a structured error immediately without entering Layer 2/3 AI classification. Prevents prompt-injection attacks that attempt to manipulate the Haiku/Sonnet classifiers.
+- **F-OP-63** — `HARD_BLOCKED_PATTERNS` array seeded with the highest-risk categories from the existing BLOCKED_PATTERNS list: shell invocation, privilege escalation, credential theft, data exfiltration, persistence mechanisms.
+- **F-OP-64** — `ANTHROPIC_API_KEY` now validated at startup; Layer 2/3 classification skipped (fail-open or fail-closed per `LAYER_STRICT_MODE`) when key is absent. `LAYER3_MODEL` env var added for operator control of the safety board model.
 
 ---
 
@@ -115,10 +156,6 @@ All notable changes to local-terminal-mcp.
 - Layer 1: Added `chaining` category (;, &&, ||, single & CMD chaining)
 - Layer 1: Added `base64-exec` category (certutil -decode, base64 -d, [Convert]::FromBase64String)
 - Layer 1: Added Python/Node/Ruby/Perl/PHP inline execution patterns to `code-exec` category
-
----
-
-The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).
 
 ---
 
