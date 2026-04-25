@@ -1,78 +1,92 @@
 # local-terminal-mcp — Marketplace Listing
 
-
 ## Product Overview
 
 ![local-terminal tools panel](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_01_tools.gif)
 
-**local-terminal-mcp** gives Claude secure, audited access to your local Windows shell. Browse files, read code, run approved commands, and manage development projects from Cowork — without ever handing Claude an unguarded terminal.
+**Tagline:** *Claude with access to your Windows machine — your files never leave it.*
 
-Runs as a Windows Service so Claude stays connected across sessions. Every command passes through a three-tier security model with 450+ hard-blocked dangerous patterns. Full audit logging. No network exposure — binds to `127.0.0.1` only.
+You're in a Claude conversation helping with a project — and Claude needs to see a file, run a build, or check git status. Right now you copy-paste it. local-terminal-mcp lets Claude just do it.
 
-## Key Features
+Secure, audited access to your local Windows shell. Claude can browse your project files, read code, run npm and git commands, and search across directories — all from the Claude interface, with no network exposure and 450+ permanently blocked dangerous patterns.
 
-- **Three-Tier Command Authorization** — RED (hard-blocked), AMBER (warning-required), GREEN (allowed with audit). 450+ security patterns across 27 categories prevent file deletion, privilege escalation, credential theft, and data exfiltration.
+Runs as a Windows Service. Stays connected across sessions. Binds to localhost only — nothing is reachable from outside your machine.
 
-- **Sensitive File Protection** — Blocks reads of `.env`, SSH keys, Windows credential stores, browser login data, cloud credentials, and more — even through read-only tools.
-
-- **Audit Logging** — Every tool call logged with timestamp, security tier, blocked status, and arguments. Secrets auto-redacted via regex. Logs rotate at 10MB with one backup retained.
-
-- **Rate Limiting** — 120 requests per minute per token. Prevents brute-force probing.
-
-- **Request Timeout** — 30-second hard kill on all commands. No hung processes.
-
-- **Windows Service Infrastructure** — Auto-restarts on crash. Persistent connection. Zero configuration after setup.
-
-- **Twelve Adversarial Review Rounds** — Hardened against 80+ filed bypass findings (F-OP-1 through F-OP-85). Every closure is documented in `ADVERSARIAL_REVIEW.md`.
+---
 
 ## What Claude Can Do
 
 ![Directory listing and search demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_03_search.gif)
 
-Eight tools across three tiers:
+- **Read your project files** — browse directories, read source files and configs, search by pattern
+- **Run builds** — `npm install`, `npm run build`, `npm test`, without leaving Claude
+- **Check git state** — status, log, diff, branch listing — instant project context for every conversation
+- **Get system info** — disk, memory, running processes
+- **Find things fast** — search file contents across your project for functions, variables, error messages
+- **Run approved commands** — filtered through the same RED/AMBER/GREEN tier system, `dry_run=true` by default
 
-**Read-only tools (always safe)**
-- List files and folders
-- Read text files (up to 500 lines, with sensitive-file protection)
-- Get system info (OS, disk, memory, processes)
-- Find files by pattern
-- Search within files
+**Full tool list:** `list_directory`, `read_file`, `find_files`, `search_file`, `get_system_info`, `run_command`, `run_git_command`, `run_npm_command`
 
-**Approved commands**
-- `npm install`, `npm run`, `npm list` (package management)
-- Git read-only operations: `status`, `log`, `diff`, `branch`, `fetch`
+---
 
-**Escape hatch**
-- Run arbitrary shell commands via `run_command` (RED/AMBER/GREEN filtered, `dry_run=true` by default)
+## Not a Developer? This Is Still for You.
+
+If you use Claude to help you with work — writing, research, projects, spreadsheets — you've probably wished Claude could just *look at the file* instead of you copying and pasting it in. Or run something for you instead of telling you what to type.
+
+local-terminal-mcp gives Claude access to your Windows computer so it can do that. It can open files, read them, search through folders, run tasks. You don't paste anything. You just ask.
+
+**The part people worry about:** what if it does something I didn't want? Claude cannot delete your files. Cannot send your files anywhere. Cannot access your passwords, your browser data, your SSH keys, your cloud credentials — those are blocked at the file level, not just by instruction. It can look at what you point it at and run what you approve. It can't go rogue.
+
+**A realistic example:** You're working on a project and you say *"check the last 50 lines of the error log in my app folder and tell me what's going wrong."* Claude reads it, tells you what's wrong, and suggests a fix — without you copying anything. That's the whole idea.
+
+---
+
+## Developers — Here's What's Actually Under the Hood.
+
+![RED-tier block demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_04_red-block.gif)
+
+**Security architecture:** Same three-tier RED/AMBER/GREEN model as vps-control-mcp, adapted for Windows. Static pattern matching + allowlist-based command gating, both layers required. 450+ hard-blocked patterns across 27 categories. stdio transport — no network socket, no port exposure.
+
+**Blocked surface highlights:** Recursive deletion (`rm -rf` equivalents, `Remove-Item -Recurse`), PowerShell execution policy bypass, credential store access (Windows Credential Manager, DPAPI), browser login data (`Login Data`, `Cookies`, Chrome/Edge/Firefox profile paths), registry writes, scheduled task creation, UAC bypass patterns, Windows Defender modification, and network pivot commands.
+
+**Windows Service infrastructure:** Runs as a persistent Windows Service via `node-windows`. Auto-restarts on crash. Survives session logoff. No manual restart needed after system reboot. Service name: `LocalTerminalMCP`.
+
+**Sensitive file protection:** Blocked at the read level in all tools — not just `run_command`. `.env`, SSH keys (`id_rsa`, `id_ed25519`), Windows credential stores, browser login data, cloud credentials (`.aws/`, `.azure/`, `.gcloud/`), npm/yarn auth tokens, and shell configs that commonly contain exported secrets.
+
+**Audit trail:** Structured JSON, secret auto-redaction via expanded prefix + key-name regex, 10MB rotation with one backup. Stored locally at `MCP_LOG_DIR`.
+
+**Adversarial review:** 13 rounds, 419/419 tests pass. LT-specific findings (F-LT series) documented in `ADVERSARIAL_REVIEW.md`. Shares the same security architecture and findings database as vps-control-mcp.
+
+**Scope limitation by design:** No network calls, no outbound requests, no file writes outside `run_command` (which is itself filtered). The plugin surface is read + gated-execute only. Nothing leaves your machine.
+
+**License:** BUSL 1.1 — source available, converts to MIT 4 years after each version release. Full source at [github.com/ForgeRift/local-terminal-mcp](https://github.com/ForgeRift/local-terminal-mcp).
+
+---
 
 ## Requirements
 
 - Windows 10 / 11
 - Node.js v18 or later
 - PowerShell (Administrator for setup)
+- Claude Desktop + Cowork
+
+---
 
 ## Quick Start
 
 ```powershell
-# 1. Clone the repo
 git clone https://github.com/ForgeRift/local-terminal-mcp
 cd local-terminal-mcp
-
-# 2. Run the installer as Administrator
 .\setup.ps1
 ```
 
-The installer:
-- Builds the project
-- Generates a random auth token and saves it to `.env`
-- Installs `local-terminal-mcp` as a Windows Service with auto-restart
-- Prints the `claude_desktop_config.json` snippet — copy it into Claude Desktop config
+Run as Administrator. The installer builds the project, generates a random auth token, installs `local-terminal-mcp` as a Windows Service with auto-restart, and prints the `claude_desktop_config.json` snippet. Copy it into Claude Desktop config, restart Claude. Connected.
 
-Restart Claude Desktop, and you're connected.
+---
 
 ## Configuration
 
-All settings live in `.env` (auto-generated):
+All settings live in `.env` (auto-generated by `setup.ps1`):
 
 | Variable | Default | Description |
 |---|---|---|
@@ -82,34 +96,7 @@ All settings live in `.env` (auto-generated):
 | `RATE_LIMIT_PER_MIN` | `120` | Max requests per minute |
 | `AUDIT_MAX_SIZE_MB` | `10` | Audit log rotation threshold |
 
-![RED-tier block demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_04_red-block.gif)
-
-## Security Highlights
-
-- **No network exposure** — Binds to `127.0.0.1` only. Not reachable from the network.
-- **Hard command blocks** — 450+ dangerous patterns permanently blocked across 27 categories. Operator override available via `BYPASS_BINARIES` env var for legitimate admin workflows; every bypass is logged as `[SECURITY-BYPASS]`.
-- **Credential protection** — Sensitive files blocked at the filesystem level, even in read-only tools.
-- **Audit trail** — Every call logged with full context. Secrets auto-redacted.
-- **Responsible disclosure** — Report security issues to `security@forgerift.io` (90-day responsible disclosure).
-
-See `SECURITY.md` for the full threat model and the S65 adversarial-review trail.
-
-## Updating
-
-```powershell
-git pull
-.\setup.ps1
-```
-
-Re-running `setup.ps1` preserves your auth token and restarts the service with new code.
-
-## Uninstalling
-
-```powershell
-.\uninstall.ps1
-```
-
-Removes the Windows Service. Config is preserved if you want to reinstall later.
+---
 
 ## Pricing
 
@@ -124,11 +111,16 @@ Removes the Windows Service. Config is preserved if you want to reinstall later.
 
 See [forgerift.io/#pricing](https://forgerift.io/#pricing) for full details.
 
+---
+
 ## Support & Security
 
-- **Documentation** — See `README.md`, `SECURITY.md`, and `TROUBLESHOOTING.md` in the repository.
-- **Issues** — Report bugs via GitHub issues.
-- **Security** — Report vulnerabilities to `security@forgerift.io`.
+- **Documentation** — `README.md`, `SECURITY.md`, `TROUBLESHOOTING.md`
+- **Issues** — [github.com/ForgeRift/local-terminal-mcp/issues](https://github.com/ForgeRift/local-terminal-mcp/issues)
+- **Security** — `security@forgerift.io` (90-day responsible disclosure)
+- **General** — `support@forgerift.io`
+
+---
 
 ## License
 
