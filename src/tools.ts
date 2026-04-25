@@ -101,7 +101,8 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /set-netadapter/i,                   category: 'network-config', reason: 'PowerShell network adapter changes are prohibited.' },
 
   // ── Scheduled Execution ───────────────────────────────────────────────────
-  { pattern: /\bcrontab\b/i,                      category: 'scheduled-exec', reason: 'Cron job modification is prohibited.' },
+  // crontab: blanket block replaced (S64 v1.11.0) — allow -l (read-only list). Modification flags (-e, -r, -u) remain blocked.
+  { pattern: /\bcrontab\b.*-[eru]\b/i,             category: 'scheduled-exec', reason: 'Crontab modification (-e edit, -r remove, -u user) is prohibited. Only "crontab -l" is permitted.' },
   { pattern: /(?:^|[;&|])\s*\bat\b\s+\d/i,                      category: 'scheduled-exec', reason: 'Scheduled task creation (at) is prohibited.' },
   { pattern: /\bschtasks\b/i,                     category: 'scheduled-exec', reason: 'Windows Task Scheduler modification is prohibited.' },
   { pattern: /register-scheduledjob/i,            category: 'scheduled-exec', reason: 'PowerShell scheduled job creation is prohibited.' },
