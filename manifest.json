@@ -1,0 +1,54 @@
+{
+  "manifest_version": "0.3",
+  "name": "local-terminal",
+  "display_name": "Local Terminal (ForgeRift)",
+  "version": "1.11.0",
+  "description": "Audited Windows shell access for Claude. Three-tier security model with 120+ hard-blocked patterns, full audit logging, and dry-run preview for destructive commands.",
+  "long_description": "Local Terminal gives Claude audited, security-hardened access to your Windows shell. Every command is classified RED (hard-blocked), AMBER (dry-run preview required), or GREEN (auto-execute). Over 120 patterns are permanently blocked including network exfiltration, credential theft, registry tampering, and process injection. A tamper-evident audit log records every tool call. Runs entirely on your machine -- no data leaves your computer.",
+  "author": {
+    "name": "ForgeRift LLC",
+    "email": "support@forgerift.io",
+    "url": "https://forgerift.io"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ForgeRift/local-terminal-mcp"
+  },
+  "homepage": "https://forgerift.io",
+  "documentation": "https://github.com/ForgeRift/local-terminal-mcp#readme",
+  "support": "https://github.com/ForgeRift/local-terminal-mcp/issues",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "ANTHROPIC_API_KEY": "${user_config.anthropic_api_key}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "node.exe"
+        }
+      }
+    }
+  },
+  "tools_generated": true,
+  "keywords": ["terminal", "shell", "windows", "security", "audit", "filesystem"],
+  "license": "BUSL-1.1",
+  "compatibility": {
+    "platforms": ["win32"]
+  },
+  "user_config": {
+    "anthropic_api_key": {
+      "type": "string",
+      "title": "Anthropic API Key",
+      "description": "Required for Layer 3 AI-assisted command analysis. Get yours at console.anthropic.com.",
+      "sensitive": true,
+      "required": false
+    }
+  },
+  "privacy_policies": [
+    "https://forgerift.io/privacy.html"
+  ]
+}
