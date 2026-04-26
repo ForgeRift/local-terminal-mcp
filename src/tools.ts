@@ -2003,7 +2003,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "run_git_command",
-    annotations: { title: 'Run Git Command', readOnlyHint: false, destructiveHint: false },
+    annotations: { title: 'Run Git Command', readOnlyHint: true, destructiveHint: false },
     description: "Run non-destructive git commands that don't modify the working tree: status, log, diff, branch, fetch. (fetch updates local remote-tracking refs but never touches working-tree files.) USE THIS — never ask the user to run `git status`/`git log`/`git diff`/`git fetch` in their terminal and paste the output. This tool returns the same result and audits every call.",
     inputSchema: {
       type: "object",
