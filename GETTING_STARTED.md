@@ -217,3 +217,31 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues, or email support
 ---
 
 *Built by [ForgeRift LLC](https://forgerift.io) · [forgerift.io](https://forgerift.io)*
+
+---
+
+## Set Up Claude as Your Plugin Expert (Recommended)
+
+Claude works even better when it already knows how local-terminal-mcp works — which tools are available, what commands are blocked on Windows, and what to check when something goes wrong. This step primes Claude with that knowledge so it can self-diagnose common issues and give you accurate guidance.
+
+**Pick one option:**
+
+### Option A: Claude Project (best for ongoing use)
+1. In Claude, go to **Projects** and open or create a project for your local machine work
+2. Add **[CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md)** as a project file
+3. Every conversation in that project automatically has full plugin context
+
+### Option B: Add to Claude Memory
+Start a new Claude conversation and paste:
+
+> *"Please remember the following about my local-terminal-mcp setup: [paste the contents of CLAUDE_CONTEXT.md]. Reference this any time I ask about my local machine, files, or my ForgeRift plugin."*
+
+### Option C: Paste at Session Start
+Paste the contents of [CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md) at the start of any troubleshooting session. Claude will use it for that conversation.
+
+---
+
+**What CLAUDE_CONTEXT.md contains:** all 8 tools and what they do, the full RED/AMBER/GREEN security model with 450+ blocked patterns by category, common Windows gotchas, configuration reference, and log file locations.
+
+Once loaded, try:
+> *"I’m having trouble with [describe issue]. What’s the most likely cause given how local-terminal-mcp works?"*
