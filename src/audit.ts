@@ -1,21 +1,27 @@
-import { appendFileSync, mkdirSync, existsSync, statSync, unlinkSync, renameSync } from "fs";
-import { join, normalize } from "path";
+﻿import { appendFileSync, mkdirSync, existsSync, statSync, unlinkSync, renameSync } from "fs";
+import { join, normalize, dirname } from "path";
+import { fileURLToPath } from "url";
 
-// D7: Validate MCP_LOG_DIR at startup — reject paths that would silently
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// D7: Validate MCP_LOG_DIR at startup -- reject paths that would silently
 // disable or compromise the audit trail.
 function validateLogDir(p: string): string {
   const n = normalize(p).toLowerCase();
   const FORBIDDEN = ['/dev/null', '/dev/zero', '/dev/random', 'nul', 'con', '/dev/stdout', '/dev/stderr'];
   if (FORBIDDEN.includes(n)) {
-    throw new Error(`MCP_LOG_DIR "${p}" is a forbidden sink — audit logging would be silently disabled.`);
+    throw new Error(`MCP_LOG_DIR "${p}" is a forbidden sink -- audit logging would be silently disabled.`);
   }
   if (n.startsWith('/tmp/') || n.startsWith('/var/tmp/') || n === '/tmp' || n === '/var/tmp') {
-    throw new Error(`MCP_LOG_DIR "${p}" is in a world-writable temp directory — use a hardened log path.`);
+    throw new Error(`MCP_LOG_DIR "${p}" is in a world-writable temp directory -- use a hardened log path.`);
   }
   return p;
 }
 
-const LOG_DIR  = validateLogDir(process.env.MCP_LOG_DIR ?? join(process.cwd(), "logs"));
+// F-STDIO-2: anchor log dir to plugin install directory, not process.cwd()
+// In .mcpb context, cwd is Claude Desktop's working dir, not the plugin folder.
+const LOG_DIR  = validateLogDir(process.env.MCP_LOG_DIR ?? join(__dirname, "..", "logs"));
 const LOG_FILE = join(LOG_DIR, "audit.log");
 
 // Maximum audit log size before rotation (10 MB default, configurable via AUDIT_MAX_SIZE_MB)
@@ -43,13 +49,13 @@ export function auditLog(
     rotateIfNeeded();
     appendFileSync(LOG_FILE, entry + "\n");
   } catch {
-    // Never crash the server over an audit write failure — log to stdout instead
-    console.error('[AUDIT FAIL]', entry);
+    // Never crash the server over an audit write failure -- log to stderr instead
+    process.stderr.write('[AUDIT FAIL] ' + entry + '\n');
   }
 
-  // Console summary
-  const prefix = blocked ? '⛔ BLOCKED' : tier === 'amber' ? '⚠️  AMBER' : '✓';
-  console.log(`[audit] ${prefix} ${tier}${dryRun ? " (dry_run)" : ""} → ${tool}`);
+  // Console summary -- use stderr to avoid stdout corruption in stdio mode
+  const prefix = blocked ? '> BLOCKED' : tier === 'amber' ? 'AMBER' : 'ok';
+  process.stderr.write(`[audit] ${prefix} ${tier}${dryRun ? " (dry_run)" : ""} -> ${tool}\n`);
 }
 
 // Strip values that look like secrets before logging args
@@ -87,7 +93,7 @@ function rotateIfNeeded(): void {
       const oldPath = LOG_FILE + '.old';
       if (existsSync(oldPath)) unlinkSync(oldPath);
       renameSync(LOG_FILE, oldPath);
-      console.log(`[local-terminal-mcp] Audit log rotated (${Math.round(stats.size / 1024 / 1024)}MB). Old log: ${oldPath}`);
+      process.stderr.write(`[local-terminal-mcp] Audit log rotated (${Math.round(stats.size / 1024 / 1024)}MB). Old log: ${oldPath}\n`);
     }
   } catch {
     // Rotation failure is non-fatal
