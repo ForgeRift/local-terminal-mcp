@@ -6,11 +6,11 @@
 
 **Tagline:** *Claude with access to your Windows machine — your files never leave it.*
 
-You're in a Claude conversation helping with a project — and Claude needs to see a file, run a build, or check git status. Right now you copy-paste it. local-terminal-mcp lets Claude just do it.
+We run the safe tasks automatically so you don't have to.
 
-Secure, audited access to your local Windows shell. Claude can browse your project files, read code, run npm and git commands, and search across directories — all from the Claude interface, with no network exposure and 450+ permanently blocked dangerous patterns.
+Reading files, checking logs, running builds, searching your codebase — Claude handles those directly from the conversation, no copy-pasting required. High-risk operations (file deletion, software installs, registry changes, and more) stay permanently blocked and in your hands by design. When Claude hits one, it tells you exactly what to run yourself and why.
 
-Runs as a Windows Service. Stays connected across sessions. Binds to localhost only — nothing is reachable from outside your machine.
+Secure, audited access to your local Windows shell. 450+ permanently blocked dangerous patterns. Runs as a Windows Service, bound to localhost only — nothing is reachable from outside your machine.
 
 ---
 
