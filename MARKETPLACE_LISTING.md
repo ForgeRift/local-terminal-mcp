@@ -29,6 +29,16 @@ Runs as a Windows Service. Stays connected across sessions. Binds to localhost o
 
 ---
 
+## Why Direct Access Changes How You Use Claude
+
+Without a plugin, every Claude conversation about your machine is a relay race. You describe a problem, Claude asks what's in the log, you paste the log, Claude asks for a config file, you paste that, Claude suggests a command, you run it, paste the output back. A lot of that time gets spent figuring out *what Claude is asking for* — not reading the answer.
+
+Direct access breaks that loop. Claude reads the log itself. Checks the config. Scans the directory. Gets the full picture in one step instead of four rounds of back-and-forth. For large outputs — full build logs, long stack traces, directory listings — the difference is especially significant: no truncated pastes, no guessing what context Claude needs, no token overhead from repeatedly re-explaining what you're looking at.
+
+The result: you describe what's wrong once. Claude figures out what to look at, reads it, diagnoses the problem, and either tells you what's happening or just fixes it. That's the whole idea.
+
+---
+
 ## Not a Developer? This Is Still for You.
 
 If you use Claude to help you with work — writing, research, projects, spreadsheets — you've probably wished Claude could just *look at the file* instead of you copying and pasting it in. Or run something for you instead of telling you what to type.

@@ -216,6 +216,34 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues, or email support
 
 ---
 
+---
+
+## Tips & Tricks
+
+### Describe outcomes, not commands
+You don't need to tell Claude which tool to use or what command to run. Just describe what you want. *"Why is my build failing?"* works better than *"run npm run build and show me the output."* Claude will read the relevant files, run what it needs to, and come back with a diagnosis.
+
+### Let Claude chain its own steps
+Once the plugin is connected, Claude can read a file, find an error, search for where that error originates in the codebase, and suggest a fix — all in one go. You don't need to approve each step. Claude stops and asks only when it hits a blocked command or needs a decision only you can make.
+
+### For large log files and error outputs
+Don't paste logs into the chat. Just say *"check the error log in [folder]."* Claude will read it directly — including the full output, not just what fits in a paste. For stack traces that are hundreds of lines long, this makes a real difference.
+
+### Use a Claude Project for persistent context
+Add `CLAUDE_CONTEXT.md` (in this repo) to a Claude Project. Every conversation in that project starts with Claude already knowing the full plugin — all tools, the security model, common Windows gotchas. No re-explaining needed across sessions.
+
+### Claude in Chrome — extend Claude to your browser
+**Claude in Chrome** is a separate browser extension from Anthropic (beta) that gives Claude access to the web page you're viewing. Used alongside local-terminal-mcp, it unlocks a powerful combination: Claude can read a page (GitHub PR, error dashboard, documentation site) and then act on your machine in the same conversation.
+
+A few examples of what that looks like in practice:
+- *"I'm looking at this GitHub PR — pull it locally and run the tests."* Claude reads the PR URL from your browser, gets the branch name, and runs `git fetch` + `git checkout` + `npm test` on your machine.
+- *"This error is showing in my browser console — find where it's coming from in my code."* Claude reads the browser error, searches your local project for the source.
+- *"Walk me through what this dependency does"* while you have its npm page open — Claude reads the page and cross-references it against your `package.json`.
+
+Claude in Chrome is available as a beta from [claude.ai](https://claude.ai). Install it, connect it, and it will appear as a tool in the same conversation where local-terminal-mcp is active.
+
+---
+
 *Built by [ForgeRift LLC](https://forgerift.io) · [forgerift.io](https://forgerift.io)*
 
 ---
