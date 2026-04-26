@@ -37,6 +37,8 @@ Direct access breaks that loop. Claude reads the log itself. Checks the config. 
 
 The result: you describe what's wrong once. Claude figures out what to look at, reads it, diagnoses the problem, and either tells you what's happening or just fixes it. That's the whole idea.
 
+**The honest caveat:** This plugin dramatically reduces copy-paste for most workflows — but not to zero. A defined set of operations (file deletion, software installation, registry writes, and other high-risk actions) are permanently blocked and will always require you to run them yourself in a terminal. When Claude hits one of those, it tells you exactly what to run and why it can't do it for you. For reading files, checking logs, running builds, diagnosing errors, and managing projects, Claude handles it without your intervention. For anything in the dangerous category, you stay in control by design.
+
 ---
 
 ## Not a Developer? This Is Still for You.
