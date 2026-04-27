@@ -1,4 +1,4 @@
-# local-terminal-mcp — Marketplace Listing
+﻿# local-terminal-mcp — Marketplace Listing
 
 ## Product Overview
 
@@ -71,7 +71,7 @@ local-terminal-mcp gives Claude access to your Windows computer so it can do tha
 
 **Scope limitation by design:** No network calls, no outbound requests, no file writes outside `run_command` (which is itself filtered). The plugin surface is read + gated-execute only. Nothing leaves your machine.
 
-**License:** BUSL 1.1 — source available, converts to MIT 4 years after each version release. Full source at [github.com/ForgeRift/local-terminal-mcp](https://github.com/ForgeRift/local-terminal-mcp).
+**License:** MIT. Full source at [github.com/ForgeRift/local-terminal-mcp](https://github.com/ForgeRift/local-terminal-mcp).
 
 ---
 
@@ -136,4 +136,4 @@ See [forgerift.io/#pricing](https://forgerift.io/#pricing) for full details.
 
 ## License
 
-Source available under the [Business Source License 1.1](LICENSE) (BUSL 1.1). Converts to MIT four years after each version's release date.
+Released under the [MIT License](LICENSE).

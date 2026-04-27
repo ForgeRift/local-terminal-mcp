@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "local-terminal-mcp",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "description": "Local terminal MCP server - gives Claude controlled access to your Windows shell",
   "type": "module",
   "main": "dist/index.js",
@@ -9,7 +9,8 @@
     "dev": "node --watch dist/index.js",
     "start": "node dist/index.js",
     "test": "node --experimental-transform-types --loader ./ts-loader.mjs --no-warnings --test src/__tests__/*.test.ts",
-    "prepare": "git config --local core.hooksPath .githooks || true"
+    "prepare": "git config --local core.hooksPath .githooks || true",
+    "prepack": "node -e \"const f=require('child_process').execSync('git ls-files --others --exclude-standard src/').toString().trim(); if(f.match(/\\.(orig|bak|rej|swp)$|_HEAD\\.|_BRANCH\\.|_LOCAL\\.|_REMOTE\\./)){console.error('Untracked artifact in src/: '+f);process.exit(1);}\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.38.0",

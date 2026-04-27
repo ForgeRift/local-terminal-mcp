@@ -6,6 +6,18 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## [1.12.1] — 2026-04-27
+
+### Chore — S70 Pre-Submission Cleanup
+
+- **B-1** — Added `prepack` script: fails with exit 1 if any `.orig`/`.bak`/`.rej`/`.swp`/`_HEAD`/`_BRANCH` files are untracked in `src/` at pack time.
+- **B-4** — Fixed `marketplace.json` and `manifest.json` descriptions: updated hard-block pattern count from `120+` to `80+` (actual: 82). Replaced `Runs as a Windows Service` with `.mcpb extension for Claude Desktop`.
+- **B-5** — Rewrote `TROUBLESHOOTING.md` for the `.mcpb` install model. Removed all NSSM / `setup.ps1` references. New sections: Extension won't install, License key issues, Tools don't appear, AMBER dry-run gate, RED block error messages, Audit log location (extension user-data dir, not `logs\`), Updating via Settings > Extensions, Uninstalling via Settings > Extensions > Remove.
+- **D-1** — License sweep: removed all BUSL 1.1 / Business Source License references from `README.md`, `MARKETPLACE_LISTING.md`, `CLAUDE_CONTEXT.md`, `manifest.json` (new file from v1.11.0 packaging commit). License stays MIT. S69 audit prompt's BUSL reference was hallucinated; no BUSL adoption occurred. Documented here so future passes do not re-investigate.
+- **Version bump** — 1.12.0 —> 1.12.1 (patch-level cleanup; no security logic changes).
+
+---
+
 ## [1.11.0] -- 2026-04-26
 
 ### Transport: SSE/HTTP -> stdio (required for .mcpb packaging)

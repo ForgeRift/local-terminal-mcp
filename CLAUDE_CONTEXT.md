@@ -1,4 +1,4 @@
-# Claude Context — local-terminal-mcp
+﻿# Claude Context — local-terminal-mcp
 *Add this file to your Claude Project, paste it into Claude memory, or include it at the start of any session where you want Claude to act as a knowledgeable expert on this plugin.*
 
 ---
@@ -20,8 +20,8 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 **local-terminal-mcp** gives Claude controlled access to your local Windows machine — browse files, read code, run approved commands, and manage projects without leaving your AI workflow. Runs as a Windows Service (via NSSM) so Claude stays connected across sessions. Binds to `127.0.0.1` only — not reachable from the network.
 
 **Built by:** ForgeRift LLC  
-**Version:** 1.10.5  
-**License:** BUSL 1.1 (converts to MIT 4 years from each version's release date; see CHANGELOG.md)  
+**Version:** 1.12.1  
+**License:** MIT  
 **Docs:** github.com/ForgeRift/local-terminal-mcp
 
 ### Architecture
