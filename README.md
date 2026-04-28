@@ -90,7 +90,7 @@ Even read-only tools block access to credential and secret files:
 
 Subscribe at [forgerift.io](https://forgerift.io) — you'll receive a `local-terminal.mcpb` file and a license key by email.
 
-In Claude Desktop, open **Settings → Extensions → Install Extension** and select the `.mcpb` file. Enter your license key when prompted (and an Anthropic API key if you have one — optional, enables Layer 3 AI review).
+In Claude Desktop, open **Settings → Extensions → Install Extension** and select the `.mcpb` file. Enter your license key when prompted (and an Anthropic API key if you have one — optional, enables AI-assisted AMBER-tier review).
 
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the step-by-step walkthrough.
 
@@ -109,7 +109,7 @@ Extension configuration is entered via Claude Desktop's user_config prompt when 
 | Key | Required | Description |
 |---|---|---|
 | `lt_license_key` | Yes | License key from your ForgeRift email |
-| `anthropic_api_key` | No | Enables Layer 3 AI review of AMBER-tier commands |
+| `anthropic_api_key` | No | Enables AI-assisted review of AMBER-tier commands before execution |
 
 ---
 
@@ -123,7 +123,7 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 
 - **Individual:** $14.99/mo or $149/yr — [forgerift.io/#pricing](https://forgerift.io/#pricing)
 - **Bundle (local-terminal-mcp + vps-control-mcp):** $19.99/mo or $199/yr
-- **Founder Cohort:** $9.99/mo locked for life — eligibility window closes after the first 100 subscribers or 3 months post-launch (whichever comes first)
+- **Founder Cohort:** $9.99/mo individual / $14.99/mo bundle, locked for life — eligibility window closes after the first 100 subscribers or 3 months post-launch (whichever comes first)
 - **14-day free trial** — no charge during trial period; no refunds after trial ends
 
 ## License

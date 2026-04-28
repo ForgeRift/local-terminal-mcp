@@ -33,7 +33,7 @@ See [COMMANDS.md](COMMANDS.md) for the full breakdown.
 - **Windows 10 or Windows 11** — this plugin is Windows-only
 - **Claude Desktop** — the desktop app from [claude.ai/download](https://claude.ai/download)
 - **A ForgeRift subscription** — you'll get a license key by email after subscribing at [forgerift.io](https://forgerift.io)
-- **An Anthropic API key** *(optional but recommended)* — enables Layer 3 AI-assisted command analysis. Get one at [console.anthropic.com](https://console.anthropic.com) → API Keys → Create new key. A few dollars of credit goes a long way.
+- **An Anthropic API key** *(optional but recommended)* — enables AI-assisted AMBER-tier command review. Get one at [console.anthropic.com](https://console.anthropic.com) → API Keys → Create new key.
 
 ---
 
@@ -51,7 +51,7 @@ Claude Desktop will install the extension automatically. No git clone, no termin
 
 After installation, Claude Desktop will prompt you for your ForgeRift license key. Paste the key from your welcome email and click **Save**.
 
-If you also have an Anthropic API key, enter it in the **Anthropic API Key** field. This is optional — the plugin works without it, but Layer 3 AI-assisted review won't run on AMBER-tier commands.
+If you also have an Anthropic API key, enter it in the **Anthropic API Key** field. This is optional — the plugin works without it, but AI-assisted review won't run on AMBER-tier commands.
 
 ---
 

@@ -34,7 +34,6 @@
       }
     }
   },
-  "tools_generated": true,
   "keywords": ["terminal", "shell", "windows", "security", "audit", "filesystem"],
   "license": "MIT",
   "compatibility": {
@@ -51,7 +50,7 @@
     "anthropic_api_key": {
       "type": "string",
       "title": "Anthropic API Key",
-      "description": "Required for Layer 3 AI-assisted command analysis. Get yours at console.anthropic.com.",
+      "description": "Optional. Enables AI-assisted review of AMBER-tier commands before execution. Get yours at console.anthropic.com.",
       "sensitive": true,
       "required": false
     }
