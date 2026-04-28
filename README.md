@@ -123,7 +123,7 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 
 - **Individual:** $14.99/mo or $149/yr — [forgerift.io/#pricing](https://forgerift.io/#pricing)
 - **Bundle (local-terminal-mcp + vps-control-mcp):** $19.99/mo or $199/yr
-- **Founder Cohort:** $9.99/mo locked for the first 100 subscribers or 3 months post-marketplace approval (whichever comes first)
+- **Founder Cohort:** $9.99/mo locked for life — eligibility window closes after the first 100 subscribers or 3 months post-launch (whichever comes first)
 - **14-day free trial** — no charge during trial period; no refunds after trial ends
 
 ## License

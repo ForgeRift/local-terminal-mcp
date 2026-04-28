@@ -21,7 +21,7 @@ Think of it like hiring an assistant who can actually sit at your computer, rath
 - Delete files
 - Install software without your knowledge
 - Access your passwords, SSH keys, or cloud credentials
-- Connect to the internet from your machine
+- Make arbitrary outbound network calls (curl, wget, ssh, scp are all permanently RED-blocked)
 - Run anything destructive without your explicit confirmation
 
 See [COMMANDS.md](COMMANDS.md) for the full breakdown.
