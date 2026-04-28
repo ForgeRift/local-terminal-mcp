@@ -28,7 +28,7 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 
 local-terminal-mcp runs as a Windows Service installed by NSSM, wrapping a Node.js process on localhost. Claude Desktop connects via bearer token auth (`MCP_AUTH_TOKEN`) on `127.0.0.1:3002` (configurable). Every command passes through three security layers before executing:
 
-- **Layer 1:** Hard-coded RED block list — 450+ regex patterns checked in source code. Instant rejection, no AI consulted.
+- **Layer 1:** Hard-coded RED block list — 140+ regex patterns checked in source code. Instant rejection, no AI consulted.
 - **Layer 2:** AMBER classifier — deterministic pattern match that flags commands for AI review.
 - **Layer 3:** AI safety board — Sonnet or Haiku reads the full conversation context and approves or rejects AMBER commands. If Layer 3 is unreachable, behavior is controlled by `LAYER_STRICT_MODE` (default: pass-through).
 
@@ -100,7 +100,7 @@ Examples:
 - Wildcard `rename` operations
 
 ### 🔴 RED — Always Blocked, No Override
-450+ hard-coded patterns across 27 categories. Returns a structured error with category name, reason, and ToS warning. The AI safety layer is never consulted.
+140+ hard-coded patterns across 27 categories. Returns a structured error with category name, reason, and ToS warning. The AI safety layer is never consulted.
 
 | Category | What's Blocked |
 |----------|---------------|

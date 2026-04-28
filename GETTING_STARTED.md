@@ -6,7 +6,7 @@
 
 ## What is this, exactly?
 
-local-terminal-mcp is a small program that runs quietly in the background on your Windows PC. Once it's running, Claude can see your files, run commands, and help you build and manage projects directly — instead of just telling you what to type.
+local-terminal-mcp is a Claude Desktop extension that gives Claude audited, security-hardened access to your Windows shell. Once installed, Claude can see your files, run commands, and help you build and manage projects directly — instead of just telling you what to type.
 
 Think of it like hiring an assistant who can actually sit at your computer, rather than one who has to shout instructions through a window.
 
@@ -30,120 +30,32 @@ See [COMMANDS.md](COMMANDS.md) for the full breakdown.
 
 ## What you'll need before you start
 
-Before installing, make sure you have:
-
 - **Windows 10 or Windows 11** — this plugin is Windows-only
-- **A Claude account** — either [Claude.ai](https://claude.ai) or [Claude Desktop](https://claude.ai/download) (the desktop app)
-- **Node.js installed** — this is what runs the plugin. Download it free at [nodejs.org](https://nodejs.org) — get the LTS version (the one that says "Recommended For Most Users")
-- **An Anthropic API key** — needed for the security layer that evaluates commands before Claude runs them. Get one at [console.anthropic.com](https://console.anthropic.com) → API Keys → Create new key. You'll need to add a small amount of credit (a few dollars goes a long way).
-- **A ForgeRift subscription** — you'll get an auth token by email after subscribing at [forgerift.io](https://forgerift.io)
-
-**Not sure if Node.js is installed?** Open PowerShell and type `node --version`. If you see a number like `v20.11.0`, you're good. If you get an error, download it from nodejs.org first.
+- **Claude Desktop** — the desktop app from [claude.ai/download](https://claude.ai/download)
+- **A ForgeRift subscription** — you'll get a license key by email after subscribing at [forgerift.io](https://forgerift.io)
+- **An Anthropic API key** *(optional but recommended)* — enables Layer 3 AI-assisted command analysis. Get one at [console.anthropic.com](https://console.anthropic.com) → API Keys → Create new key. A few dollars of credit goes a long way.
 
 ---
 
 ## Step-by-step setup
 
-### Step 1 — Download the plugin
+### Step 1 — Install the extension
 
-Open PowerShell **as Administrator** (right-click PowerShell → "Run as administrator") and run:
+In Claude Desktop, open **Settings → Extensions** and click **Install Extension**. Select the `local-terminal.mcpb` file you received after subscribing.
 
-```powershell
-git clone https://github.com/ForgeRift/local-terminal-mcp
-cd local-terminal-mcp
-```
-
-If you don't have `git`, download it from [git-scm.com](https://git-scm.com) and restart PowerShell after installing.
+Claude Desktop will install the extension automatically. No git clone, no terminal, no config files.
 
 ---
 
-### Step 2 — Run the installer
+### Step 2 — Enter your license key
 
-Still in the same Administrator PowerShell window:
+After installation, Claude Desktop will prompt you for your ForgeRift license key. Paste the key from your welcome email and click **Save**.
 
-```powershell
-.\setup.ps1
-```
-
-The installer will:
-- Build the plugin (takes about 30 seconds)
-- Generate a secure auth token and save it to a `.env` file
-- Install the plugin as a Windows Service (so it starts automatically when you boot)
-- Print a snippet of config text for you to copy
-
-**You should see something like this at the end:**
-```
-✓ Service installed and started
-✓ Auth token saved to .env
-
-Add this to your Claude Desktop config:
-{
-  "mcpServers": {
-    "local-terminal": {
-      ...
-    }
-  }
-}
-```
-
-Copy that entire snippet — you'll need it in the next step.
+If you also have an Anthropic API key, enter it in the **Anthropic API Key** field. This is optional — the plugin works without it, but Layer 3 AI-assisted review won't run on AMBER-tier commands.
 
 ---
 
-### Step 3 — Add your ForgeRift auth token
-
-Open the `.env` file in the `local-terminal-mcp` folder (you can use Notepad). You'll see a line that says:
-
-```
-MCP_AUTH_TOKEN=your-token-here
-```
-
-Replace `your-token-here` with the token you received in your ForgeRift welcome email. Save the file.
-
-Then add your Anthropic API key on a new line:
-
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Save the file, then restart the service:
-
-```powershell
-nssm restart local-terminal-mcp
-```
-
----
-
-### Step 4 — Connect Claude Desktop
-
-Find your Claude Desktop config file at:
-```
-%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json
-```
-
-Open it in Notepad and paste the snippet from Step 2 inside the `mcpServers` section. If the file is empty or new, paste this entire thing:
-
-```json
-{
-  "mcpServers": {
-    "local-terminal": {
-      "command": "node",
-      "args": ["C:\\path\\to\\local-terminal-mcp\\dist\\index.js"],
-      "env": {
-        "MCP_AUTH_TOKEN": "your-token-here"
-      }
-    }
-  }
-}
-```
-
-Replace the path and token with your actual values (the installer printed the exact snippet — use that).
-
-**Restart Claude Desktop** after saving.
-
----
-
-### Step 5 — Verify it's working
+### Step 3 — Verify it's working
 
 Open Claude Desktop and start a new conversation. Type:
 
@@ -216,8 +128,6 @@ See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common issues, or email support
 
 ---
 
----
-
 ## Tips & Tricks
 
 ### Describe outcomes, not commands
@@ -269,7 +179,7 @@ Paste the contents of [CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md) at the start of any
 
 ---
 
-**What CLAUDE_CONTEXT.md contains:** all 8 tools and what they do, the full RED/AMBER/GREEN security model with 450+ blocked patterns by category, common Windows gotchas, configuration reference, and log file locations.
+**What CLAUDE_CONTEXT.md contains:** all 8 tools and what they do, the full RED/AMBER/GREEN security model with 140+ blocked patterns by category, common Windows gotchas, configuration reference, and log file locations.
 
 Once loaded, try:
-> *"I’m having trouble with [describe issue]. What’s the most likely cause given how local-terminal-mcp works?"*
+> *"I'm having trouble with [describe issue]. What's the most likely cause given how local-terminal-mcp works?"*
