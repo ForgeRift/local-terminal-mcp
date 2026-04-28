@@ -2500,7 +2500,11 @@ export async function executeTool(
       // F-LT-10: --no-ext-diff blocks repo-seeded diff-driver execution at git level
       // F-19: execFileSync(shell:false) — argv array never touches cmd.exe
       // F-NEW-2: GIT_SAFE_CONFIG prepends neutralizing -c flags
-      const gitArgs = ['-C', dir, ...GIT_SAFE_CONFIG, '--no-ext-diff', ...splitArgs];
+      // F-LT-10: --no-ext-diff is only valid on diff-family subcommands; placing it
+      // before the subcommand (git --no-ext-diff status) breaks all non-diff commands.
+      const DIFF_FAMILY = new Set(['diff', 'log', 'show', 'stash']);
+      const noExtDiff = DIFF_FAMILY.has(subCmd) ? ['--no-ext-diff'] : [];
+      const gitArgs = ['-C', dir, ...GIT_SAFE_CONFIG, subCmd, ...noExtDiff, ...splitArgs.slice(1)];
       const rawOutput = runFile('git', gitArgs, { env: safeGitEnv, timeoutMs: 30_000 });
       // F-LT-18: strip ANSI/terminal escape sequences — prevents git log --pretty=format:%x1b... injection
       const cleanOutput = rawOutput.replace(/\x1b(?:\[[0-9;]*[mGKHFABCDJst]|\][^\x07]*\x07)/g, '');
