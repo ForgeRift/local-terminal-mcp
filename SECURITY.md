@@ -1,4 +1,4 @@
-# Local-Terminal-MCP Security Framework
+﻿# Local-Terminal-MCP Security Framework
 
 ## Executive Summary
 
@@ -56,22 +56,22 @@ Beyond command-level blocking, local-terminal-mcp enforces file-level access con
 
 ### Destination-Path Write Protection (D10)
 
-Command-surface destination-path protection (D10) blocks writes to OS-critical paths across the `cp` / `mv` / `install` / `copy-item` (`cpi`) / `move-item` (`mi`) / `new-item` (`ni`) / `out-file` / `set-content` / `add-content` command set — plus `tee` and `dd of=...`. After `../` canonicalization and Windows env-var guard (`%SystemRoot%` fails closed), a normalized destination matching any of the following sensitive prefixes is blocked:
+Command-surface destination-path protection (D10) blocks writes to OS-critical paths across the `cp` / `mv` / `install` / `copy-item` (`cpi`) / `move-item` (`mi`) / `new-item` (`ni`) / `out-file` / `set-content` / `add-content` command set â€” plus `tee` and `dd of=...`. After `../` canonicalization and Windows env-var guard (`%SystemRoot%` fails closed), a normalized destination matching any of the following sensitive prefixes is blocked:
 
 - **Windows:** `/windows/`, `/system32/`, `/syswow64/`, `/program files/`, `/programdata/` (accepted with or without leading drive letter: `C:/windows`, `/windows`, `/C:/windows`)
 - **Unix:** `/etc/`, `/root/`, `/usr/bin/`, `/usr/sbin/`, `/bin/`, `/sbin/`, `/lib/`, `/lib64/`, `/boot/`
 
 PowerShell parameter forms supported:
 - Positional: `Copy-Item src.txt C:\Windows\System32\evil.dll`
-- Space-separated named: `Copy-Item -Destination C:\Windows\…`
-- Colon-inline named: `Copy-Item -Destination:C:\Windows\…`
-- Abbreviated prefixes: `-De`, `-Des`, `-Dest`, …, `-Destination` (and `-Pa`/`-Pat`/`-Path`, `-FileP`/`-FilePath` for path-write cmdlets)
-- Empty colon-inline: `Copy-Item -Destination: C:\Windows\…` (falls through to positional, F-OP-72)
-- Empty colon-inline followed by a flag: `Set-Content -Path: -Value x -LiteralPath C:\Windows\…` — the flag is rejected as a dest and the matcher continues scanning so a later `-LiteralPath` still binds and is sensitivity-checked (F-OP-82, v1.10.4).
+- Space-separated named: `Copy-Item -Destination C:\Windows\â€¦`
+- Colon-inline named: `Copy-Item -Destination:C:\Windows\â€¦`
+- Abbreviated prefixes: `-De`, `-Des`, `-Dest`, â€¦, `-Destination` (and `-Pa`/`-Pat`/`-Path`, `-FileP`/`-FilePath` for path-write cmdlets)
+- Empty colon-inline: `Copy-Item -Destination: C:\Windows\â€¦` (falls through to positional, F-OP-72)
+- Empty colon-inline followed by a flag: `Set-Content -Path: -Value x -LiteralPath C:\Windows\â€¦` â€” the flag is rejected as a dest and the matcher continues scanning so a later `-LiteralPath` still binds and is sensitivity-checked (F-OP-82, v1.10.4).
 
-**Operator override.** If legitimate workflows require writes under one of the sensitive prefixes above — including `\\server\share\…` / `//server/share/…` UNC destinations blocked by the F-OP-79 fail-closed guard — the `BYPASS_BINARIES` environment variable (see *Advanced Feature: BYPASS_BINARIES* below) can demote specific `<binary>:<category>` pairs from hard-block to AI-reviewed. Example: `BYPASS_BINARIES=copy-item:sensitive-path-write,cp:sensitive-path-write` re-enables those two binaries under `sensitive-path-write` while keeping redirect (`> C:\Windows\…`) and `dd of=…` blocked. Each bypass hit is logged as `[SECURITY-BYPASS]` in the audit stream.
+**Operator override.** If legitimate workflows require writes under one of the sensitive prefixes above â€” including `\\server\share\â€¦` / `//server/share/â€¦` UNC destinations blocked by the F-OP-79 fail-closed guard â€” the `BYPASS_BINARIES` environment variable (see *Advanced Feature: BYPASS_BINARIES* below) can demote specific `<binary>:<category>` pairs from hard-block to AI-reviewed. Example: `BYPASS_BINARIES=copy-item:sensitive-path-write,cp:sensitive-path-write` re-enables those two binaries under `sensitive-path-write` while keeping redirect (`> C:\Windows\â€¦`) and `dd of=â€¦` blocked. Each bypass hit is logged as `[SECURITY-BYPASS]` in the audit stream.
 
-### Security Release Notes — v1.10.x
+### Security Release Notes â€” v1.10.x
 
 | Version | Closed | Scope |
 |---|---|---|
@@ -79,11 +79,14 @@ PowerShell parameter forms supported:
 | v1.10.1 | F-OP-66 | M7-extended redirect no-`..` form (`> ./Windows/System32/evil.dll`) |
 | v1.10.2 | F-OP-68 / F-OP-69 | `normalizePath` separator unified to `/` so both NIX and Windows paths route through the same matcher; PowerShell colon-syntax (`-Destination:<path>`) token-split so parameter-name regex matches reliably |
 | v1.10.3 | F-OP-72 / F-OP-74 | Empty colon-inline (`-Destination: <next-token>`) now falls through to positional fallback instead of short-circuiting (F-OP-72); `SENSITIVE_WIN` regex unified between D10 and M7-extended so `/C:/Windows/...` drive-letter-after-slash form cannot evade D10 while being blocked by redirect matcher (F-OP-74); `src/tools_BRANCH.ts` / `src/tools_HEAD.ts` merge-conflict artifacts removed from the shipped tree (F-OP-75). |
-| v1.10.4 | F-OP-80 / F-OP-82 / F-OP-83 | `SENSITIVE_PATH_WIN` anchored so benign CWD-relative filenames (`windows-update.log`, `system32.bak`, `programdata-export.zip`) no longer false-positive as sensitive destinations (F-OP-80); flag-after-empty-colon (`-Path: -Value x -LiteralPath <sensitive>`) no longer consumed as dest — matcher continues scanning so `-LiteralPath` still binds (F-OP-82); D10 section now points operators at `BYPASS_BINARIES` as the documented override for legitimate `/home`-like and UNC workflows (F-OP-83). |
+| v1.10.4 | F-OP-80 / F-OP-82 / F-OP-83 | `SENSITIVE_PATH_WIN` anchored so benign CWD-relative filenames (`windows-update.log`, `system32.bak`, `programdata-export.zip`) no longer false-positive as sensitive destinations (F-OP-80); flag-after-empty-colon (`-Path: -Value x -LiteralPath <sensitive>`) no longer consumed as dest â€” matcher continues scanning so `-LiteralPath` still binds (F-OP-82); D10 section now points operators at `BYPASS_BINARIES` as the documented override for legitimate `/home`-like and UNC workflows (F-OP-83). |
+| v1.11.0 | - | Transport refactor SSE/HTTP -> stdio; StdioServerTransport; Express and auth.ts retired. 421/421 tests. |
+| v1.12.1 | - | S70 pre-submission cleanup: merge artifact removed, typescript to devDependencies, prepack guard, BUSL references removed, README Quick Start fix. No security logic changes. |
+| v1.12.2 | - | S72 doc rewrite: README.md, MARKETPLACE_LISTING.md, CLAUDE_CONTEXT.md rewritten for .mcpb install model; NSSM/Windows Service/setup.ps1 references removed; pattern count 450+ -> 140+; .mcpbignore test exclusions added; .mcpb archive rebuilt. No security logic changes. |
 
-**Known pre-v1.10.4 scope:** (a) v1.10.3 `SENSITIVE_PATH_WIN` was over-broad and blocked benign destinations whose names start with `windows`, `system32`, `syswow64`, `programdata`. No security gain, but consumer-safety regression that breaks legitimate copy/rename workflows producing those filenames. (b) v1.10.3 F-OP-72 fix closed the trailing-colon short-circuit but a derivative form — trailing colon followed by a flag token, e.g. `Set-Content -Path: -Value x -LiteralPath /etc/passwd` — let the matcher consume the flag as the destination and skip the real sensitive path. PowerShell's mutex-parameter-set rules bounded end-to-end exploitability in most host versions; v1.10.4 closes the D10 defense-in-depth gap regardless.
+**Known pre-v1.10.4 scope:** (a) v1.10.3 `SENSITIVE_PATH_WIN` was over-broad and blocked benign destinations whose names start with `windows`, `system32`, `syswow64`, `programdata`. No security gain, but consumer-safety regression that breaks legitimate copy/rename workflows producing those filenames. (b) v1.10.3 F-OP-72 fix closed the trailing-colon short-circuit but a derivative form â€” trailing colon followed by a flag token, e.g. `Set-Content -Path: -Value x -LiteralPath /etc/passwd` â€” let the matcher consume the flag as the destination and skip the real sensitive path. PowerShell's mutex-parameter-set rules bounded end-to-end exploitability in most host versions; v1.10.4 closes the D10 defense-in-depth gap regardless.
 
-**Known pre-v1.10.3 scope:** operators running v1.10.0–v1.10.2 of local-terminal-mcp could bypass D10 on `Copy-Item` and `Move-Item` by placing a trailing `:` on the `-Destination` flag followed by a space before the sensitive path (F-OP-72). PowerShell's own parameter binding varies across host versions in how it accepts this form; upgrading to v1.10.3 closes the D10 defense-in-depth gap regardless.
+**Known pre-v1.10.3 scope:** operators running v1.10.0â€“v1.10.2 of local-terminal-mcp could bypass D10 on `Copy-Item` and `Move-Item` by placing a trailing `:` on the `-Destination` flag followed by a space before the sensitive path (F-OP-72). PowerShell's own parameter binding varies across host versions in how it accepts this form; upgrading to v1.10.3 closes the D10 defense-in-depth gap regardless.
 
 ## Rate Limiting
 
@@ -107,7 +110,7 @@ Logs rotate at 10MB (configurable via `AUDIT_MAX_SIZE_MB`) with one `.old` backu
 
 ## Authentication
 
-Bearer token authentication on every request. Token is generated at install time and stored in `.env`. The server binds exclusively to `127.0.0.1` — it is not reachable from the network.
+Bearer token authentication on every request. Token is generated at install time and stored in `.env`. The server binds exclusively to `127.0.0.1` â€” it is not reachable from the network.
 
 ## Threat Model
 
@@ -115,7 +118,7 @@ Bearer token authentication on every request. Token is generated at install time
 **Mitigation:** RED tier blocks 120+ dangerous patterns. AMBER tier forces preview. Rate limiting prevents brute-force probing.
 
 ### Threat: Credential Exfiltration
-**Mitigation:** Sensitive file protection blocks reads of `.env`, SSH keys, Windows credential stores, browser data, and cloud credentials — even through read-only tools.
+**Mitigation:** Sensitive file protection blocks reads of `.env`, SSH keys, Windows credential stores, browser data, and cloud credentials â€” even through read-only tools.
 
 ### Threat: Data Exfiltration
 **Mitigation:** All network tools (curl, wget, ssh, scp, ftp, netcat, PowerShell web cmdlets, bitsadmin, certutil) are RED-blocked.

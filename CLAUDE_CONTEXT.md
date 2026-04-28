@@ -17,7 +17,7 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 
 ## What This Plugin Is
 
-**local-terminal-mcp** gives Claude controlled access to your local Windows machine — browse files, read code, run approved commands, and manage projects without leaving your AI workflow. Runs as a Windows Service (via NSSM) so Claude stays connected across sessions. Binds to `127.0.0.1` only — not reachable from the network.
+**local-terminal-mcp** gives Claude controlled access to your local Windows machine — browse files, read code, run approved commands, and manage projects without leaving your AI workflow. Installed as a Claude Desktop `.mcpb` extension. Claude Desktop manages the Node.js process lifecycle. stdio transport — no network socket, no inbound traffic.
 
 **Built by:** ForgeRift LLC  
 **Version:** 1.12.1  
@@ -26,7 +26,7 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 
 ### Architecture
 
-local-terminal-mcp runs as a Windows Service installed by NSSM, wrapping a Node.js process on localhost. Claude Desktop connects via bearer token auth (`MCP_AUTH_TOKEN`) on `127.0.0.1:3002` (configurable). Every command passes through three security layers before executing:
+local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` package. Claude Desktop spawns `node dist/index.js` over stdio when the extension is enabled. There is no network listener, no auth token (the stdio channel is the trust boundary — it's only reachable by the Claude Desktop process that spawned it). Every command passes through three security layers before executing:
 
 - **Layer 1:** Hard-coded RED block list — 140+ regex patterns checked in source code. Instant rejection, no AI consulted.
 - **Layer 2:** AMBER classifier — deterministic pattern match that flags commands for AI review.
@@ -159,43 +159,20 @@ Commit messages containing SQL keywords (`SELECT`, `DROP`, `INSERT`) or product 
 **PowerShell backslash escaping**
 In PowerShell strings, backslashes must be escaped: `C:\\Users\\dustin\\` not `C:\Users\dustin\`. Forward slashes (`/`) also work for most path operations and are easier.
 
-**Auth token mismatch**
-Token in `claude_desktop_config.json` must exactly match `MCP_AUTH_TOKEN` in `.env`. Regenerating via `setup.ps1` updates `.env` but not the config file — user must update both and restart Claude Desktop.
+**Extension reset**
+Open Claude Desktop → **Settings → Extensions** → select local-terminal → **Remove**. Then reinstall: **Install Extension** → select the `.mcpb` file → enter your license key when prompted.
 
-**`claude_desktop_config.json` location:**
-```
-%APPDATA%\Claude\claude_desktop_config.json
-```
-Expected shape:
-```json
-{
-  "mcpServers": {
-    "local-terminal": {
-      "command": "node",
-      "args": ["C:\\path\\to\\local-terminal-mcp\\dist\\index.js"],
-      "env": { "MCP_AUTH_TOKEN": "your-token-here", "MCP_PORT": "3002" }
-    }
-  }
-}
-```
+**License key issues**
+Verify the key matches exactly what was emailed at purchase. Keys are case-sensitive. If the key appears expired or revoked, contact [support@forgerift.io](mailto:support@forgerift.io).
 
-**Service won't start after install**
-Check `logs\service-err.log`. Common causes: `MCP_AUTH_TOKEN` missing from `.env`, port 3002 in use (set `MCP_PORT` in `.env`), Node.js not on PATH.
+**Anthropic API key**
+Optional — only consumed for Layer 3 AI review of AMBER-tier commands. Safe to leave blank. The plugin functions fully without it; AMBER commands pass through without AI review.
 
-**Port conflict**
-Default is 3002. If another process uses it, set `MCP_PORT=3003` in `.env`, restart via:
-```
-nssm restart local-terminal-mcp
-```
+**Audit log location**
+The audit log (`audit.log`) is written to the `logs/` subfolder within the extension's install directory, managed by Claude Desktop. Check Claude Desktop's extension details panel for the exact install path.
 
-**"Cannot connect"**
-Check Services (`services.msc`) for `local-terminal-mcp` running. Check `logs\service-out.log`. Verify port in config matches `MCP_PORT` in `.env`. Restart Claude Desktop after any config change.
-
-**Windows Defender / antivirus interference**
-If the service starts then immediately stops, check Defender exclusions. AV may be quarantining `nssm.exe` or the spawned `node.exe`. Add the install directory to Defender exclusions.
-
-**NSSM download fails during setup**
-Download `nssm.exe` manually from nssm.cc/download, place in the repo directory, re-run `setup.ps1`. It detects the existing binary and skips the download.
+**Windows Defender / AV blocking extension spawn**
+If Claude Desktop reports that the extension fails to start, add Claude Desktop's installation directory to Windows Defender exclusions. Add Claude Desktop's own installation directory to the exclusion list.
 
 **Rate limit on `run_command`**
 `RATE_LIMIT_PER_MIN` (default: 120) counts per token per minute. When hit, calls return a rate-limit error. Wait 60 seconds or restart the service to reset.
@@ -205,28 +182,21 @@ Format: `processname:category-name` (comma-separated). Example: `node:file-write
 
 ---
 
-## NSSM Service Commands
-
-```powershell
-nssm status local-terminal-mcp      # Check service state
-nssm restart local-terminal-mcp     # Restart service
-nssm stop local-terminal-mcp        # Stop service
-nssm start local-terminal-mcp       # Start service
-nssm edit local-terminal-mcp        # Open GUI editor
-```
-
----
-
 ## Key Configuration Variables
+
+**User config** (entered via Claude Desktop’s extension UI at install time):
+
+| Key | Required | What It Does |
+|-----|----------|-------------|
+| `lt_license_key` | Yes | License key from your ForgeRift email |
+| `anthropic_api_key` | No | Powers Layer 3 AI safety review of AMBER-tier commands |
+
+**Advanced environment variables** (operator-level; not typically needed):
 
 | Variable | Default | What It Does |
 |----------|---------|-------------|
-| `MCP_AUTH_TOKEN` | auto-generated | Bearer token — required, keep secret |
-| `MCP_PORT` | `3002` | Local port (localhost only) |
-| `MCP_LOG_DIR` | `./logs` | Service stdout/stderr log directory |
 | `RATE_LIMIT_PER_MIN` | `120` | Max requests per minute per token |
 | `AUDIT_MAX_SIZE_MB` | `10` | Audit log rotation threshold |
-| `ANTHROPIC_API_KEY` | — | Powers Layer 2/3 AI safety review |
 | `BYPASS_BINARIES` | — | `process:category` pairs exempt from blocking (logged as `[SECURITY-BYPASS]`) |
 | `LAYER_STRICT_MODE` | false | If true, Layer 2/3 failures block rather than pass-through |
 

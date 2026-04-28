@@ -1,8 +1,8 @@
-{
+﻿{
   "manifest_version": "0.3",
   "name": "local-terminal",
   "display_name": "Local Terminal (ForgeRift)",
-  "version": "1.12.1",
+  "version": "1.12.2",
   "description": "Audited Windows shell access for Claude. Three-tier security model with 140+ hard-blocked patterns, full audit logging, and dry-run preview for destructive commands.",
   "long_description": "Local Terminal gives Claude audited, security-hardened access to your Windows shell. Every command is classified RED (hard-blocked), AMBER (dry-run preview required), or GREEN (auto-execute). Over 140 patterns are permanently blocked including network exfiltration, credential theft, registry tampering, and process injection. A tamper-evident audit log records every tool call. Runs entirely on your machine -- no data leaves your computer.",
   "author": {

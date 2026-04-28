@@ -6,6 +6,20 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+## [1.12.2] - 2026-04-27
+
+### Chore - S72 Install-Model Documentation Rewrite (S71 BLOCKER closure)
+
+- **F-S71-1** - Rewrote README.md install section for the .mcpb model. Removed all NSSM / Windows Service / setup.ps1 / MCP_PORT / MCP_AUTH_TOKEN references. New Install, Update/Uninstall, Configuration (user_config keys), and Logs sections describe the Claude Desktop extension flow. Infrastructure table row updated: Localhost-only -> stdio transport.
+- **F-S71-2** - Pattern count corrected in README.md: 450+ -> 140+ (authoritative count: 142 entries in HARD_BLOCKED_PATTERNS, presented as 140+ per round-number policy).
+- **F-S71-3** - Rewrote MARKETPLACE_LISTING.md for the .mcpb model. Pattern count 450+ -> 140+. Windows Service infrastructure paragraph replaced with Lifecycle paragraph (stdio, Claude Desktop managed). Quick Start replaced with .mcpb install flow. Configuration table updated to user_config keys (lt_license_key, nthropic_api_key). Requirements updated (no Node.js / PowerShell admin).
+- **F-S71-4** - Rewrote CLAUDE_CONTEXT.md install/troubleshooting sections. Architecture paragraph updated for stdio transport (no NSSM, no MCP_AUTH_TOKEN, no port). Stale Common Gotchas (auth token mismatch, claude_desktop_config.json location, service won't start, port conflict, NSSM download) replaced with .mcpb troubleshooting items (extension reset, license key, Anthropic API key, audit log location, Defender/AV). NSSM Service Commands section removed. Key Configuration Variables table split: user_config keys at top, advanced env vars below (removed MCP_AUTH_TOKEN, MCP_PORT, MCP_LOG_DIR). Log Files table: removed service-out.log and service-err.log.
+- **F-S71-6** - .mcpbignore: added 
+ode_modules/**/test*/ and 
+ode_modules/**/*.test.js / *.spec.js exclusions to trim transitive test files from the shipped archive.
+- **Version bump** - 1.12.1 -> 1.12.2 (patch-level docs-only; no security logic changes). .mcpb archive rebuilt and re-pinned.
+
+---
 ## [1.12.1] — 2026-04-27
 
 ### Chore — S70 Pre-Submission Cleanup
