@@ -40,7 +40,7 @@ Claude gets eight tools across three safety tiers:
 
 Commands that are permanently blocked regardless of context. Returns structured error with category, reason, and Terms of Service warning.
 
-**Categories:** file-delete, disk-ops, system-state, process-kill, user-mgmt, permissions, network-config, scheduled-exec, service-mgmt, code-exec, data-exfil, persistence, direct-db, pkg-install, pkg-remove, container, file-write, env-manip, priv-esc, info-leak, chaining, http-server.
+See [COMMANDS.md](COMMANDS.md) for the full category breakdown.
 
 Examples: `rm`, `del`, `format`, `shutdown`, `taskkill`, `reg delete`, `curl`, `wget`, `Invoke-Expression`, `runas`, `schtasks`, `sc create`, `netsh`, `choco install`.
 
@@ -70,12 +70,10 @@ Even read-only tools block access to credential and secret files:
 
 | Feature | Details |
 |---|---|
-| **Rate limiting** | 120 req/min per token (configurable via `RATE_LIMIT_PER_MIN`) |
 | **Request timeout** | 30s hard kill on all commands |
 | **Audit log rotation** | 10MB max, one `.old` backup (configurable via `AUDIT_MAX_SIZE_MB`) |
-| **CORS** | Permissive headers for Cowork/Desktop integration |
 | **Secret redaction** | Tokens, keys, passwords auto-stripped from audit logs |
-| **Localhost-only** | Binds to `127.0.0.1` — not reachable from network |
+| **In-process only** | Runs as a stdio extension inside Claude Desktop — no network port opened |
 
 ---
 
@@ -123,7 +121,7 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 
 - **Individual:** $14.99/mo or $149/yr — [forgerift.io/#pricing](https://forgerift.io/#pricing)
 - **Bundle (local-terminal-mcp + vps-control-mcp):** $19.99/mo or $199/yr
-- **Founder Cohort:** $9.99/mo individual / $14.99/mo bundle, locked for life — eligibility window closes after the first 100 subscribers or 3 months post-launch (whichever comes first)
+- **Founder Cohort:** $9.99/mo individual / $14.99/mo bundle, locked for life, monthly billing only — eligibility window closes after the first 100 subscribers or 3 months post-launch (whichever comes first)
 - **14-day free trial** — no charge during trial period; no refunds after trial ends
 
 ## License
