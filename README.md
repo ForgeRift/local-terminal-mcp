@@ -1,4 +1,4 @@
-﻿# local-terminal-mcp
+# local-terminal-mcp
 
 [![Version](https://img.shields.io/badge/version-1.12.2-blue.svg)](https://github.com/ForgeRift/local-terminal-mcp)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
