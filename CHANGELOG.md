@@ -8,6 +8,10 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 38 legal/compliance fixes (2026-04-29)
+- forgerift.io/faq.md: corrected "Both plugins require Claude Desktop (Windows)" — local-terminal-mcp is Windows-only; vps-control-mcp works from any OS running Claude Desktop (Windows or macOS)
+- forgerift.io/faq.md: corrected audit-log uninstall claim — FAQ said log "is removed when Claude Desktop deletes the extension on uninstall" (contradicted TROUBLESHOOTING.md); corrected to: Claude Desktop may not auto-delete; user should manually delete install directory to remove all traces
+
 ### Pass 37 security-claim accuracy fixes (2026-04-29)
 - src/tools.ts: `run_npm_command` tool description and parameter description now include `ls` (regex already accepted it); dist/ rebuilt
 - src/tools.ts: added `/\.ppk$/i` to SENSITIVE_FILE_PATTERNS (PuTTY private key files); dist/ rebuilt
