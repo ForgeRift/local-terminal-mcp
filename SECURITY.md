@@ -47,7 +47,7 @@ Beyond command-level blocking, local-terminal-mcp enforces file-level access con
 **Blocked file patterns include:**
 - `.env`, `.env.local`, `.env.*.local`
 - `.ssh/`, SSH keys, `authorized_keys`, `known_hosts`
-- Private keys: `.pem`, `.key`, `.pk8`, `.p12`, `.pfx`
+- Private keys: `.pem`, `.key`, `.pk8`, `.p12`, `.pfx`, `.ppk`
 - Credential files: `.aws/credentials`, `.gcloud/`, `.azure/`
 - Windows credential stores: `\Microsoft\Credentials`, `\Microsoft\Protect`, `SAM`, `SYSTEM`, `SECURITY`
 - Application secrets: `secrets.yml`, `secrets.json`, `credentials.json`, `token.json`

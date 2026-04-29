@@ -72,7 +72,7 @@ All structured tools and any `run_command` that passes RED + AMBER checks.
 
 Even read-only tools block access to credential and secret files:
 
-`.env`, SSH keys, `.pem`/`.key`/`.pfx`, Windows credential stores (`SAM`, `SECURITY`, `\Microsoft\Credentials`), cloud credentials (`.aws/`, `.gcloud/`, `.azure/`), browser login data, `kubeconfig`, `NTUSER.DAT`, `secrets.json`, `.gitconfig`, `.git-credentials`, and more.
+`.env`, SSH keys, `.pem`/`.key`/`.pfx`/`.ppk`, Windows credential stores (`SAM`, `SECURITY`, `\Microsoft\Credentials`), cloud credentials (`.aws/`, `.gcloud/`, `.azure/`), browser login data, `kubeconfig`, `NTUSER.DAT`, `secrets.json`, `.gitconfig`, `.git-credentials`, and more.
 
 ---
 

@@ -8,6 +8,10 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 40 final verification (2026-04-29)
+- SECURITY.md, README.md: added `.ppk` to sensitive-file extension lists (code already blocked it via SENSITIVE_FILE_PATTERNS since Pass 37; docs were incomplete)
+- forgerift.io/faq.md: added `.ppk` to sensitive-file extension list for consistency
+
 ### Pass 39 holistic review fixes (2026-04-29)
 - README.md, SECURITY.md, CLAUDE_CONTEXT.md, .claude-plugin/CLAUDE.md, COMMANDS.md: corrected `xargs` from AMBER to RED — it is hard-blocked under `recursive-file-deletion` (HARD_BLOCKED_PATTERNS line 809); `find -exec` remains AMBER
 - src/tools.ts: removed dead `xargs` entry from AMBER_PATTERNS (HARD_BLOCKED fires first, making the AMBER entry unreachable); dist/ rebuilt
