@@ -39,7 +39,7 @@ Your key was not matched to an active subscription. Check that:
 Start a **fresh conversation** -- existing conversations do not pick up newly connected tools. If tools still don't appear after starting a new chat, restart Claude Desktop.
 
 **"Subscription check timed out" or other network errors at startup**
-The extension couldn't reach the ForgeRift validation server. This is intentional design — the plugin fails closed if it cannot verify your subscription, because a tool with shell access to your machine should never silently fall back to an unverified state. Check your internet connection and restart Claude Desktop. To verify the endpoint is reachable, run the following in a separate Windows Command Prompt or PowerShell window (not through Claude -- curl and Invoke-WebRequest are RED-blocked in the plugin): `curl https://payments.forgerift.io/health` or `Invoke-WebRequest https://payments.forgerift.io/health`. If your machine is behind a corporate proxy or firewall, it may be blocking outbound HTTPS to the ForgeRift license validation endpoint (`payments.forgerift.io`). Contact your IT team to whitelist that hostname, or email support@forgerift.io.
+The extension couldn't reach the ForgeRift validation server. This is intentional design — the plugin fails closed if it cannot verify your subscription, because a tool with shell access to your machine should never silently fall back to an unverified state. Check your internet connection and restart Claude Desktop. To verify the endpoint is reachable, run the following in a separate Windows Command Prompt or PowerShell window (not through Claude -- curl and Invoke-WebRequest are RED-blocked in the plugin): `curl -I https://payments.forgerift.io/health` or `Invoke-WebRequest https://payments.forgerift.io/health`. If your machine is behind a corporate proxy or firewall, it may be blocking outbound HTTPS to the ForgeRift license validation endpoint (`payments.forgerift.io`). Contact your IT team to whitelist that hostname, or email support@forgerift.io.
 
 
 **"Subscription check failed: Network error"**
@@ -59,16 +59,16 @@ If the command hit a RED block, it will never execute regardless of `dry_run`. R
 
 ## Reading RED Block Error Messages
 
-RED blocks include a category name and the matched pattern. Example:
+RED blocks emit a structured message starting with the category name. Example (first line only):
 ```
-BLOCKED [RED] category=file-delete pattern=Remove-Item
+⛔ BLOCKED [file-delete]
 ```
 Common categories:
 - `chaining` -- `&&`, `;`, `|` used to chain commands. Use separate tool calls.
 - `data-exfil` -- `curl`, `wget`, `Invoke-WebRequest`. Use structured tools where possible.
 - `file-delete` -- `rm`, `del`, `Remove-Item`. Permanently blocked.
 - `sensitive-path-write` -- Writing to system paths or credential directories.
-- `credential-access` -- Reading `.env`, SSH keys, cloud credential files.
+- `info-leak` -- Credential enumeration commands (e.g., `cmdkey /list`, `vaultcmd`). Sensitive file reads (`.env`, SSH keys) are blocked separately by the file-protection layer.
 
 If a block is unexpected, check whether the binary or flag matches a pattern in `HARD_BLOCKED_PATTERNS` in `src/tools.ts`. To request a bypass for a legitimate admin workflow, contact support@forgerift.io.
 

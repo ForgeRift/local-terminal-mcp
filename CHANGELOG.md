@@ -8,6 +8,15 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 36 doc-fix closeout (2026-04-29)
+- TROUBLESHOOTING.md: corrected RED-block error format example to actual emitted format (`⛔ BLOCKED [file-delete]`); replaced fictional `credential-access` category with real `info-leak` slug; aligned curl health-check command to `curl -I` (consistent with README.md)
+- CLAUDE_CONTEXT.md: updated runtime slug note to describe actual error format (`⛔ BLOCKED [<slug>]`) instead of fictional `BLOCKED [RED] category=<slug>` syntax
+- SECURITY.md: updated error format reference from `BLOCKED [RED] category=<slug>` to `⛔ BLOCKED [<slug>]`
+- COMMANDS.md: updated RED section note to use actual `⛔ BLOCKED [<slug>]` error format
+- .claude-plugin/CLAUDE.md: added `get_system_info` to structured-tool preference list (was missing; 6 of 8 tools listed previously)
+- src/tools.ts: npm error message now lists `ls` in the Allowed sub-commands (regex already accepted it; message was inconsistent); dist/ rebuilt
+- forgerift.io/terms.html: changed "approximately 27 categories" to "27 categories" (consistent with README.md, MARKETPLACE_LISTING.md, SECURITY.md, faq.md)
+
 ### Packaging closeout (2026-04-29)
 - `LAYER_STRICT_MODE` default corrected to fail-open (`=== 'true'`) — matches documented behavior
 - `dist/` rebuilt from source; version string now correctly reports 1.12.2

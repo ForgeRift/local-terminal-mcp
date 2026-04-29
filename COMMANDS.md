@@ -59,7 +59,7 @@ You are always in control of whether execution proceeds.
 
 ## 🔴 RED — Always Blocked
 
-> **Note:** For readability, this document presents the 27 RED categories across 35 user-facing topic headings. Several categories are expanded into multiple descriptive sections. The authoritative list of 27 **HARD_BLOCKED runtime slugs** (a subset of the `category=` values in `BLOCKED [RED]` errors; the broader `BLOCKED_PATTERNS` array surfaces additional slugs) is in [SECURITY.md](SECURITY.md). The user-facing heading names in this document (e.g., "File Deletion", "Disk Operations") are groupings for readability and do not appear verbatim in error messages.
+> **Note:** For readability, this document presents the 27 RED categories across 35 user-facing topic headings. Several categories are expanded into multiple descriptive sections. The authoritative list of 27 **HARD_BLOCKED runtime slugs** (a subset of slugs emitted in `⛔ BLOCKED [<slug>]` errors; the broader `BLOCKED_PATTERNS` array surfaces additional slugs) is in [SECURITY.md](SECURITY.md). The user-facing heading names in this document (e.g., "File Deletion", "Disk Operations") are groupings for readability and do not appear verbatim in error messages.
 
 
 These are hard stops. Static patterns in the code reject them immediately — no AI review, no context, no override. If you try one, Claude will tell you it's blocked and why, and offer to help you accomplish the underlying goal through a different method or by writing the command for you to run manually.

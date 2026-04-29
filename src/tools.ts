@@ -2366,7 +2366,7 @@ export async function executeTool(
       const allowed = /^(list|ls|outdated|audit|view|why|explain)(\s|$)/i;
       if (!allowed.test(cmd.trim())) {
         return {
-          result: `ERROR: npm sub-command '${cmd}' is not in the approved list.\nAllowed: list, outdated, audit, view, why, explain.\nnpm run / npm install execute lifecycle scripts and are not permitted via this tool.`,
+          result: `ERROR: npm sub-command '${cmd}' is not in the approved list.\nAllowed: list, ls, outdated, audit, view, why, explain.\nnpm run / npm install execute lifecycle scripts and are not permitted via this tool.`,
           tier: "green", blocked: true, dryRun: false,
         };
       }

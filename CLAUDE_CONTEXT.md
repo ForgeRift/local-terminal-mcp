@@ -105,7 +105,7 @@ Examples:
 ### 🔴 RED — Always Blocked, No Override
 140+ hard-coded patterns across 27 categories. Returns a structured error with category name, reason, and ToS warning. The AI safety layer is never consulted.
 
-> **Runtime slug note:** The `category=` field in `BLOCKED [RED] category=<slug>` error messages uses the runtime slugs listed in SECURITY.md (e.g., `recursive-file-deletion`, `sensitive-path-write`, `system-power-state`). The table below uses user-friendly grouping names for readability — match to runtime slugs via SECURITY.md.
+> **Runtime slug note:** RED blocks emit a structured message whose first line is `⛔ BLOCKED [<slug>]` (e.g., `⛔ BLOCKED [recursive-file-deletion]`). The runtime slugs are listed in SECURITY.md. The table below uses user-friendly grouping names for readability — match to runtime slugs via SECURITY.md.
 
 | Category | What's Blocked |
 |----------|---------------|
