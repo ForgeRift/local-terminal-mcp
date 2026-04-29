@@ -39,6 +39,19 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Added "package removal (choco uninstall/winget uninstall)" to .claude-plugin/CLAUDE.md blocked-categories list (was listing 26 of 27 categories)
 
 
+### Pass 31 adversarial review closeout (2026-04-29)
+- Fixed CLAUDE_CONTEXT.md: `run_command` uses cmd.exe (not PowerShell) — corrected shell context, syntax examples, session description, and backslash-escaping section
+- Fixed three surfaces still claiming "in-process" architecture: manifest.json `long_description`, README.md Infrastructure Hardening table, forgerift.io/index.html kicker
+- Fixed per-tool timeout misrepresentation: updated SECURITY.md, README.md, and terms.html §B.1 from blanket "30s" to per-tool matrix (30s for run_command/run_git_command, 60s for run_npm_command)
+- Updated SECURITY.md categories list from user-friendly slugs to the 27 actual runtime slugs (the exact `category=` values emitted in `BLOCKED [RED]` error messages)
+- Added runtime slug mapping note to CLAUDE_CONTEXT.md RED category table and COMMANDS.md
+- Fixed terms.html §8: replaced vps-control-mcp-specific `run_approved_command` example with local-terminal-mcp-appropriate AMBER re-invocation example
+- Added BSD-2-Clause to CREDITS.md license summary (dotenv dependency)
+- Removed duplicate Windows Defender exclusion sentence from CLAUDE_CONTEXT.md
+- Deleted setup.ps1 and uninstall.ps1 from repo (deprecated v1.10.x scripts; already excluded from .mcpb archive; no live doc references)
+- P31-5 (pattern count 140 vs 142): investigated and confirmed false finding — actual count is 142, CHANGELOG note is correct
+
+
 ## [1.12.1] — 2026-04-27
 
 ### Chore — S70 Pre-Submission Cleanup

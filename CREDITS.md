@@ -44,7 +44,7 @@ This document lists the open-source dependencies used by local-terminal-mcp and 
 
 ## License Summary
 
-All included dependencies are permissively licensed (MIT, Apache 2.0). No GPL, AGPL, or other copyleft licenses are included.
+All included dependencies are permissively licensed (MIT, Apache 2.0, BSD-2-Clause). No GPL, AGPL, or other copyleft licenses are included.
 
 local-terminal-mcp is distributed under the MIT License. See LICENSE file in the repository root.
 

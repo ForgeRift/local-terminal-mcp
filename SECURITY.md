@@ -14,7 +14,7 @@ All commands are classified into three security tiers: RED (hard-blocked), AMBER
 
 RED tier commands are permanently blocked regardless of context. Attempts return a structured error with category, reason, and ToS warning. The block list encompasses 140+ patterns across 27 security categories.
 
-**Categories (27):** file-delete, disk-ops, system-state, process-kill, user-mgmt, permissions, network-config, scheduled-exec, service-mgmt, code-exec, data-exfil, persistence, direct-db, pkg-install, pkg-remove, container, file-write, env-manip, priv-esc, info-leak, chaining, http-server, base64-exec, com-exec, download-cradle, lolbin, wmi-exec.
+**Categories (27 runtime slugs):** audit-log-destruction, background-exec, base64-exec, chaining, com-exec, container-nuclear, credential-key-destruction, database-destruction, destructive-git-history-rewrite, disk-level-write, dotnet-reflection, download-cradle, edr-disable, env-manip, exec-policy, firewall-destruction, git-history-rewrite, lolbin, net-subcommand, os-permission-destruction, pkg-mgr-destructive, recursive-file-deletion, redirect-truncation-overwrite, registry, sensitive-path-write, system-power-state, wmi-exec. These are the exact `category=` values returned in `BLOCKED [RED]` error messages.
 
 Key Windows-specific blocks include:
 - PowerShell destructive cmdlets: `Remove-Item`, `Clear-Content`, `Clear-RecycleBin`
@@ -96,7 +96,7 @@ Between v1.10.0 and v1.12.2, ForgeRift's internal adversarial review identified 
 
 ## Request Timeout
 
-All command execution has a 30-second hard timeout. Commands exceeding this are killed with SIGTERM. Timeout violations are logged.
+All command execution has a per-tool hard timeout — 30 seconds for `run_command` and `run_git_command`, 60 seconds for `run_npm_command` (npm operations legitimately require more time). Commands exceeding their limit are killed. Timeout violations are logged.
 
 ## Audit Logging
 

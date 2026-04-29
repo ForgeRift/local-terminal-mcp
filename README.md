@@ -100,10 +100,10 @@ This is verifiable in the open-source code at [github.com/ForgeRift/local-termin
 
 | Feature | Details |
 |---|---|
-| **Tool-call timeout** | 30s wall-clock hard kill per tool invocation; spawned child process receives kill signal on timeout — long-running commands (e.g., `npm install`) may fail |
+| **Tool-call timeout** | 30s wall-clock hard kill for `run_command`/`run_git_command` invocations; 60s for `run_npm_command` (npm operations can legitimately take longer). Child process receives kill signal on timeout. |
 | **Audit log rotation** | 10 MB max, one `.old` backup (`audit.log.old`; prior backup overwritten on each rotation) |
 | **Secret redaction** | Tokens, keys, passwords auto-stripped from audit logs. See SECURITY.md for redaction scope and coverage notes. |
-| **In-process only** | Runs as a stdio extension inside Claude Desktop — no network port opened (one outbound HTTPS license-check at startup — see *What leaves your machine* above) |
+| **No inbound network** | Runs as a child process spawned by Claude Desktop over stdio — no inbound network port opened (one outbound HTTPS license-check at startup — see *What leaves your machine* above) |
 
 ---
 

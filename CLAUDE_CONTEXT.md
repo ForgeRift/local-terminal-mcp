@@ -32,7 +32,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 - **Layer 2:** AMBER classifier — deterministic pattern match that flags commands for AI review.
 - **Layer 3:** AI safety classification — if an Anthropic API key is configured, every `run_command` invocation (not only AMBER) sends the command text and justification to Anthropic's API before execution. A high-risk result may independently block the command. If the Anthropic API call fails (network error, rate limit, missing key), the AI layer is skipped and the command falls back to manual confirmation rather than blocking. Operators who prefer to block on API failure can set `LAYER_STRICT_MODE=true`. This is controlled by the `LAYER_STRICT_MODE` env var (default: `false` = pass-through).
 
-**Shell context:** `run_command` executes via **PowerShell** by default. PowerShell syntax applies — use `Get-Content` not `cat`, `$env:VAR` not `$VAR`, backslashes escaped in strings (`C:\\Users\\...`). If users paste CMD syntax, translate it.
+**Shell context:** `run_command` executes via **cmd.exe** (Windows Command Prompt) by default — Node.js `execSync` uses `process.env.ComSpec` on Windows. Use cmd.exe syntax: `dir` not `ls`, `type` not `cat`, `%VAR%` not `$env:VAR`. If the user needs PowerShell cmdlets, they must be prefixed explicitly: `powershell -NoProfile -Command "Get-Process"` — but note many PowerShell operations are RED-blocked.
 
 ---
 
@@ -44,7 +44,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 - **Delete files** — `file-delete` is RED. No `del`, `rm`, `Remove-Item`.
 - **Start listening servers** — `http-server` category is RED.
 - **Read sensitive files** — `.env`, SSH keys, credential stores, browser login data are blocked even in read-only tools.
-- **Persist environment changes across calls** — each `run_command` is a fresh PowerShell session. Variables set in one call don't carry to the next.
+- **Persist environment changes across calls** — each `run_command` is a fresh cmd.exe session. Variables set in one call don't carry to the next.
 
 ---
 
@@ -74,7 +74,7 @@ These are GREEN because the plugin's wrapper rejects any subcommand not on the a
 
 Note: `Remove-Item` is RED (file-delete category) — Claude cannot run it. Tell the user to run it in their own terminal.
 
-A **GREEN `run_command`** = passes the RED block list, doesn't match any AMBER patterns → executes with `dry_run=false` without additional review. Most read-only PowerShell cmdlets land here.
+A **GREEN `run_command`** = passes the RED block list, doesn't match any AMBER patterns → executes with `dry_run=false` without additional review. Most read-only cmd.exe commands land here (e.g., `dir`, `type`, `ipconfig /all`).
 
 ---
 
@@ -104,6 +104,8 @@ Examples:
 
 ### 🔴 RED — Always Blocked, No Override
 140+ hard-coded patterns across 27 categories. Returns a structured error with category name, reason, and ToS warning. The AI safety layer is never consulted.
+
+> **Runtime slug note:** The `category=` field in `BLOCKED [RED] category=<slug>` error messages uses the runtime slugs listed in SECURITY.md (e.g., `recursive-file-deletion`, `sensitive-path-write`, `system-power-state`). The table below uses user-friendly grouping names for readability — match to runtime slugs via SECURITY.md.
 
 | Category | What's Blocked |
 |----------|---------------|
@@ -164,8 +166,8 @@ Use separate tool calls. Split multi-step workflows into `run_git_command` + `ru
 **Commit message false positives**
 Commit messages containing SQL keywords (`SELECT`, `DROP`, `INSERT`) or product names like `Supabase` may trigger the `direct-db` classifier as false positives. Use hyphenated, neutral wording: `add-supabase-auth-support` not `"add Supabase INSERT handler"`.
 
-**PowerShell backslash escaping**
-In PowerShell strings, backslashes must be escaped: `C:\\Users\\dustin\\` not `C:\Users\dustin\`. Forward slashes (`/`) also work for most path operations and are easier.
+**Path syntax in cmd.exe**
+In cmd.exe, use single backslashes: `C:\Users\dustin\`. Forward slashes (`/`) also work for most path operations. If passing paths to a `powershell -Command "..."` prefix, double-escape backslashes inside the quoted string.
 
 **Extension reset**
 Open Claude Desktop → **Settings → Extensions** → select local-terminal → **Remove**. Then reinstall: **Install Extension** → select the `.mcpb` file → enter your license key when prompted.
@@ -180,7 +182,7 @@ Optional. If provided, the command text and justification for **every** `run_com
 The audit log (`audit.log`) is written to the `logs/` subfolder within the extension's install directory, managed by Claude Desktop. Check Claude Desktop's extension details panel for the exact install path.
 
 **Windows Defender / AV blocking extension spawn**
-If Claude Desktop reports that the extension fails to start, add Claude Desktop's installation directory to Windows Defender exclusions. Add Claude Desktop's own installation directory to the exclusion list.
+If Claude Desktop reports that the extension fails to start, add Claude Desktop's installation directory to Windows Defender exclusions.
 
 **`BYPASS_BINARIES` usage**
 Format: `processname:category-name` (comma-separated). Example: `node:file-write,npm:pkg-install`. Every bypass is logged as `[SECURITY-BYPASS]` in the audit trail.
