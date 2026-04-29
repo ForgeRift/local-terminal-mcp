@@ -97,7 +97,7 @@ Moderately risky commands with legitimate uses. `run_command` forces `dry_run=tr
 
 Examples:
 - `robocopy`, `xcopy`, `copy /y`, `move` — bulk file operations
-- `find -exec`, `xargs` — chained execution
+- `find -exec` — chained execution (`xargs` is RED-blocked, not AMBER)
 - `awk`, `sed -i` — in-place file transforms
 - Wildcard `rename` operations
 

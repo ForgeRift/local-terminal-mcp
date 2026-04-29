@@ -8,6 +8,13 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 39 holistic review fixes (2026-04-29)
+- README.md, SECURITY.md, CLAUDE_CONTEXT.md, .claude-plugin/CLAUDE.md, COMMANDS.md: corrected `xargs` from AMBER to RED — it is hard-blocked under `recursive-file-deletion` (HARD_BLOCKED_PATTERNS line 809); `find -exec` remains AMBER
+- src/tools.ts: removed dead `xargs` entry from AMBER_PATTERNS (HARD_BLOCKED fires first, making the AMBER entry unreachable); dist/ rebuilt
+- .env.example: BYPASS_BINARIES example changed from `pip:pkg-install` (BLOCKED_PATTERNS slug, bypass has no effect) to `winget:pkg-mgr-destructive` (real HARD_BLOCKED slug)
+- README.md: corrected package.json `engines` claim — README said "we do not enforce a minimum version" but package.json has `engines: { node: ">=18" }`; clarified this applies to source-build tooling, not the .mcpb runtime
+- forgerift.io/index.html: reworded "Structured tools never spawn a shell" — `get_system_info` internally runs wmic via execSync; corrected to clarify structured tools execute fixed allowlisted operations without passing user command text through the security classifier
+
 ### Pass 38 legal/compliance fixes (2026-04-29)
 - forgerift.io/faq.md: corrected "Both plugins require Claude Desktop (Windows)" — local-terminal-mcp is Windows-only; vps-control-mcp works from any OS running Claude Desktop (Windows or macOS)
 - forgerift.io/faq.md: corrected audit-log uninstall claim — FAQ said log "is removed when Claude Desktop deletes the extension on uninstall" (contradicted TROUBLESHOOTING.md); corrected to: Claude Desktop may not auto-delete; user should manually delete install directory to remove all traces

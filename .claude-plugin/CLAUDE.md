@@ -12,7 +12,7 @@ Commands that are permanently blocked. You will receive a structured error with 
 Blocked categories: file deletion, disk operations, shutdown/reboot, process killing, user management, permission changes, network configuration, scheduled tasks, service management, code execution (eval/Invoke-Expression/wscript/rundll32), data exfiltration (curl/wget/ssh/scp/Invoke-WebRequest), persistence (registry/startup), database writes, package installation, package removal (choco uninstall/winget uninstall), container operations, system directory writes, environment variable persistence, privilege escalation, credential access, command chaining exploits, HTTP server binding, base64 execution (certutil -decode/[Convert]::FromBase64String), COM object execution (WScript.Shell/Shell.Application), download cradles (Net.WebClient/certutil -urlcache), LOLBins (mshta/regsvr32/rundll32/msiexec), WMI execution (wmic process call create/Invoke-WmiMethod).
 
 ### AMBER (Warning-Required)
-Commands like `find -exec`, `xargs`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, and wildcard renames. These force `dry_run=true` automatically. If you need to run one, call it first (it will show the warning), then call again with `dry_run=false` and explain why in your justification.
+Commands like `find -exec`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, and wildcard renames. (`xargs` is RED-blocked, not AMBER.) These force `dry_run=true` automatically. If you need to run one, call it first (it will show the warning), then call again with `dry_run=false` and explain why in your justification.
 
 ### GREEN (Allowed)
 All structured tools and any `run_command` that passes RED + AMBER checks.

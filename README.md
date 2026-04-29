@@ -50,7 +50,7 @@ Examples: `rm`, `del`, `format`, `shutdown`, `taskkill`, `reg delete`, `curl`, `
 
 Moderately risky commands with legitimate use cases. Forces `dry_run=true` with a warning. Must re-call with `dry_run=false` to execute. If an Anthropic API key is configured, the dry-run output is presented alongside the AI safety classification result (which runs for every `run_command`, not only AMBER-tier) for the user's re-confirmation decision; a high-risk evaluation may independently block execution before the re-confirmation step.
 
-Examples: `find -exec`, `xargs`, `awk`, `sed -i`, `copy /y`, `robocopy`, `xcopy`, `move`, wildcard `rename`.
+Examples: `find -exec`, `awk`, `sed -i`, `copy /y`, `robocopy`, `xcopy`, `move`, wildcard `rename`. (`xargs` is RED-blocked, not AMBER.)
 
 **API unavailability:** If the Anthropic API call fails (network error, rate limit, or invalid/absent key), AI classification is skipped and AMBER commands fall back to the standard manual dry-run-and-confirm flow without AI assistance. The failure reason is surfaced in the dry-run output so you can see whether AI review ran.
 
@@ -137,7 +137,7 @@ Updates and removal are handled by Claude Desktop's Extensions settings — no t
 
 The plugin is MIT-licensed and the source is open for inspection and modification.
 
-The `.mcpb` extension runs inside Claude Desktop's bundled Node.js runtime, which Anthropic maintains and patches — system Node.js is not required to use the plugin. We test against Node 18, 20, and 22, with Node 20 LTS as the primary target. We do not enforce a minimum version in `package.json` because Claude Desktop bundles its own runtime.
+The `.mcpb` extension runs inside Claude Desktop's bundled Node.js runtime, which Anthropic maintains and patches — system Node.js is not required to use the plugin. We test against Node 18, 20, and 22, with Node 20 LTS as the primary target. `package.json` declares `engines: { node: ">=18" }` for source-build tooling purposes; this constraint is not relevant when running the `.mcpb` extension because Claude Desktop bundles its own Node runtime.
 
 ```bash
 git clone https://github.com/ForgeRift/local-terminal-mcp.git

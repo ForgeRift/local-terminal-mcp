@@ -32,7 +32,7 @@ Key Windows-specific blocks include:
 
 AMBER commands are moderately risky but have legitimate use cases. When detected, `dry_run` is forced to `true` and a warning is displayed. The user must re-call with `dry_run=false` to proceed.
 
-AMBER patterns: `find -exec`, `xargs`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, wildcard `rename`/`ren`. (`forfiles` was promoted to RED in v1.6.0.)
+AMBER patterns: `find -exec`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, wildcard `rename`/`ren`. (`xargs` is hard-blocked under `recursive-file-deletion`, not AMBER.) (`forfiles` was promoted to RED in v1.6.0.)
 
 ### GREEN Tier: Allowed with Audit Logging
 

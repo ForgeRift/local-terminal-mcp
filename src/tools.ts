@@ -1347,7 +1347,6 @@ interface AmberWarning {
 
 export const AMBER_PATTERNS: AmberWarning[] = [
   { pattern: /\bfind\b.*-exec\b/i,          risk: 'find -exec can execute commands on matched files. Review carefully.' },
-  { pattern: /\bxargs\b/i,                  risk: 'xargs pipes input as arguments to other commands. Review carefully.' },
   { pattern: /\bawk\b/i,                    risk: 'awk can write files and execute shell commands.' },
   { pattern: /\bsed\s+-i/i,                 risk: 'sed -i modifies files in-place. Review carefully.' },
   { pattern: /\brobocopy\b/i,               risk: 'robocopy can move/mirror large directory trees. Review carefully.' },

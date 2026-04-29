@@ -44,7 +44,7 @@ The following commands trigger the AMBER tier (the complete AMBER pattern list i
 | `copy /y` | Forced overwrite without prompt |
 | `move` | Can relocate files en masse |
 | Wildcard `rename` (e.g., `ren *.txt *.bak`) | Bulk renames across many files at once |
-| `find -exec`, `xargs` | Chains a command across every file found — wide blast radius |
+| `find -exec` | Chains a command across every file found — wide blast radius. (`xargs` is hard-blocked RED under `recursive-file-deletion`, not AMBER.) |
 | `awk` | Can write to files when output-redirected; used in many one-liner data transforms |
 | `sed -i` | In-place file editing; changes cannot be previewed without running |
 
