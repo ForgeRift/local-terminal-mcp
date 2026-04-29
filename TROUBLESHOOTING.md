@@ -1,4 +1,4 @@
-﻿> **Tip:** For faster diagnosis, load [CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md) into your Claude Project or paste it at the start of your session. It primes Claude with full plugin knowledge so it can help you self-diagnose most issues.
+> **Tip:** For faster diagnosis, load [CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md) into your Claude Project or paste it at the start of your session. It primes Claude with full plugin knowledge so it can help you self-diagnose most issues.
 
 # Troubleshooting -- local-terminal-mcp
 
@@ -11,19 +11,19 @@ Only Claude Desktop supports `.mcpb` extensions. Make sure you are on Claude Des
 
 **Extension installed but doesn't appear in Claude Desktop**
 Restart Claude Desktop after installing. If it still doesn't appear, confirm that:
-1. You selected the correct `.mcpb` file (filename should be `local-terminal-X.Y.Z.mcpb`)
+1. You selected the correct `.mcpb` file (filename: `local-terminal.mcpb`)
 2. Your Claude Desktop version supports extensions (update via **Help > Check for Updates**)
-3. Node.js v18 or later is installed -- run `node --version` in PowerShell to verify
+3. Claude Desktop is up to date (the plugin runtime is bundled with Claude Desktop — system Node.js is not required)
 
 ---
 
 ## License Key Issues
 
 **License key prompt didn't appear**
-Claude Desktop should prompt for `LT_LICENSE_KEY` the first time the extension starts. If no prompt appeared, open **Settings > Extensions**, find Local Terminal, and enter your key in the configuration panel.
+Claude Desktop should prompt for your `lt_license_key` the first time the extension starts. If no prompt appeared, open **Settings > Extensions**, find Local Terminal, and enter your key in the configuration panel.
 
-**"LT_LICENSE_KEY is required" on startup**
-The extension exited because no license key was provided. Open **Settings > Extensions**, select Local Terminal, and enter your ForgeRift license key. If you don't have one, subscribe at [forgerift.io](https://forgerift.io).
+**"lt_license_key is required" on startup**
+The extension exited because no license key was provided. Open **Settings > Extensions**, select Local Terminal, and enter your ForgeRift license key. If you don't have one, subscribe at [forgerift.io](https://forgerift.io). (In Claude Desktop's config UI this appears as `lt_license_key`; as an environment variable it would be `LT_LICENSE_KEY`.)
 
 **License key rejected / "Subscription not found or inactive"**
 Your key was not matched to an active subscription. Check that:
@@ -39,7 +39,8 @@ Your key was not matched to an active subscription. Check that:
 Start a **fresh conversation** -- existing conversations do not pick up newly connected tools. If tools still don't appear after starting a new chat, restart Claude Desktop.
 
 **"Subscription check timed out" or other network errors at startup**
-The extension couldn't reach the ForgeRift validation server. Check your internet connection and restart Claude Desktop. If your machine is behind a corporate proxy or firewall, it may be blocking outbound HTTPS to `api.forgerift.io`. Contact your IT team or email support@forgerift.io.
+The extension couldn't reach the ForgeRift validation server. This is intentional design — the plugin fails closed if it cannot verify your subscription, because a tool with shell access to your machine should never silently fall back to an unverified state. Check your internet connection and restart Claude Desktop. To verify the endpoint is reachable, run: `curl https://payments.forgerift.io/health` (or `Invoke-WebRequest https://payments.forgerift.io/health` in PowerShell). If your machine is behind a corporate proxy or firewall, it may be blocking outbound HTTPS to the ForgeRift license validation endpoint (`payments.forgerift.io`). Contact your IT team to whitelist that hostname, or email support@forgerift.io.
+
 
 **"Subscription check failed: Network error"**
 A transient network error blocked the validation request. Restart Claude Desktop. If the error persists, check your firewall settings.
@@ -76,12 +77,12 @@ If a block is unexpected, check whether the binary or flag matches a pattern in 
 ## Audit Log Location
 
 **Where is the audit log?**
-The audit log is written to the extension's **user-data directory** managed by Claude Desktop -- not a `logs\` folder in the install directory. The exact path varies by machine; Claude Desktop controls it. Every tool call is logged with timestamp, tool name, security tier, blocked status, and arguments. Secrets are auto-redacted.
+The audit log is written to `logs\audit.log` inside the extension's install directory — the same directory Claude Desktop unpacked the `.mcpb` file into. Every tool call is logged with timestamp, tool name, security tier, blocked status, and arguments. Secrets are auto-redacted.
 
-To find the log path, ask Claude: *"What is the audit log path for the local-terminal extension?"* -- the extension reports it on startup.
+To find the exact install path, go to **Settings → Extensions**, select Local Terminal, and look for the install directory shown in the extension details panel. You can also ask Claude: *"Check the audit log and show me recent entries."* — it can read the file directly using the `read_file` tool.
 
 **Audit log not rotating**
-The log rotates at `AUDIT_MAX_SIZE_MB` (default: 10 MB). One `.old` backup is kept. If rotation is not happening, check that Claude Desktop has write access to the user-data directory.
+The log rotates at 10 MB: `audit.log` is renamed to `audit.log.old` (overwriting any prior backup), and a new `audit.log` is created. Maximum on-disk usage is approximately 20 MB. If rotation is not happening, check that Claude Desktop has write access to the extension install directory.
 
 ---
 
@@ -100,18 +101,6 @@ Do not keep old `.mcpb` files around -- having multiple versions on disk has cau
 
 ## Uninstalling
 
-Open Claude Desktop and go to **Settings > Extensions > Local Terminal > Remove**. This removes the extension and its tools from Claude Desktop. To also remove audit logs and cached data, delete the extension's user-data directory (ask Claude for the path, or check your system's Claude Desktop app-data folder).
+Open Claude Desktop and go to **Settings > Extensions > Local Terminal > Remove**. This removes the extension and its tools from Claude Desktop. To reinstall, visit [forgerift.io](https://forgerift.io) or the Anthropic marketplace and install again.
 
----
-
-## Grace Period
-
-If a subscription payment fails, your account enters a 7-day grace period. Features remain active during this time. Log in at [forgerift.io](https://forgerift.io) and update your payment method before the grace period ends to avoid interruption.
-
----
-
-## Support
-
-- **GitHub Issues:** [github.com/ForgeRift/local-terminal-mcp/issues](https://github.com/ForgeRift/local-terminal-mcp/issues)
-- **Email:** support@forgerift.io
-- **Security vulnerabilities:** security@forgerift.io (90-day responsible disclosure)
+The audit log (`logs/audit.log`) is not removed automatically. Delete the extension install directory manually if you want to remove all traces.

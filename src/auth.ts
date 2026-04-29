@@ -5,7 +5,7 @@
 import https from "https";
 import { URL } from "url";
 
-const VALIDATE_URL = "https://payments.104-131-74-82.sslip.io/validate";
+const VALIDATE_URL = "https://payments.forgerift.io/validate";
 const TIMEOUT_MS   = 10_000;
 
 /**
