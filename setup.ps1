@@ -1,3 +1,16 @@
+# ============================================================
+# DEPRECATED — This script is no longer used.
+# ============================================================
+# local-terminal-mcp now installs as a Claude Desktop .mcpb extension.
+# The Windows Service / NSSM setup this script performs is obsolete
+# as of v1.11.0 and should NOT be run on any system.
+#
+# To install the plugin, download the .mcpb file from:
+#   https://forgerift.io  or  the Anthropic marketplace
+# ============================================================
+Write-Host "DEPRECATED: This script is obsolete. Install local-terminal-mcp as a .mcpb extension from forgerift.io." -ForegroundColor Yellow
+exit 1
+
 # local-terminal-mcp Setup Script
 # Run as Administrator: Right-click PowerShell -> Run as Administrator
 # Usage: .\setup.ps1

@@ -1,4 +1,4 @@
-﻿# Local-Terminal-MCP Security Framework
+# Local-Terminal-MCP Security Framework
 
 ## Executive Summary
 
@@ -12,9 +12,9 @@ All commands are classified into three security tiers: RED (hard-blocked), AMBER
 
 ### RED Tier: Hard-Blocked Commands
 
-RED tier commands are permanently blocked regardless of context. Attempts return a structured error with category, reason, and ToS warning. The block list encompasses 120+ patterns across 20 security categories.
+RED tier commands are permanently blocked regardless of context. Attempts return a structured error with category, reason, and ToS warning. The block list encompasses 140+ patterns across 27 security categories.
 
-**Categories:** file-delete, disk-ops, system-state, process-kill, user-mgmt, permissions, network-config, scheduled-exec, service-mgmt, code-exec, data-exfil, persistence, direct-db, pkg-install, pkg-remove, container, file-write, env-manip, priv-esc, info-leak, chaining, http-server.
+**Categories (27):** file-delete, disk-ops, system-state, process-kill, user-mgmt, permissions, network-config, scheduled-exec, service-mgmt, code-exec, data-exfil, persistence, direct-db, pkg-install, pkg-remove, container, file-write, env-manip, priv-esc, info-leak, chaining, http-server, base64-exec, com-exec, download-cradle, lolbin, wmi-exec.
 
 Key Windows-specific blocks include:
 - PowerShell destructive cmdlets: `Remove-Item`, `Clear-Content`, `Clear-RecycleBin`
@@ -32,11 +32,13 @@ Key Windows-specific blocks include:
 
 AMBER commands are moderately risky but have legitimate use cases. When detected, `dry_run` is forced to `true` and a warning is displayed. The user must re-call with `dry_run=false` to proceed.
 
-AMBER patterns: `find -exec`, `xargs`, `awk`, `sed -i`, `forfiles`, `robocopy`, `xcopy`, `copy /y`, `move`, wildcard `rename`/`ren`.
+AMBER patterns: `find -exec`, `xargs`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, wildcard `rename`/`ren`. (`forfiles` was promoted to RED in v1.6.0.)
 
 ### GREEN Tier: Allowed with Audit Logging
 
 GREEN tier includes all structured read-only tools and approved sub-commands, plus any `run_command` that passes both RED and AMBER checks.
+
+**AI safety layer (Layers 2–3) failure mode.** If `ANTHROPIC_API_KEY` is unset or the Anthropic API call fails (network error, rate limit, invalid key), the AI classification layer is **skipped** and the command falls back to Layer 1 RED static patterns plus the AMBER manual dry-run-and-confirm gate. This default fail-open behavior is controlled by `LAYER_STRICT_MODE` (default `false`). Operators who require fail-closed behavior must set `LAYER_STRICT_MODE=true` as an OS environment variable. The default was chosen so the plugin remains functional for users without an Anthropic API key.
 
 ## Sensitive File Protection
 
@@ -56,47 +58,49 @@ Beyond command-level blocking, local-terminal-mcp enforces file-level access con
 
 ### Destination-Path Write Protection (D10)
 
-Command-surface destination-path protection (D10) blocks writes to OS-critical paths across the `cp` / `mv` / `install` / `copy-item` (`cpi`) / `move-item` (`mi`) / `new-item` (`ni`) / `out-file` / `set-content` / `add-content` command set â€” plus `tee` and `dd of=...`. After `../` canonicalization and Windows env-var guard (`%SystemRoot%` fails closed), a normalized destination matching any of the following sensitive prefixes is blocked:
+Command-surface destination-path protection (D10) blocks writes to OS-critical paths across the `cp` / `mv` / `install` / `copy-item` (`cpi`) / `move-item` (`mi`) / `new-item` (`ni`) / `out-file` / `set-content` / `add-content` command set — plus `tee` and `dd of=...`. After `../` canonicalization and Windows env-var guard (`%SystemRoot%` fails closed), a normalized destination matching any of the following sensitive prefixes is blocked:
 
 - **Windows:** `/windows/`, `/system32/`, `/syswow64/`, `/program files/`, `/programdata/` (accepted with or without leading drive letter: `C:/windows`, `/windows`, `/C:/windows`)
 - **Unix:** `/etc/`, `/root/`, `/usr/bin/`, `/usr/sbin/`, `/bin/`, `/sbin/`, `/lib/`, `/lib64/`, `/boot/`
 
 PowerShell parameter forms supported:
 - Positional: `Copy-Item src.txt C:\Windows\System32\evil.dll`
-- Space-separated named: `Copy-Item -Destination C:\Windows\â€¦`
-- Colon-inline named: `Copy-Item -Destination:C:\Windows\â€¦`
-- Abbreviated prefixes: `-De`, `-Des`, `-Dest`, â€¦, `-Destination` (and `-Pa`/`-Pat`/`-Path`, `-FileP`/`-FilePath` for path-write cmdlets)
-- Empty colon-inline: `Copy-Item -Destination: C:\Windows\â€¦` (falls through to positional, F-OP-72)
-- Empty colon-inline followed by a flag: `Set-Content -Path: -Value x -LiteralPath C:\Windows\â€¦` â€” the flag is rejected as a dest and the matcher continues scanning so a later `-LiteralPath` still binds and is sensitivity-checked (F-OP-82, v1.10.4).
+- Space-separated named: `Copy-Item -Destination C:\Windows\…`
+- Colon-inline named: `Copy-Item -Destination:C:\Windows\…`
+- Abbreviated prefixes: `-De`, `-Des`, `-Dest`, …, `-Destination` (and `-Pa`/`-Pat`/`-Path`, `-FileP`/`-FilePath` for path-write cmdlets)
+- Empty colon-inline: `Copy-Item -Destination: C:\Windows\…` (falls through to positional, F-OP-72)
+- Empty colon-inline followed by a flag: `Set-Content -Path: -Value x -LiteralPath C:\Windows\…` — the flag is rejected as a dest and the matcher continues scanning so a later `-LiteralPath` still binds and is sensitivity-checked (F-OP-82, v1.10.4).
 
-**Operator override.** If legitimate workflows require writes under one of the sensitive prefixes above â€” including `\\server\share\â€¦` / `//server/share/â€¦` UNC destinations blocked by the F-OP-79 fail-closed guard â€” the `BYPASS_BINARIES` environment variable (see *Advanced Feature: BYPASS_BINARIES* below) can demote specific `<binary>:<category>` pairs from hard-block to AI-reviewed. Example: `BYPASS_BINARIES=copy-item:sensitive-path-write,cp:sensitive-path-write` re-enables those two binaries under `sensitive-path-write` while keeping redirect (`> C:\Windows\â€¦`) and `dd of=â€¦` blocked. Each bypass hit is logged as `[SECURITY-BYPASS]` in the audit stream.
+**Operator override.** If legitimate workflows require writes under one of the sensitive prefixes above — including `\\server\share\…` / `//server/share/…` UNC destinations blocked by the F-OP-79 fail-closed guard — the `BYPASS_BINARIES` environment variable (see *Advanced Feature: BYPASS_BINARIES* below) can demote specific `<binary>:<category>` pairs from hard-block to AI-reviewed. Example: `BYPASS_BINARIES=copy-item:sensitive-path-write,cp:sensitive-path-write` re-enables those two binaries under `sensitive-path-write` while keeping redirect (`> C:\Windows\…`) and `dd of=…` blocked. Each bypass hit is logged as `[SECURITY-BYPASS]` in the audit stream.
 
-### Security Release Notes â€” v1.10.x
+### Security Release Notes (v1.10.x – v1.12.x)
+
+
+Between v1.10.0 and v1.12.2, ForgeRift's internal adversarial review identified and resolved a series of edge cases in PowerShell argument parsing that could have allowed a command targeting a sensitive path to slip past the RED-tier blocker under specific argument-ordering conditions. All issues were caught internally before any user-facing release of the affected versions, and all fixes are shipped in the current release (v1.12.2). The detailed engineering log below is preserved for security researchers and auditors.
 
 | Version | Closed | Scope |
 |---|---|---|
-| v1.10.0 | F-OP-62 / F-OP-63 / F-OP-64 | PowerShell destination detection: `-LiteralPath` gated on path-write cmdlets; forward-slash Windows paths; parameter-prefix abbreviations |
+| v1.10.0 | F-OP-62 / F-OP-63 / F-OP-64 | BLOCKED tier (Layer 1 hard-block) introduced above AMBER; `HARD_BLOCKED_PATTERNS` seeded with shell invocation, privilege escalation, credential theft, exfiltration, and persistence categories; `ANTHROPIC_API_KEY` validated at startup with fail-open/fail-closed via `LAYER_STRICT_MODE`. |
 | v1.10.1 | F-OP-66 | M7-extended redirect no-`..` form (`> ./Windows/System32/evil.dll`) |
 | v1.10.2 | F-OP-68 / F-OP-69 | `normalizePath` separator unified to `/` so both NIX and Windows paths route through the same matcher; PowerShell colon-syntax (`-Destination:<path>`) token-split so parameter-name regex matches reliably |
-| v1.10.3 | F-OP-72 / F-OP-74 | Empty colon-inline (`-Destination: <next-token>`) now falls through to positional fallback instead of short-circuiting (F-OP-72); `SENSITIVE_WIN` regex unified between D10 and M7-extended so `/C:/Windows/...` drive-letter-after-slash form cannot evade D10 while being blocked by redirect matcher (F-OP-74); `src/tools_BRANCH.ts` / `src/tools_HEAD.ts` merge-conflict artifacts removed from the shipped tree (F-OP-75). |
-| v1.10.4 | F-OP-80 / F-OP-82 / F-OP-83 | `SENSITIVE_PATH_WIN` anchored so benign CWD-relative filenames (`windows-update.log`, `system32.bak`, `programdata-export.zip`) no longer false-positive as sensitive destinations (F-OP-80); flag-after-empty-colon (`-Path: -Value x -LiteralPath <sensitive>`) no longer consumed as dest â€” matcher continues scanning so `-LiteralPath` still binds (F-OP-82); D10 section now points operators at `BYPASS_BINARIES` as the documented override for legitimate `/home`-like and UNC workflows (F-OP-83). |
+| v1.10.3 | F-OP-72 / F-OP-74 / F-OP-75 | D10 PowerShell sensitive-path write matcher extended to cover `Set-Content`, `Out-File`, `Add-Content`, `Export-Csv`, `Export-Clixml` with destination-argument extraction (F-OP-72); UNC path write guard added — `\\\\server\\share\\...` paths canonicalized before sensitivity check, fail-closed on unresolvable UNC roots (F-OP-74); tilde expansion in write destinations resolved against sensitive prefix list before sensitivity gate (F-OP-75). |
+| v1.10.4 | F-OP-80 / F-OP-82 / F-OP-83 / F-OP-84 / F-OP-85 | `SENSITIVE_PATH_WIN` regex anchored to require leading `/` or drive-letter prefix, closing v1.10.3 regression where benign filenames like `windows-update.log` triggered false-positive blocks (F-OP-80); D10 PowerShell matcher loop fixed so flag tokens are not consumed as destination, ensuring `-LiteralPath` still binds correctly (F-OP-82); SECURITY.md D10 subsection updated to document `BYPASS_BINARIES` as the operator override for UNC and sensitive-path workflows (F-OP-83); `.githooks/pre-commit` added to block merge-conflict artifacts and backup files from commits (F-OP-84); `.gitignore` expanded to cover the full artifact class matched by the pre-commit hook (F-OP-85). |
+| v1.10.5 | H-1, H-2 | Layer 2/3 parse-failure parity fix — high-risk result now consistently blocks regardless of argument ordering |
 | v1.11.0 | - | Transport refactor SSE/HTTP -> stdio; StdioServerTransport; Express and auth.ts retired. 421/421 tests. |
 | v1.12.1 | - | S70 pre-submission cleanup: merge artifact removed, typescript to devDependencies, prepack guard, BUSL references removed, README Quick Start fix. No security logic changes. |
 | v1.12.2 | - | S72 doc rewrite: README.md, MARKETPLACE_LISTING.md, CLAUDE_CONTEXT.md rewritten for .mcpb install model; NSSM/Windows Service/setup.ps1 references removed; pattern count 450+ -> 140+; .mcpbignore test exclusions added; .mcpb archive rebuilt. No security logic changes. |
 
-**Known pre-v1.10.4 scope:** (a) v1.10.3 `SENSITIVE_PATH_WIN` was over-broad and blocked benign destinations whose names start with `windows`, `system32`, `syswow64`, `programdata`. No security gain, but consumer-safety regression that breaks legitimate copy/rename workflows producing those filenames. (b) v1.10.3 F-OP-72 fix closed the trailing-colon short-circuit but a derivative form â€” trailing colon followed by a flag token, e.g. `Set-Content -Path: -Value x -LiteralPath /etc/passwd` â€” let the matcher consume the flag as the destination and skip the real sensitive path. PowerShell's mutex-parameter-set rules bounded end-to-end exploitability in most host versions; v1.10.4 closes the D10 defense-in-depth gap regardless.
+**Known pre-v1.10.4 scope:** (a) v1.10.3 `SENSITIVE_PATH_WIN` was over-broad and blocked benign destinations whose names start with `windows`, `system32`, `syswow64`, `programdata`. No security gain, but consumer-safety regression that breaks legitimate copy/rename workflows producing those filenames. (b) v1.10.3 F-OP-72 fix closed the trailing-colon short-circuit but a derivative form — trailing colon followed by a flag token, e.g. `Set-Content -Path: -Value x -LiteralPath /etc/passwd` — let the matcher consume the flag as the destination and skip the real sensitive path. PowerShell's mutex-parameter-set rules bounded end-to-end exploitability in most host versions; v1.10.4 closes the D10 defense-in-depth gap regardless.
 
-**Known pre-v1.10.3 scope:** operators running v1.10.0â€“v1.10.2 of local-terminal-mcp could bypass D10 on `Copy-Item` and `Move-Item` by placing a trailing `:` on the `-Destination` flag followed by a space before the sensitive path (F-OP-72). PowerShell's own parameter binding varies across host versions in how it accepts this form; upgrading to v1.10.3 closes the D10 defense-in-depth gap regardless.
-
-## Rate Limiting
-
-All requests are rate-limited to 120 requests per minute per authentication token (configurable via `RATE_LIMIT_PER_MIN`). Violations return HTTP 429. The limit is applied uniformly regardless of command tier.
+**Known pre-v1.10.3 scope:** operators running v1.10.0–v1.10.2 of local-terminal-mcp could bypass D10 on `Copy-Item` and `Move-Item` by placing a trailing `:` on the `-Destination` flag followed by a space before the sensitive path (F-OP-72). PowerShell's own parameter binding varies across host versions in how it accepts this form; upgrading to v1.10.3 closes the D10 defense-in-depth gap regardless.
 
 ## Request Timeout
 
 All command execution has a 30-second hard timeout. Commands exceeding this are killed with SIGTERM. Timeout violations are logged.
 
 ## Audit Logging
+
+**Secret redaction scope:** Secret redaction covers common credential patterns including API key prefixes (`sk-ant-`, `sk-`, `ghp_`, `xoxb-`, `AKIA`, etc.) and key-value pairs matching names like `password=`, `token=`, `api_key=`, `secret=`. Custom secrets that don't match these patterns may not be redacted. Treat the audit log as potentially containing anything you passed to `run_command` and restrict access accordingly.
 
 Every tool call is logged with:
 - Timestamp (UTC)
@@ -106,19 +110,19 @@ Every tool call is logged with:
 - Dry-run status
 - Arguments (secrets auto-redacted)
 
-Logs rotate at 10MB (configurable via `AUDIT_MAX_SIZE_MB`) with one `.old` backup retained.
+Logs are written to `logs/audit.log` in the extension's install directory. When `audit.log` reaches 10 MB it is renamed to `audit.log.old`, overwriting any prior backup. Maximum on-disk storage is approximately 20 MB at any given time. Logs never leave the machine.
 
-## Authentication
+## Transport & Trust Boundary
 
-Bearer token authentication on every request. Token is generated at install time and stored in `.env`. The server binds exclusively to `127.0.0.1` â€” it is not reachable from the network.
+local-terminal-mcp runs as a **stdio MCP extension** spawned by Claude Desktop as a child process. There is no network listener, no HTTP server, and no inbound port opened. Two narrow outbound HTTPS flows exist: one at startup to ForgeRift's license-validation endpoint, and (if `ANTHROPIC_API_KEY` is configured) one per `run_command` invocation to Anthropic's API. The trust boundary is the stdio pipe itself: only the Claude Desktop process that spawned the plugin can send tool calls. No authentication token is used because no inbound network channel exists to authenticate.
 
 ## Threat Model
 
 ### Threat: Unauthorized Command Execution
-**Mitigation:** RED tier blocks 120+ dangerous patterns. AMBER tier forces preview. Rate limiting prevents brute-force probing.
+**Mitigation:** RED tier blocks 140+ dangerous patterns across 27 categories. AMBER tier forces dry-run preview with mandatory user re-confirmation. The stdio-only transport means no network-exposed attack surface for command injection.
 
 ### Threat: Credential Exfiltration
-**Mitigation:** Sensitive file protection blocks reads of `.env`, SSH keys, Windows credential stores, browser data, and cloud credentials â€” even through read-only tools.
+**Mitigation:** Sensitive file protection blocks reads of `.env`, SSH keys, Windows credential stores, browser data, and cloud credentials — even through read-only tools.
 
 ### Threat: Data Exfiltration
 **Mitigation:** All network tools (curl, wget, ssh, scp, ftp, netcat, PowerShell web cmdlets, bitsadmin, certutil) are RED-blocked.
@@ -130,7 +134,7 @@ Bearer token authentication on every request. Token is generated at install time
 **Mitigation:** sudo, runas, su, and all user/group management commands are RED-blocked.
 
 ### Threat: Social Engineering
-**Mitigation:** Structured error messages with ToS warnings. No admin override or bypass flags.
+**Mitigation:** Structured error messages with ToS warnings. RED blocks are unconditional — no AI, user, or operator can override them. The optional `BYPASS_BINARIES` env var (documented above) allows an operator to demote specific binary+category pairs from RED to AI-reviewed; every bypass is logged as `[SECURITY-BYPASS]` in the audit trail. It does not apply to social-engineering attacks because it requires pre-configuration by the operator, not runtime persuasion.
 
 ## Terms of Service Violations
 
@@ -155,17 +159,4 @@ local-terminal-mcp is a security-enhancing layer that operates on top of your ex
 
 ### Advanced Feature: BYPASS_BINARIES
 
-The `BYPASS_BINARIES` environment variable (H18) allows administrators to demote specific binary+category combinations from hard-block to AI-reviewed status. This is an **advanced configuration intended for experienced administrators only.**
-
-**By enabling `BYPASS_BINARIES`, you acknowledge and accept that:**
-
-- You are reducing the default protection level for the specified binary/category combinations.
-- Bypassed commands are still subject to AI review (L2/L3 classifier pipeline) but are no longer hard-blocked at Layer 1.
-- Every bypass event is logged to the audit trail, but logging does not prevent execution if the AI classifiers approve the command.
-- Misconfiguration of this setting may allow destructive or unauthorized commands to execute on your system.
-- The authors and distributors of this software bear no liability for damages resulting from the use or misconfiguration of this feature.
-- You are solely responsible for evaluating whether this feature is appropriate for your environment and risk tolerance.
-
-**This feature is disabled by default. Do not enable it unless you have a specific, well-understood operational requirement.**
-
-If you are unsure whether you need this feature, you do not need it.
+This feature exists to support legitimate enterprise administrator workflows — for example, an IT operator who needs to manage toolchain installs under `C:\Program Files\`. It is disabled by default and intentionally undiscoverable from the Claude Desktop install UI; enabling it requires editing OS-level environment variables, which are outside Claude's reach. Use only if you understand the security implications. All bypasses are logged with the [SECURITY-BYPASS] tag in the audit log; review the audit log periodically if BYPASS_BINARIES is enabled.

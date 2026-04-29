@@ -28,6 +28,17 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ---
 
+### Pass 30 adversarial review closeout (2026-04-29)
+- Fixed "in-process" architectural claim → "child process spawned by Claude Desktop" (SECURITY.md, faq.md)
+- Fixed "no port opened — inbound or outbound" → accurate inbound-only qualifier + outbound HTTPS flows disclosed (SECURITY.md)
+- Added fail-open paragraph for AI layer to SECURITY.md §GREEN Tier: explains `LAYER_STRICT_MODE` default, fallback, and rationale
+- Fixed "no network socket, no port exposure" → "no inbound network socket, no inbound port exposure" (MARKETPLACE_LISTING.md)
+- Added Anthropic non-affiliation disclaimer to MARKETPLACE_LISTING.md top section
+- Fixed consumer-law misrepresentation: "No refunds after trial ends" → accurate exceptions sentence (README.md, MARKETPLACE_LISTING.md, forgerift.io/index.html)
+- Fixed terms.html §4.1 "one outbound call" → discloses both license-validation and optional Anthropic API flows
+- Added "package removal (choco uninstall/winget uninstall)" to .claude-plugin/CLAUDE.md blocked-categories list (was listing 26 of 27 categories)
+
+
 ## [1.12.1] — 2026-04-27
 
 ### Chore — S70 Pre-Submission Cleanup

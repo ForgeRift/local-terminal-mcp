@@ -12,9 +12,6 @@ logs/
 .env*
 ADVERSARIAL_REVIEW*.md
 MARKETPLACE_LISTING.md
-COMMANDS.md
-CREDITS.md
-TROUBLESHOOTING.md
 screenshot_capture_checklist.md
 ts-loader.mjs
 setup.ps1

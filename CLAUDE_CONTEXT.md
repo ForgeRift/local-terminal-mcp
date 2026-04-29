@@ -1,4 +1,4 @@
-﻿# Claude Context — local-terminal-mcp
+# Claude Context — local-terminal-mcp
 *Add this file to your Claude Project, paste it into Claude memory, or include it at the start of any session where you want Claude to act as a knowledgeable expert on this plugin.*
 
 ---
@@ -20,7 +20,7 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 **local-terminal-mcp** gives Claude controlled access to your local Windows machine — browse files, read code, run approved commands, and manage projects without leaving your AI workflow. Installed as a Claude Desktop `.mcpb` extension. Claude Desktop manages the Node.js process lifecycle. stdio transport — no network socket, no inbound traffic.
 
 **Built by:** ForgeRift LLC  
-**Version:** 1.12.1  
+**Version:** 1.12.2  
 **License:** MIT  
 **Docs:** github.com/ForgeRift/local-terminal-mcp
 
@@ -30,7 +30,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 
 - **Layer 1:** Hard-coded RED block list — 140+ regex patterns checked in source code. Instant rejection, no AI consulted.
 - **Layer 2:** AMBER classifier — deterministic pattern match that flags commands for AI review.
-- **Layer 3:** AI safety board — Sonnet or Haiku reads the full conversation context and approves or rejects AMBER commands. If Layer 3 is unreachable, behavior is controlled by `LAYER_STRICT_MODE` (default: pass-through).
+- **Layer 3:** AI safety classification — if an Anthropic API key is configured, every `run_command` invocation (not only AMBER) sends the command text and justification to Anthropic's API before execution. A high-risk result may independently block the command. If the Anthropic API call fails (network error, rate limit, missing key), the AI layer is skipped and the command falls back to manual confirmation rather than blocking. Operators who prefer to block on API failure can set `LAYER_STRICT_MODE=true`. This is controlled by the `LAYER_STRICT_MODE` env var (default: `false` = pass-through).
 
 **Shell context:** `run_command` executes via **PowerShell** by default. PowerShell syntax applies — use `Get-Content` not `cat`, `$env:VAR` not `$VAR`, backslashes escaped in strings (`C:\\Users\\...`). If users paste CMD syntax, translate it.
 
@@ -52,25 +52,27 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 
 ### Read-Only (always GREEN — no review, runs immediately)
 - `list_directory` — list files and folders at a path
-- `read_file` — read up to 500 lines of any text file (sensitive files blocked)
+- `read_file` — read up to 500 lines of any text file; supports `start_line` / `end_line` parameters for reading specific ranges (sensitive files blocked)
 - `get_system_info` — OS version, disk space, memory, running processes
 - `find_files` — search for files by name pattern
 - `search_file` — grep/findstr for text patterns within files
 
 ### Constrained Structured Commands (always GREEN)
 These are GREEN because the plugin's wrapper rejects any subcommand not on the allowlist — they can't be leveraged for arbitrary execution.
-- `run_npm_command` — limited to: `install`, `ci`, `list`, `run <script>` only
-- `run_git_command` — read-only git only: `status`, `log`, `diff`, `branch`, `fetch`
+- `run_npm_command` — limited to: `list`, `ls`, `outdated`, `audit`, `view`, `why`, `explain` only (install, ci, and run are NOT available)
+- `run_git_command` — read-only git only: `status`, `log`, `diff`, `branch`, `show`, `stash list`, `tag`, `rev-parse`, `ls-files` (fetch is NOT available — it can enable RCE via custom transport helpers in .git/config)
 
 ### Escape Hatch (RED/AMBER/GREEN pipeline)
 - `run_command` — arbitrary shell command. **`dry_run=true` by default.** Must explicitly pass `dry_run=false` after reviewing the preview to execute. This is intentional — not a bug.
 
 **`run_command` flow example:**
-1. User asks: "delete node_modules and reinstall"
-2. Claude calls `run_command(command="Remove-Item -Recurse -Force node_modules", dry_run=true)`
-3. Plugin returns: `DRY RUN: would execute 'Remove-Item -Recurse -Force node_modules'. Tier: AMBER. Risk: bulk file deletion.`
+1. User asks: "copy the dist folder to the backup location"
+2. Claude calls `run_command(command="robocopy dist C:\\Backup\\dist /E", dry_run=true, justification="Copying dist output to backup directory")`
+3. Plugin returns: `DRY RUN: would execute 'robocopy dist C:\Backup\dist /E'. Tier: AMBER. Risk: bulk file copy.`
 4. Claude relays preview and risk to the user, gets confirmation
 5. Claude calls again with `dry_run=false` to execute
+
+Note: `Remove-Item` is RED (file-delete category) — Claude cannot run it. Tell the user to run it in their own terminal.
 
 A **GREEN `run_command`** = passes the RED block list, doesn't match any AMBER patterns → executes with `dry_run=false` without additional review. Most read-only PowerShell cmdlets land here.
 
@@ -85,18 +87,19 @@ Common GREEN examples:
 - `Get-ChildItem`, `dir`
 - `Get-Content` (non-sensitive files), `type`
 - `git status`, `git log`, `git diff`
-- `npm list`, `npm run <script>`
+- `npm list`, `npm outdated`, `npm audit`
 - `Get-Process`, `Get-Service` (read-only)
 - `ping`, `ipconfig /all`
 - `wmic` read queries
-- `Test-Path`, `Get-Item`, `Get-ItemProperty` (registry reads only)
+- `Test-Path`, `Get-Item` (non-system paths)
 
 ### ⚠️ AMBER — Warning Required, `dry_run` Forced
 Moderately risky commands with legitimate uses. `run_command` forces `dry_run=true` and shows a warning. User must re-call with `dry_run=false` to execute.
 
 Examples:
-- `robocopy`, `xcopy`, `move` — bulk file operations
+- `robocopy`, `xcopy`, `copy /y`, `move` — bulk file operations
 - `find -exec`, `xargs` — chained execution
+- `awk`, `sed -i` — in-place file transforms
 - Wildcard `rename` operations
 
 ### 🔴 RED — Always Blocked, No Override
@@ -126,6 +129,11 @@ Examples:
 | `info-leak` | Reading `.env`, SSH keys, credential stores |
 | `chaining` | `&&`, `;` combining commands |
 | `http-server` | Starting any listening server process |
+| `base64-exec` | `certutil -decode`, `[Convert]::FromBase64String`, `base64 -d` execution patterns |
+| `com-exec` | `New-Object -ComObject WScript.Shell/Shell.Application` |
+| `download-cradle` | `Invoke-WebRequest`, `Net.WebClient`, `certutil -urlcache`, `curl`, `wget`, `nc`, `scp`, `ftp` |
+| `lolbin` | `mshta`, `wscript`, `cscript`, `regsvr32`, `rundll32`, `msiexec` |
+| `wmi-exec` | `wmic process call create`, `Invoke-WmiMethod`, `New-CimInstance` |
 
 **If a user hits RED:** Explain the category and reason, offer to write the exact PowerShell or CMD command they can run in an admin terminal themselves.
 
@@ -139,7 +147,7 @@ Even read-only tools (`read_file`) block access to:
 - Windows credential stores: `SAM`, `SECURITY`, `\Microsoft\Credentials\`
 - Cloud credentials: `.aws\`, `.gcloud\`, `.azure\`
 - Browser login data (Chrome/Edge `Login Data`, `Cookies`)
-- `kubeconfig`, `NTUSER.DAT`, `secrets.json`, `.git-credentials`
+- `kubeconfig`, `NTUSER.DAT`, `secrets.json`, `.gitconfig`, `.git-credentials`
 
 **This is intentional.** Access these directly outside the plugin.
 
@@ -166,16 +174,13 @@ Open Claude Desktop → **Settings → Extensions** → select local-terminal �
 Verify the key matches exactly what was emailed at purchase. Keys are case-sensitive. If the key appears expired or revoked, contact [support@forgerift.io](mailto:support@forgerift.io).
 
 **Anthropic API key**
-Optional — only consumed for Layer 3 AI review of AMBER-tier commands. Safe to leave blank. The plugin functions fully without it; AMBER commands pass through without AI review.
+Optional. If provided, the command text and justification for **every** `run_command` invocation (not only AMBER-tier) are sent to Anthropic's API for AI-assisted safety classification before execution; a high-risk result may independently block the command. Safe to leave blank — the plugin functions fully without it; AI classification layers are skipped entirely when no key is configured.
 
 **Audit log location**
 The audit log (`audit.log`) is written to the `logs/` subfolder within the extension's install directory, managed by Claude Desktop. Check Claude Desktop's extension details panel for the exact install path.
 
 **Windows Defender / AV blocking extension spawn**
 If Claude Desktop reports that the extension fails to start, add Claude Desktop's installation directory to Windows Defender exclusions. Add Claude Desktop's own installation directory to the exclusion list.
-
-**Rate limit on `run_command`**
-`RATE_LIMIT_PER_MIN` (default: 120) counts per token per minute. When hit, calls return a rate-limit error. Wait 60 seconds or restart the service to reset.
 
 **`BYPASS_BINARIES` usage**
 Format: `processname:category-name` (comma-separated). Example: `node:file-write,npm:pkg-install`. Every bypass is logged as `[SECURITY-BYPASS]` in the audit trail.
@@ -189,13 +194,12 @@ Format: `processname:category-name` (comma-separated). Example: `node:file-write
 | Key | Required | What It Does |
 |-----|----------|-------------|
 | `lt_license_key` | Yes | License key from your ForgeRift email |
-| `anthropic_api_key` | No | Powers Layer 3 AI safety review of AMBER-tier commands |
+| `anthropic_api_key` | No | Enables AI-assisted safety classification for every `run_command` invocation (not only AMBER-tier); a high-risk result may block execution |
 
 **Advanced environment variables** (operator-level; not typically needed):
 
 | Variable | Default | What It Does |
 |----------|---------|-------------|
-| `RATE_LIMIT_PER_MIN` | `120` | Max requests per minute per token |
 | `AUDIT_MAX_SIZE_MB` | `10` | Audit log rotation threshold |
 | `BYPASS_BINARIES` | — | `process:category` pairs exempt from blocking (logged as `[SECURITY-BYPASS]`) |
 | `LAYER_STRICT_MODE` | false | If true, Layer 2/3 failures block rather than pass-through |
@@ -206,8 +210,6 @@ Format: `processname:category-name` (comma-separated). Example: `node:file-write
 
 | File | Contents |
 |------|----------|
-| `logs\service-out.log` | stdout from the Node process |
-| `logs\service-err.log` | stderr — check here first when troubleshooting |
 | `logs\audit.log` | every tool call with tier, blocked status, args (secrets auto-redacted) |
 
 Every audit entry has: timestamp, tool name, security tier, command/args, Layer 1/2/3 decision source, and `[SECURITY-BYPASS]` tag when `BYPASS_BINARIES` matched.
@@ -246,4 +248,4 @@ What's the git status of [project directory]?
 
 *Paste this into Claude to save this context as a memory (best used with Claude Projects):*
 
-> "Please remember the following about my local-terminal-mcp setup so you can help me manage my Windows machine and troubleshoot issues without me having to re-explain it: [paste this entire document]. Reference this any time I ask about my local machine, Windows commands, file access, or anything related to my ForgeRift plugin. Note: add this to a Claude Project for persistent context — standard memory may not retain the full document across sessions."
+> "Please remember the following about my local-terminal-mcp setup so you can help me manage my Windows machine and troubleshoot issues without me having to re-explain it: [paste this entire document]. Reference this any time I ask about my local machine, Windows commands, file access, or anything related to my ForgeRift plugin. Note: add this to a new Claude conversation using the paperclip or attachment icon, or paste it directly into the message field at the start of a new chat."

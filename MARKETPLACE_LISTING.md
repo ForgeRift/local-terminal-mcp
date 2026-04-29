@@ -1,25 +1,27 @@
-﻿# local-terminal-mcp — Marketplace Listing
+# local-terminal-mcp — Marketplace Listing
 
 ## Product Overview
 
-![local-terminal tools panel](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_01_tools.gif)
+![local-terminal tools panel — Claude Desktop showing all 8 plugin tools in the tool list](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_01_tools.gif)
 
 **Tagline:** *Claude with access to your Windows machine — your files never leave it.*
 
-We run the safe tasks automatically so you don't have to.
+*ForgeRift LLC is an independent third-party developer and is not affiliated with, endorsed by, or sponsored by Anthropic PBC.*
+
+Claude runs the safe tasks for you — you stay in control of the rest.
 
 Reading files, checking logs, running builds, searching your codebase — Claude handles those directly from the conversation, no copy-pasting required. High-risk operations (file deletion, software installs, registry changes, and more) stay permanently blocked and in your hands by design. When Claude hits one, it tells you exactly what to run yourself and why.
 
-Secure, audited access to your local Windows shell. 140+ permanently blocked dangerous patterns. stdio transport — no network socket, no port exposure, no inbound surface.
+Secure, audited access to your local Windows shell. 140+ permanently blocked dangerous patterns. stdio transport — no inbound network socket, no inbound port exposure, no inbound surface. (Two outbound HTTPS flows documented in README.)
 
 ---
 
 ## What Claude Can Do
 
-![Directory listing and search demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_03_search.gif)
+![Directory listing and search demo — Claude listing a project directory and running a pattern search across source files](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_03_search.gif)
 
 - **Read your project files** — browse directories, read source files and configs, search by pattern
-- **Run builds** — `npm install`, `npm run build`, `npm test`, without leaving Claude
+- **Inspect packages** — `npm list`, `npm ls`, `npm outdated`, `npm audit` — dependency and security snapshots without leaving Claude
 - **Check git state** — status, log, diff, branch listing — instant project context for every conversation
 - **Get system info** — disk, memory, running processes
 - **Find things fast** — search file contents across your project for functions, variables, error messages
@@ -55,21 +57,21 @@ local-terminal-mcp gives Claude access to your Windows computer so it can do tha
 
 ## Developers — Here's What's Actually Under the Hood.
 
-![RED-tier block demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_04_red-block.gif)
+![RED-tier block demo — Claude attempting a blocked command and receiving a structured RED-tier error with category and reason](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_04_red-block.gif)
 
-**Security architecture:** Same three-tier RED/AMBER/GREEN model as vps-control-mcp, adapted for Windows. Static pattern matching + allowlist-based command gating, both layers required. 140+ hard-blocked patterns across 27 categories. stdio transport — no network socket, no port exposure.
+**Security architecture:** Same three-tier RED/AMBER/GREEN model as vps-control-mcp, adapted for Windows. Static pattern matching + allowlist-based command gating, both layers required. 140+ hard-blocked patterns across 27 categories. stdio transport — no inbound network socket, no inbound port exposure.
 
 **Blocked surface highlights:** Recursive deletion (`rm -rf` equivalents, `Remove-Item -Recurse`), PowerShell execution policy bypass, credential store access (Windows Credential Manager, DPAPI), browser login data (`Login Data`, `Cookies`, Chrome/Edge/Firefox profile paths), registry writes, scheduled task creation, UAC bypass patterns, Windows Defender modification, and network pivot commands.
 
-**Lifecycle:** Installed as a Claude Desktop `.mcpb` extension. Claude Desktop spawns `node dist/index.js` over stdio and manages restart on crash. No external service infrastructure, no port, no inbound traffic.
+**Lifecycle:** Installed as a Claude Desktop `.mcpb` extension. Claude Desktop spawns `node dist/index.js` over stdio and manages restart on crash. No network port opened, no inbound traffic. One outbound HTTPS call is made at startup to ForgeRift's license validation endpoint to verify your subscription; if unreachable, the plugin fails closed.
 
 **Sensitive file protection:** Blocked at the read level in all tools — not just `run_command`. `.env`, SSH keys (`id_rsa`, `id_ed25519`), Windows credential stores, browser login data, cloud credentials (`.aws/`, `.azure/`, `.gcloud/`), npm/yarn auth tokens, and shell configs that commonly contain exported secrets.
 
-**Audit trail:** Structured JSON, secret auto-redaction via expanded prefix + key-name regex, 10MB rotation with one backup. Stored locally at `MCP_LOG_DIR`.
+**Audit trail:** Structured JSON, secret auto-redaction via expanded prefix + key-name regex, 10MB rotation with one backup. Stored locally at `logs/audit.log` within the extension's install directory.
 
-**Adversarial review:** 13 rounds, 419/419 tests pass. LT-specific findings (F-LT series) documented in `ADVERSARIAL_REVIEW.md`. Shares the same security architecture and findings database as vps-control-mcp.
+**Adversarial review:** Multiple rounds of adversarial testing (F-LT and F-OP findings series). All adversarial review was conducted internally by ForgeRift; no independent third-party audit has been performed. The full review log is available at [ADVERSARIAL_REVIEW.md](https://github.com/ForgeRift/local-terminal-mcp/blob/main/ADVERSARIAL_REVIEW.md). Each finding has a corresponding regression test. Shares the same security architecture and findings database as vps-control-mcp.
 
-**Scope limitation by design:** No network calls, no outbound requests, no file writes outside `run_command` (which is itself filtered). The plugin surface is read + gated-execute only. Nothing leaves your machine.
+**Scope limitation by design:** No file writes outside `run_command` (which is itself filtered). The plugin surface is read + gated-execute only. Two narrow outbound flows exist: your license key is sent to ForgeRift at startup for subscription validation; and, if you supply an optional Anthropic API key, the command text and justification for every `run_command` invocation are sent to Anthropic's API for AI-assisted safety classification before execution.
 
 **License:** MIT. Full source at [github.com/ForgeRift/local-terminal-mcp](https://github.com/ForgeRift/local-terminal-mcp).
 
@@ -86,7 +88,7 @@ local-terminal-mcp gives Claude access to your Windows computer so it can do tha
 
 Subscribe at [forgerift.io](https://forgerift.io) — you'll receive a `local-terminal.mcpb` file and a license key by email.
 
-In Claude Desktop: **Settings → Extensions → Install Extension** → select the `.mcpb` file → enter your license key when prompted (and an Anthropic API key if you have one — optional, enables Layer 3 AI review). Done.
+In Claude Desktop: **Settings → Extensions → Install Extension** → select the `.mcpb` file → enter your license key when prompted (and an Anthropic API key if you have one — optional, enables AI-assisted safety classification for every `run_command` invocation, not only AMBER-tier). Done.
 
 ---
 
@@ -97,7 +99,7 @@ Configuration is entered via Claude Desktop's user_config prompt when you instal
 | Key | Required | Description |
 |---|---|---|
 | `lt_license_key` | Yes | License key from your ForgeRift email |
-| `anthropic_api_key` | No | Enables Layer 3 AI review of AMBER-tier commands |
+| `anthropic_api_key` | No | Enables AI-assisted safety classification for every `run_command` invocation (not only AMBER-tier); a high-risk result may independently block execution |
 
 ---
 
@@ -108,23 +110,6 @@ Configuration is entered via Claude Desktop's user_config prompt when you instal
 | Individual (this plugin) | $14.99/mo | $149/yr |
 | Bundle (both plugins) | $19.99/mo | $199/yr |
 
-**14-day free trial** included. No charge during trial period. No refunds after trial ends.
+**14-day free trial** included. No charge during trial period. Subscriptions are otherwise non-refundable except for confirmed ForgeRift billing errors, prorated convenience-termination refunds, and applicable statutory consumer rights — see Terms §6.5.
 
-**Founder Cohort:** First 100 subscribers or 3 months post-marketplace approval (whichever comes first) lock in $9.99/mo (individual) or $14.99/mo (bundle) for life.
-
-See [forgerift.io/#pricing](https://forgerift.io/#pricing) for full details.
-
----
-
-## Support & Security
-
-- **Documentation** — `README.md`, `SECURITY.md`, `TROUBLESHOOTING.md`
-- **Issues** — [github.com/ForgeRift/local-terminal-mcp/issues](https://github.com/ForgeRift/local-terminal-mcp/issues)
-- **Security** — `security@forgerift.io` (90-day responsible disclosure)
-- **General** — `support@forgerift.io`
-
----
-
-## License
-
-Released under the [MIT License](LICENSE).
+**Founder Cohort:** Eligibility window closes at the earlier of (a) the 100th paid subscriber or (b) 3 months after the marketplace listing date. Qualifying subscribers lock in $9.99/mo (individual) or $14.99/mo (bundle) for as long as their subscription remains continuously active. Monthly billing only. Not transferable.

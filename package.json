@@ -1,6 +1,7 @@
 {
   "name": "local-terminal-mcp",
   "version": "1.12.2",
+  "engines": { "node": ">=18" },
   "description": "Local terminal MCP server - gives Claude controlled access to your Windows shell",
   "type": "module",
   "main": "dist/index.js",
@@ -26,9 +27,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/forgerift/local-terminal-mcp.git"
+    "url": "https://github.com/ForgeRift/local-terminal-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/forgerift/local-terminal-mcp/issues"
+    "url": "https://github.com/ForgeRift/local-terminal-mcp/issues"
   }
 }

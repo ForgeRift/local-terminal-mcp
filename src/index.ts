@@ -19,7 +19,7 @@ dotenv.config({ path: join(PLUGIN_ROOT, ".env") });
 const _origError = console.error.bind(console);
 console.log = console.info = console.warn = console.debug = _origError;
 
-const VERSION = "1.12.0";
+const VERSION = "1.12.2";
 
 // ---------------------------------------------------------------------------
 // Subscription validation -- required before serving any tools.

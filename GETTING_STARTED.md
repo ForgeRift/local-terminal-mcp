@@ -33,7 +33,7 @@ See [COMMANDS.md](COMMANDS.md) for the full breakdown.
 - **Windows 10 or Windows 11** — this plugin is Windows-only
 - **Claude Desktop** — the desktop app from [claude.ai/download](https://claude.ai/download)
 - **A ForgeRift subscription** — you'll get a license key by email after subscribing at [forgerift.io](https://forgerift.io)
-- **An Anthropic API key** *(optional but recommended)* — enables AI-assisted AMBER-tier command review. Get one at [console.anthropic.com](https://console.anthropic.com) → API Keys → Create new key.
+- **An Anthropic API key** *(optional)* — enables AI-assisted safety classification on every `run_command` invocation (not only AMBER-tier commands); a high-risk result may independently block execution. Each call consumes tokens billed to your Anthropic account. Get one at [console.anthropic.com](https://console.anthropic.com) → API Keys → Create new key.
 
 ---
 
@@ -51,7 +51,11 @@ Claude Desktop will install the extension automatically. No git clone, no termin
 
 After installation, Claude Desktop will prompt you for your ForgeRift license key. Paste the key from your welcome email and click **Save**.
 
-If you also have an Anthropic API key, enter it in the **Anthropic API Key** field. This is optional — the plugin works without it, but AI-assisted review won't run on AMBER-tier commands.
+If you also have an Anthropic API key, enter it in the **Anthropic API Key** field. This is optional — the plugin works without it, but AI-assisted safety classification won't run for any `run_command` invocation.
+
+**Cost note:** When an Anthropic API key is configured, every shell command Claude runs through this plugin sends a small classification request to Anthropic's API, consuming tokens billed to your Anthropic account at standard API rates. Active developers typically see a few dollars per month; heavier workloads may cost more. The plugin is fully functional without this key — only the AI-assisted safety layer is skipped.
+
+These are two different keys from two different companies. Your **ForgeRift license key** arrives in your welcome email and begins with a ForgeRift-specific prefix. Your **Anthropic API key** comes from [console.anthropic.com](https://console.anthropic.com) and starts with `sk-ant-`. Do not paste one into the other field.
 
 ---
 
@@ -91,10 +95,10 @@ Once connected, here are good first things to ask Claude:
 Here's a realistic picture of the kinds of workflows this unlocks:
 
 **For developers:**
-- "Pull the latest changes, install dependencies, and tell me if the build passes"
 - "Find every TODO comment across my project and summarize them"
 - "Look at my git log and write a summary of what changed this week"
-- "Run my test suite and show me which tests are failing"
+- "Check my npm audit output and tell me which vulnerabilities I need to address"
+- "Search my codebase for any hardcoded strings that look like API keys or tokens"
 
 **For non-developers using AI to build things:**
 - "I'm trying to learn — look at this file and explain what each part does, then help me add a new feature"
@@ -146,7 +150,7 @@ Add `CLAUDE_CONTEXT.md` (in this repo) to a Claude Project. Every conversation i
 **Claude in Chrome** is a separate browser extension from Anthropic (beta) that gives Claude access to the web page you're viewing. Used alongside local-terminal-mcp, it unlocks a powerful combination: Claude can read a page (GitHub PR, error dashboard, documentation site) and then act on your machine in the same conversation.
 
 A few examples of what that looks like in practice:
-- *"I'm looking at this GitHub PR — pull it locally and run the tests."* Claude reads the PR URL from your browser, gets the branch name, and runs `git fetch` + `git checkout` + `npm test` on your machine.
+- *"I'm looking at this GitHub PR — what changed?"* Claude reads the PR URL from your browser, gets the branch name, checks `git diff` and `git log` on your local clone, and summarizes what changed. (Note: `git fetch` and `npm test` are not available through the plugin — run those yourself in a terminal.)
 - *"This error is showing in my browser console — find where it's coming from in my code."* Claude reads the browser error, searches your local project for the source.
 - *"Walk me through what this dependency does"* while you have its npm page open — Claude reads the page and cross-references it against your `package.json`.
 
@@ -154,11 +158,7 @@ Claude in Chrome is available as a beta from [claude.ai](https://claude.ai). Ins
 
 ---
 
-*Built by [ForgeRift LLC](https://forgerift.io) · [forgerift.io](https://forgerift.io)*
-
----
-
-## Set Up Claude as Your Plugin Expert (Recommended)
+## Step 4: Prime Claude with plugin context (recommended)
 
 Claude works even better when it already knows how local-terminal-mcp works — which tools are available, what commands are blocked on Windows, and what to check when something goes wrong. This step primes Claude with that knowledge so it can self-diagnose common issues and give you accurate guidance.
 
@@ -170,16 +170,8 @@ Claude works even better when it already knows how local-terminal-mcp works — 
 3. Every conversation in that project automatically has full plugin context
 
 ### Option B: Add to Claude Memory
-Start a new Claude conversation and paste:
-
-> *"Please remember the following about my local-terminal-mcp setup: [paste the contents of CLAUDE_CONTEXT.md]. Reference this any time I ask about my local machine, files, or my ForgeRift plugin."*
-
-### Option C: Paste at Session Start
-Paste the contents of [CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md) at the start of any troubleshooting session. Claude will use it for that conversation.
+Start a new Claude conversation and paste the contents of [CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md) into the chat. Claude will read it and use it as context for that session.
 
 ---
 
-**What CLAUDE_CONTEXT.md contains:** all 8 tools and what they do, the full RED/AMBER/GREEN security model with 140+ blocked patterns by category, common Windows gotchas, configuration reference, and log file locations.
-
-Once loaded, try:
-> *"I'm having trouble with [describe issue]. What's the most likely cause given how local-terminal-mcp works?"*
+*Built by [ForgeRift LLC](https://forgerift.io) — [support@forgerift.io](mailto:support@forgerift.io)*

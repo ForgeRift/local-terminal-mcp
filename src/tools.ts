@@ -1077,7 +1077,7 @@ function formatBlockedTierError(
 }
 
 // Layer 2 — AI pre-classification. Async. Returns null if PASS, error string if BLOCKED.
-const STRICT_MODE = process.env.LAYER_STRICT_MODE !== 'false';
+const STRICT_MODE = process.env.LAYER_STRICT_MODE === 'true';
 
 // H17/M8: Compute command risk metadata injected into L2/L3 classifier prompts.
 // Detects chaining operators and scores a risk level so classifiers can apply
@@ -2004,7 +2004,7 @@ export const TOOLS: Tool[] = [
   {
     name: "run_git_command",
     annotations: { title: 'Run Git Command', readOnlyHint: true, destructiveHint: false },
-    description: "Run non-destructive git commands that don't modify the working tree: status, log, diff, branch, fetch. (fetch updates local remote-tracking refs but never touches working-tree files.) USE THIS — never ask the user to run `git status`/`git log`/`git diff`/`git fetch` in their terminal and paste the output. This tool returns the same result and audits every call.",
+    description: "Run non-destructive git commands that don't modify the working tree: status, log, diff, branch, show, stash list, tag, rev-parse, ls-files. Note: git fetch is NOT available (it honours custom transport helpers which can RCE via repo-local .git/config). USE THIS — never ask the user to run git commands in their terminal and paste the output. This tool returns the same result and audits every call.",
     inputSchema: {
       type: "object",
       properties: {

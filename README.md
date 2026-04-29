@@ -184,7 +184,7 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 - **Individual:** $14.99/mo or $149/yr — [forgerift.io/#pricing](https://forgerift.io/#pricing)
 - **Bundle (local-terminal-mcp + vps-control-mcp):** $19.99/mo or $199/yr — each plugin installs separately as its own .mcpb extension; local-terminal-mcp is Windows-only (macOS/Linux users get only the vps-control-mcp half of the Bundle)
 - **Founder Cohort (limited):** $9.99/mo individual / $14.99/mo bundle *(both plugins at standard-individual price)* — rate-locked as long as your subscription remains continuously active, monthly billing only; eligibility window closes at the earlier of (a) the 100th paid subscriber signs up or (b) 3 months after the marketplace listing date
-- **14-day free trial** — no charge during trial period; no refunds after trial ends
+- **14-day free trial** — no charge during trial period. Subscriptions are otherwise non-refundable except for confirmed ForgeRift billing errors, prorated convenience-termination refunds, and applicable statutory consumer rights — see [Terms §6.5](https://forgerift.io/terms.html)
 
 ---
 

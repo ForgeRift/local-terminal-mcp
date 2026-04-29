@@ -1,24 +1,16 @@
 {
   "name": "local-terminal",
-  "version": "1.2.0",
-  "description": "Give Claude controlled, audited access to your local Windows terminal. Three-tier security model (RED/AMBER/GREEN) with 120+ hard-blocked dangerous patterns, sensitive file protection, rate limiting, and full audit logging. Browse files, read code, run approved commands, and manage projects without leaving Cowork.",
+  "version": "1.12.2",
+  "description": "Windows 10/11 only — Give Claude controlled, audited access to your local Windows terminal. Three-tier security model (RED/AMBER/GREEN) with 140+ hard-blocked dangerous patterns, sensitive file protection, and full audit logging. Browse files, read code, run approved commands, and manage projects without leaving Claude Desktop.",
+  "platforms": ["windows"],
+  "license": "MIT",
   "author": {
     "name": "ForgeRift LLC",
     "email": "support@forgerift.io"
   },
+  "homepage": "https://forgerift.io",
   "repository": "https://github.com/ForgeRift/local-terminal-mcp",
-  "keywords": [
-    "terminal",
-    "shell",
-    "cmd",
-    "powershell",
-    "windows",
-    "local",
-    "files",
-    "git",
-    "npm",
-    "command",
-    "security",
-    "audit"
-  ]
+  "documentation": "https://github.com/ForgeRift/local-terminal-mcp#readme",
+  "support": "mailto:support@forgerift.io",
+  "keywords": ["terminal", "shell", "cmd", "powershell", "windows", "local", "files", "git", "npm", "security", "audit", "developer-tools"]
 }

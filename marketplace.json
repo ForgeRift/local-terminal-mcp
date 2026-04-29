@@ -1,16 +1,18 @@
-﻿{
+{
   "plugins": [
     {
       "id": "local-terminal",
       "name": "Local Terminal (ForgeRift)",
-      "description": "Audited Windows shell access for Claude - three-tier security, 140+ hard-blocked patterns, no network exposure. .mcpb extension for Claude Desktop.",
+      "description": "Audited Windows shell access for Claude - three-tier security, 140+ hard-blocked patterns, no inbound network listener. .mcpb extension for Claude Desktop.",
       "source": {
         "type": "github",
-        "repo": "forgerift/local-terminal-mcp",
+        "repo": "ForgeRift/local-terminal-mcp",
         "ref": "main"
       },
       "compatibility": {
-        "platforms": ["windows"]
+        "platforms": [
+          "windows"
+        ]
       }
     }
   ]

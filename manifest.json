@@ -1,10 +1,10 @@
 {
-  "manifest_version": "0.3",
+  "mcpb_version": "0.1",
   "name": "local-terminal",
   "display_name": "Local Terminal (ForgeRift)",
   "version": "1.12.2",
-  "description": "Audited Windows shell access for Claude. Three-tier security model with 140+ hard-blocked patterns, full audit logging, and dry-run preview for destructive commands.",
-  "long_description": "Local Terminal gives Claude audited, security-hardened access to your Windows shell. Every command is classified RED (hard-blocked), AMBER (dry-run preview required), or GREEN (auto-execute). Over 140 patterns are permanently blocked including network exfiltration, credential theft, registry tampering, and process injection. A tamper-evident audit log records every tool call. Runs entirely on your machine — no data leaves your computer.",
+  "description": "Windows shell access for Claude: RED/AMBER/GREEN tiering, audit logging. Subscription required.",
+  "long_description": "Local Terminal gives Claude security-hardened access to your Windows shell. Every command is classified RED (hard-blocked), AMBER (dry-run preview required), or GREEN (auto-execute). Over 140 patterns are permanently blocked including network exfiltration, credential theft, registry tampering, and privilege escalation. A comprehensive audit log records every tool call. Runs in-process on your machine. Two narrow data flows leave your machine: your license key (sent to ForgeRift at startup for subscription validation) and, if you supply an optional Anthropic API key, the command text and user-provided justification for every run_command invocation (not only AMBER-tier) are sent to Anthropic's API for AI-assisted safety classification before execution. When an Anthropic API key is configured, each command invocation sends a small classification request to Anthropic's API, consuming tokens billed to your Anthropic account. A high-risk AI evaluation may independently block execution before the re-confirmation step; the AI review is not purely advisory. Requires a paid ForgeRift subscription (forgerift.io).",
   "author": {
     "name": "ForgeRift LLC",
     "email": "support@forgerift.io",
@@ -21,41 +21,48 @@
     "type": "node",
     "entry_point": "dist/index.js",
     "mcp_config": {
-      "command": "node",
-      "args": ["${__dirname}/dist/index.js"],
       "env": {
         "LT_LICENSE_KEY": "${user_config.lt_license_key}",
         "ANTHROPIC_API_KEY": "${user_config.anthropic_api_key}"
-      },
-      "platform_overrides": {
-        "win32": {
-          "command": "node.exe"
-        }
       }
     }
   },
-  "keywords": ["terminal", "shell", "windows", "security", "audit", "filesystem"],
+  "keywords": [
+    "terminal",
+    "shell",
+    "cmd",
+    "powershell",
+    "windows",
+    "local",
+    "files",
+    "git",
+    "npm",
+    "security",
+    "audit",
+    "developer-tools"
+  ],
   "license": "MIT",
   "compatibility": {
-    "platforms": ["win32"]
+    "platforms": [
+      "win32"
+    ]
   },
   "user_config": {
     "lt_license_key": {
       "type": "string",
       "title": "ForgeRift License Key",
-      "description": "Your ForgeRift subscription key, sent to you by email after subscribing at forgerift.io.",
+      "description": "Your ForgeRift subscription key, emailed to you after subscribing at https://forgerift.io/#pricing. If you've lost it, contact support@forgerift.io.",
       "sensitive": true,
       "required": true
     },
     "anthropic_api_key": {
       "type": "string",
       "title": "Anthropic API Key",
-      "description": "Optional. Enables AI-assisted review of AMBER-tier commands before execution. Get yours at console.anthropic.com.",
+      "description": "Optional. Enables AI-assisted safety classification for every run_command invocation (not only AMBER-tier); a high-risk result may independently block execution. Each call consumes API tokens billed to your Anthropic account. Get yours at https://console.anthropic.com.",
       "sensitive": true,
       "required": false
     }
   },
-  "privacy_policies": [
-    "https://forgerift.io/privacy.html"
-  ]
+  "privacy_policy": "https://forgerift.io/privacy.html",
+  "terms_of_service": "https://forgerift.io/terms.html"
 }
