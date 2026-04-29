@@ -71,6 +71,15 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Fixed README.md double-space typo
 
 
+### Pass 34 adversarial review closeout (2026-04-29)
+- P34-1 through P34-5, P34-7: All five CRITICAL truncation findings and NUL-byte finding were FALSE -- files verified complete and clean via tail check
+- Fixed SECURITY.md: mojibake (triple-encoded em-dash) in the HARD_BLOCKED slug paragraph -- replaced corrupted bytes with proper UTF-8 em-dash
+- Fixed terms.html Schedule B.1: npm install (not available via run_npm_command) replaced with npm audit / git log as timeout examples
+- Fixed COMMANDS.md: removed exact from slug claim; clarified 27 are HARD_BLOCKED_PATTERNS slugs, BLOCKED_PATTERNS surfaces additional ones
+- Fixed forgerift.io/faq.md: Founder Cohort pricing parenthetical aligned with README phrasing
+- Fixed forgerift.io/index.html: corrected over-indented Supabase bearer token li element
+
+
 ## [1.12.1] — 2026-04-27
 
 ### Chore — S70 Pre-Submission Cleanup
