@@ -40,7 +40,7 @@ Even `read_file` and `search_file` will refuse to open `.env`, SSH keys, credent
 Do NOT use `&&`, `||`, `;`, backticks, or pipe-to-shell in `run_command`. If you need sequential commands, make separate tool calls. For git operations that need a working directory, use `git -C <path>` instead of `cd <path> && git ...`.
 
 ### Command timeout
-All commands have a 30-second hard timeout. For long-running operations, warn the user first.
+All commands have a per-tool wall-clock timeout: 30 seconds for run_command and run_git_command, 60 seconds for run_npm_command. For long-running operations, warn the user first.
 
 ## Behavioral Rules
 

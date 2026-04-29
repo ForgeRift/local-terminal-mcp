@@ -19,7 +19,7 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Chore - S72 Install-Model Documentation Rewrite (S71 BLOCKER closure)
 
 - **F-S71-1** - Rewrote README.md install section for the .mcpb model. Removed all NSSM / Windows Service / setup.ps1 / MCP_PORT / MCP_AUTH_TOKEN references. New Install, Update/Uninstall, Configuration (user_config keys), and Logs sections describe the Claude Desktop extension flow. Infrastructure table row updated: Localhost-only -> stdio transport.
-- **F-S71-2** - Pattern count corrected in README.md: 450+ -> 140+ (authoritative count: 142 entries in HARD_BLOCKED_PATTERNS, presented as 140+ per round-number policy).
+- **F-S71-2** - Pattern count corrected in README.md: 450+ -> 140+ (authoritative count: 140 entries in HARD_BLOCKED_PATTERNS, presented as 140+ per round-number policy).
 - **F-S71-3** - Rewrote MARKETPLACE_LISTING.md for the .mcpb model. Pattern count 450+ -> 140+. Windows Service infrastructure paragraph replaced with Lifecycle paragraph (stdio, Claude Desktop managed). Quick Start replaced with .mcpb install flow. Configuration table updated to user_config keys (lt_license_key, anthropic_api_key). Requirements updated (no Node.js / PowerShell admin).
 - **F-S71-4** - Rewrote CLAUDE_CONTEXT.md install/troubleshooting sections. Architecture paragraph updated for stdio transport (no NSSM, no MCP_AUTH_TOKEN, no port). Stale Common Gotchas (auth token mismatch, claude_desktop_config.json location, service won't start, port conflict, NSSM download) replaced with .mcpb troubleshooting items (extension reset, license key, Anthropic API key, audit log location, Defender/AV). NSSM Service Commands section removed. Key Configuration Variables table split: user_config keys at top, advanced env vars below (removed MCP_AUTH_TOKEN, MCP_PORT, MCP_LOG_DIR). Log Files table: removed service-out.log and service-err.log.
 - **F-S71-6** - .mcpbignore: added node_modules/**/test*/ and node_modules/**/*.test.js / *.spec.js exclusions to trim transitive test files from the shipped archive.
@@ -49,7 +49,15 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Added BSD-2-Clause to CREDITS.md license summary (dotenv dependency)
 - Removed duplicate Windows Defender exclusion sentence from CLAUDE_CONTEXT.md
 - Deleted setup.ps1 and uninstall.ps1 from repo (deprecated v1.10.x scripts; already excluded from .mcpb archive; no live doc references)
-- P31-5 (pattern count 140 vs 142): investigated and confirmed false finding — actual count is 142, CHANGELOG note is correct
+- P31-5 (pattern count 140 vs 142): investigated — actual count verified as 140 entries (not 142 as originally noted); corrected here
+
+
+### Pass 32 adversarial review closeout (2026-04-29)
+- Fixed .claude-plugin/CLAUDE.md: "30-second hard timeout" → per-tool matrix (30s run_command/run_git_command, 60s run_npm_command)
+- Fixed forgerift.io/faq.md GREEN tier: "30-second hard timeout cap" → per-tool matrix
+- Added id="section-6-5" anchor to terms.html §6.5 heading (fixes dead fragment link from index.html refund disclosure)
+- Corrected CHANGELOG pattern count from "actual: 142" to "actual: 140" (re-verified against src/tools.ts)
+- Confirmed: run_powershell does not exist as a plugin tool; the 8 tools are run_command, run_git_command, run_npm_command, list_directory, read_file, get_system_info, find_files, search_file
 
 
 ## [1.12.1] — 2026-04-27
@@ -460,4 +468,4 @@ This release closes every finding in `ADVERSARIAL_REVIEW.md`. The original Opus 
 
 ## Audit Trail Notes
 
-**Pattern count note:** Authoritative pattern count throughout the package as of v1.12.2 is **140+** (actual: 142 entries in HARD_BLOCKED_PATTERNS, presented as 140+ per round-number policy). Earlier CHANGELOG entries (v1.12.1 B-4, v1.12.0) cite intermediate correction values (80+, 120+, 150+, 450+) made during the pre-submission cleanup sequence — those are historical correction steps, not current claims. The canonical pattern count as of v1.12.2 is 140+.
+**Pattern count note:** Authoritative pattern count throughout the package as of v1.12.2 is **140+** (actual: 140 entries in HARD_BLOCKED_PATTERNS, presented as 140+ per round-number policy). Earlier CHANGELOG entries (v1.12.1 B-4, v1.12.0) cite intermediate correction values (80+, 120+, 150+, 450+) made during the pre-submission cleanup sequence — those are historical correction steps, not current claims. The canonical pattern count as of v1.12.2 is 140+.
