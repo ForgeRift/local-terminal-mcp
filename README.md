@@ -19,7 +19,7 @@ Claude gets eight tools across three safety tiers:
 **GREEN Tier — Read-only (non-destructive)**
 - `list_directory` — list files and folders
 - `read_file` — read up to 500 lines of any text file; supports `start_line` / `end_line` parameters for reading specific ranges (sensitive files blocked)
-- `get_system_info` — OS version, disk space, memory, running processes
+- `get_system_info` — OS version, hostname, username, disk space, memory (use `run_command` with `tasklist` to see running processes)
 - `find_files` — search for files by name pattern
 - `search_file` — grep/findstr for text patterns in files
 
@@ -46,13 +46,15 @@ See [COMMANDS.md](COMMANDS.md) for the full category breakdown.
 
 Examples: `rm`, `del`, `format`, `shutdown`, `taskkill`, `reg delete`, `curl`, `wget`, `Invoke-Expression`, `runas`, `schtasks`, `sc create`, `netsh`, `choco install`.
 
+**Note on piping:** The `chaining` block covers `&&`, `||`, `;`, `&`, and pipe-to-shell forms. Plain `|` piping (e.g. `dir | findstr error`) is **not** blocked — each segment is checked independently against the block list.
+
 ### AMBER — Warning-Required
 
-`dry_run=true` is the default for `run_command`. AMBER patterns fire a warning in the response. If `dry_run=false` is passed on the first call against an AMBER pattern, execution proceeds immediately (no session state enforces a two-call gate). The recommended flow: first call with `dry_run=true` (the default) to see the preview, then re-call with `dry_run=false` to execute. If an Anthropic API key is configured, the dry-run output is presented alongside the AI safety classification result (which runs for every `run_command`, not only AMBER-tier) for the re-confirmation decision; a high-risk evaluation may independently block execution.
+`dry_run=true` is the default for `run_command`. AMBER patterns fire a warning in the response. If `dry_run=false` is passed on the first call against an AMBER pattern, execution proceeds immediately (no session state enforces a two-call gate). The recommended flow: first call with `dry_run=true` (the default) to see the preview, then re-call with `dry_run=false` to execute. If an Anthropic API key is configured, AI safety classification runs on every `run_command` invocation — but the AI verdict is only included in the response when `dry_run=false`. On the dry-run preview you see only the AMBER warning; a high-risk AI evaluation can still independently block execution even on the `dry_run=true` call.
 
 Examples: `find -exec`, `awk`, `sed -i`, `copy /y`, `robocopy`, `xcopy`, `move`, wildcard `rename`. (`xargs` is RED-blocked, not AMBER.)
 
-**API unavailability:** If the Anthropic API call fails (network error, rate limit, or invalid/absent key), AI classification is skipped and AMBER commands fall back to the standard manual dry-run-and-confirm flow without AI assistance. The failure reason is surfaced in the dry-run output so you can see whether AI review ran.
+**API unavailability:** If the Anthropic API call fails (network error, rate limit, or invalid/absent key), AI classification is skipped and AMBER commands fall back to the standard manual dry-run-and-confirm flow without AI assistance. The failure reason is logged internally (not returned to the caller on a dry-run call).
 
 ### GREEN — Allowed with Audit
 
@@ -88,7 +90,7 @@ License keys are scoped exclusively to subscription validation — they grant no
 
 Fail-closed was chosen deliberately: a tool with shell access to your machine should never silently fall back to an unverified state. ForgeRift operates the validation endpoint on dedicated infrastructure and treats its uptime as a product commitment.
 
-**All `run_command` calls (plugin → Anthropic, optional)** — if you supply an Anthropic API key, **every** shell command submitted via `run_command` is sent to Anthropic's API for AI-assisted safety classification before execution (not only AMBER-tier commands). The command text and user-provided justification are sent; no environment variables, working directory, or other system context is included. A high-risk classification may independently block execution. Each API call consumes tokens billed to your Anthropic account at Anthropic's rates; ForgeRift does not control or receive these charges. This is opt-in; without an API key the AI classification layers are skipped entirely and AMBER commands fall back to manual dry-run-and-confirm.
+**All `run_command` calls (plugin → Anthropic, optional)** — if you supply an Anthropic API key, **every** shell command submitted via `run_command` is sent to Anthropic's API for AI-assisted safety classification before execution (not only AMBER-tier commands). The command text and user-provided justification are sent; no environment variables, working directory, or other system context is included. A high-risk classification may independently block execution. Each API call consumes tokens billed to your Anthropic account at Anthropic's rates; ForgeRift does not control or receive these charges. This is opt-in; without an API key the AI classification layers are skipped entirely and AMBER commands fall back to manual dry-run-and-confirm. Operators who require fail-closed behavior (block when AI review is unavailable) can set `LAYER_STRICT_MODE=true` as an OS environment variable. The default is fail-open so the plugin remains usable without an Anthropic API key.
 
 **Your conversation with Claude (Claude Desktop → Anthropic)** — conversation content, including any command output that Claude reads as context, flows from Claude Desktop to Anthropic per [Anthropic's privacy policy](https://www.anthropic.com/legal/privacy). This is the largest data flow in volume terms. ForgeRift does not receive this data.
 

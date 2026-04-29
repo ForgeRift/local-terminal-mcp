@@ -40,7 +40,9 @@ All structured tools and any `run_command` that passes RED + AMBER checks.
 Even `read_file` and `search_file` will refuse to open `.env`, SSH keys, credential stores, browser data, cloud credentials, `NTUSER.DAT`, and similar files. This is by design. Do not attempt workarounds.
 
 ### Command chaining is blocked
-Do NOT use `&&`, `||`, `;`, backticks, or pipe-to-shell in `run_command`. If you need sequential commands, make separate tool calls. For git operations that need a working directory, use `git -C <path>` instead of `cd <path> && git ...`.
+Do NOT use `&&`, `||`, `;`, `&`, backticks, or pipe-to-shell in `run_command`. If you need sequential commands, make separate tool calls. For git operations that need a working directory, use `git -C <path>` instead of `cd <path> && git ...`.
+
+**Plain `|` piping IS allowed:** `dir | findstr error`, `type file.txt | findstr text`, etc. Each piped segment is checked independently against the block list. You may use plain pipes to standard commands when helpful.
 
 ### Command timeout
 All commands have a per-tool wall-clock timeout: 30 seconds for run_command and run_git_command, 60 seconds for run_npm_command. For long-running operations, warn the user first.

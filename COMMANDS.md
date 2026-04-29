@@ -22,7 +22,8 @@ These are safe, read-only or informational operations that don't modify your sys
 | Search file contents | `Find all files containing "TODO" in my project` |
 | Get system info (read-only) | `How much RAM do I have?` `What's my CPU?` |
 | Run safe CLI tools | `Check my git status` `What version of Node is installed?` |
-| View running processes (read-only) | `What processes are running?` |
+| View system info (OS, disk, memory) | `What's my disk space?` `How much RAM do I have?` |
+| View running processes | `What processes are running?` (use run_command with tasklist) |
 | Read environment info | `What's my PATH?` |
 | Check network status (read-only) | `What's my IP address?` `Is this port open?` |
 | Check disk space | `How much space is left on my C drive?` |
@@ -215,10 +216,12 @@ These are hard stops. Static patterns in the code reject them immediately — no
 
 ---
 
-### Command Chaining (`&&`, `||`, `;`)
-**What it is:** Combining multiple commands with `&&`, `||`, `;`, or pipe-to-shell
+### Command Chaining (`&&`, `||`, `;`, `&`, pipe-to-shell)
+**What it is:** Combining multiple commands with `&&`, `||`, `;`, `&`, or pipe-to-shell forms (e.g., `| cmd /c`, `| bash -c`).
 
 **Why blocked:** Chaining is blocked in `run_command`. Use separate tool calls instead. For git operations needing a working directory, use `git -C <path>` rather than `cd <path> && git ...`.
+
+**Plain `|` piping is NOT blocked:** `dir | findstr error`, `type file.txt | findstr keyword`, and similar pipes to standard commands work fine — each segment is checked independently against the block list.
 
 ---
 

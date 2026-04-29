@@ -92,8 +92,8 @@ Common GREEN examples:
 - `ping`, `ipconfig /all`
 - `Test-Path`, `Get-Item` (non-system paths)
 
-### ⚠️ AMBER — Warning Required, `dry_run` Forced
-Moderately risky commands with legitimate uses. `run_command` forces `dry_run=true` and shows a warning. User must re-call with `dry_run=false` to execute.
+### ⚠️ AMBER — Warning Required, `dry_run` Defaults to true
+Moderately risky commands with legitimate uses. `run_command` defaults to `dry_run=true` and fires a warning. The recommended workflow: preview first, relay the warning, then re-call with `dry_run=false` after confirmation. `dry_run=true` is a default — not a server-enforced gate. Passing `dry_run=false` on the first call executes immediately.
 
 Examples:
 - `robocopy`, `xcopy`, `copy /y`, `move` — bulk file operations

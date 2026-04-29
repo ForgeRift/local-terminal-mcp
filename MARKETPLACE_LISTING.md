@@ -23,7 +23,7 @@ Secure, audited access to your local Windows shell. 140+ permanently blocked dan
 - **Read your project files** — browse directories, read source files and configs, search by pattern
 - **Inspect packages** — `npm list`, `npm ls`, `npm outdated`, `npm audit` — dependency and security snapshots without leaving Claude
 - **Check git state** — status, log, diff, branch listing — instant project context for every conversation
-- **Get system info** — disk, memory, running processes
+- **Get system info** — disk, memory, OS version, hostname
 - **Find things fast** — search file contents across your project for functions, variables, error messages
 - **Run approved commands** — filtered through the same RED/AMBER/GREEN tier system, `dry_run=true` by default
 

@@ -1929,7 +1929,7 @@ function formatAmberWarning(risk: string, cmd: string): string {
     `Command: ${cmd}`,
     ``,
     `This command is classified AMBER (warning-required). It was NOT executed.`,
-    `dry_run has been forced to true for safety.`,
+    `dry_run defaulted to true (the safe default) — the command was NOT executed.`,
     ``,
     `To proceed: call again with dry_run=false and acknowledge the risk in your justification.`,
     ``,
@@ -1969,7 +1969,7 @@ export const TOOLS: Tool[] = [
   {
     name: "get_system_info",
     annotations: { title: 'Get System Info', readOnlyHint: true, destructiveHint: false },
-    description: "Get OS version, hostname, username, disk space, memory, and running processes. Read-only. USE THIS — never ask the user to run systeminfo, ver, hostname, whoami, or Task Manager themselves. This tool returns the canonical machine snapshot.",
+    description: "Get OS version, hostname, username, disk space, and memory. Read-only. USE THIS — never ask the user to run systeminfo, ver, hostname, whoami, or Task Manager themselves. This tool returns the canonical machine snapshot. (Use run_command with tasklist to see running processes.)",
     inputSchema: { type: "object", properties: {} },
   },
   {
