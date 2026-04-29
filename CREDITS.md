@@ -14,6 +14,7 @@ This document lists the open-source dependencies used by local-terminal-mcp and 
 - **Homepage:** https://github.com/anthropics/mcp-sdk
 
 ### @anthropic-ai/sdk
+- **Version:** ^0.38.0
 - **Purpose:** Anthropic API client for AI-assisted safety classification (optional, requires user-supplied API key)
 - **License:** MIT
 - **Author:** Anthropic
@@ -63,4 +64,4 @@ ForgeRift extends gratitude to:
 
 **ForgeRift LLC 2026**
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29

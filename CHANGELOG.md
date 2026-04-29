@@ -80,6 +80,17 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Fixed forgerift.io/index.html: corrected over-indented Supabase bearer token li element
 
 
+### Pass 35 adversarial review closeout (2026-04-29)
+- P35-1/P35-2: All truncation and NUL-byte findings were false -- all files verified complete and clean
+- Fixed forgerift.io/index.html: meta description and security section no-shell claim corrected (run_command does use cmd.exe)
+- Fixed SECURITY.md v1.11.0 row: auth.ts retired is stale; clarified Express/HTTP auth retired, auth.ts re-introduced in v1.12.0
+- Fixed README.md: curl health-check parenthetical was inside code span; moved outside backticks
+- Stripped UTF-8 BOM from src/audit.ts, src/config.ts, and SECURITY.md
+- Removed stale setup.ps1 and uninstall.ps1 entries from .mcpbignore (files deleted in Pass 31)
+- Bumped Last updated to 2026-04-29 in CREDITS.md, faq.md, terms.html, cookies.html, privacy.html
+- Added Version field to @anthropic-ai/sdk entry in CREDITS.md
+
+
 ## [1.12.1] — 2026-04-27
 
 ### Chore — S70 Pre-Submission Cleanup

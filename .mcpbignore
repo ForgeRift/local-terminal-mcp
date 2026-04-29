@@ -14,8 +14,6 @@ ADVERSARIAL_REVIEW*.md
 MARKETPLACE_LISTING.md
 screenshot_capture_checklist.md
 ts-loader.mjs
-setup.ps1
-uninstall.ps1
 tsconfig.json
 package-lock.json
 node_modules/**/test/

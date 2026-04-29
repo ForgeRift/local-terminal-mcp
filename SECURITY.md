@@ -1,4 +1,4 @@
-﻿# Local-Terminal-MCP Security Framework
+# Local-Terminal-MCP Security Framework
 
 ## Executive Summary
 
@@ -86,7 +86,7 @@ Between v1.10.0 and v1.12.2, ForgeRift's internal adversarial review identified 
 | v1.10.3 | F-OP-72 / F-OP-74 / F-OP-75 | D10 PowerShell sensitive-path write matcher extended to cover `Set-Content`, `Out-File`, `Add-Content`, `Export-Csv`, `Export-Clixml` with destination-argument extraction (F-OP-72); UNC path write guard added — `\\\\server\\share\\...` paths canonicalized before sensitivity check, fail-closed on unresolvable UNC roots (F-OP-74); tilde expansion in write destinations resolved against sensitive prefix list before sensitivity gate (F-OP-75). |
 | v1.10.4 | F-OP-80 / F-OP-82 / F-OP-83 / F-OP-84 / F-OP-85 | `SENSITIVE_PATH_WIN` regex anchored to require leading `/` or drive-letter prefix, closing v1.10.3 regression where benign filenames like `windows-update.log` triggered false-positive blocks (F-OP-80); D10 PowerShell matcher loop fixed so flag tokens are not consumed as destination, ensuring `-LiteralPath` still binds correctly (F-OP-82); SECURITY.md D10 subsection updated to document `BYPASS_BINARIES` as the operator override for UNC and sensitive-path workflows (F-OP-83); `.githooks/pre-commit` added to block merge-conflict artifacts and backup files from commits (F-OP-84); `.gitignore` expanded to cover the full artifact class matched by the pre-commit hook (F-OP-85). |
 | v1.10.5 | H-1, H-2 | Layer 2/3 parse-failure parity fix — high-risk result now consistently blocks regardless of argument ordering |
-| v1.11.0 | - | Transport refactor SSE/HTTP -> stdio; StdioServerTransport; Express and auth.ts retired. 421/421 tests. |
+| v1.11.0 | - | Transport refactor SSE/HTTP -> stdio; StdioServerTransport; Express retired; legacy HTTP auth-token logic removed. auth.ts re-introduced in v1.12.0 for subscription validation. 421/421 tests. |
 | v1.12.1 | - | S70 pre-submission cleanup: prepack guard added; BUSL references removed; pattern-count strings corrected in marketplace.json/manifest.json; TROUBLESHOOTING.md rewritten for .mcpb model. No security logic changes. |
 | v1.12.2 | - | S72 doc rewrite: README.md, MARKETPLACE_LISTING.md, CLAUDE_CONTEXT.md rewritten for .mcpb install model; NSSM/Windows Service/setup.ps1 references removed; pattern count 450+ -> 140+; .mcpbignore test exclusions added; .mcpb archive rebuilt. No security logic changes. |
 
