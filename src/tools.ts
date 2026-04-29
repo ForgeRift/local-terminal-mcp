@@ -7,7 +7,7 @@ import crypto from "crypto";
 // ─── Three-Tier Security Model ──────────────────────────────────────────────────
 // GREEN  — Read-only tools + approved sub-commands. Always allowed with audit.
 // AMBER  — Moderately risky commands. Forces dry_run=true with ToS warning.
-// RED    — Hard-blocked. 100+ patterns across 20 categories. Structured error.
+// RED    — Hard-blocked. 140+ patterns across 27 hard-block categories (plus additional RED patterns in BLOCKED_PATTERNS). Structured error.
 //
 // Every command passes through: RED check → AMBER check → GREEN execution.
 // Sensitive file reads are blocked at the file level regardless of command tier.

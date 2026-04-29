@@ -1,4 +1,4 @@
-# Local-Terminal-MCP Security Framework
+﻿# Local-Terminal-MCP Security Framework
 
 ## Executive Summary
 
@@ -14,7 +14,7 @@ All commands are classified into three security tiers: RED (hard-blocked), AMBER
 
 RED tier commands are permanently blocked regardless of context. Attempts return a structured error with category, reason, and ToS warning. The block list encompasses 140+ patterns across 27 security categories.
 
-**Categories (27 runtime slugs):** audit-log-destruction, background-exec, base64-exec, chaining, com-exec, container-nuclear, credential-key-destruction, database-destruction, destructive-git-history-rewrite, disk-level-write, dotnet-reflection, download-cradle, edr-disable, env-manip, exec-policy, firewall-destruction, git-history-rewrite, lolbin, net-subcommand, os-permission-destruction, pkg-mgr-destructive, recursive-file-deletion, redirect-truncation-overwrite, registry, sensitive-path-write, system-power-state, wmi-exec. These are the exact `category=` values returned in `BLOCKED [RED]` error messages.
+**Categories (27 runtime slugs):** audit-log-destruction, background-exec, base64-exec, chaining, com-exec, container-nuclear, credential-key-destruction, database-destruction, destructive-git-history-rewrite, disk-level-write, dotnet-reflection, download-cradle, edr-disable, env-manip, exec-policy, firewall-destruction, git-history-rewrite, lolbin, net-subcommand, os-permission-destruction, pkg-mgr-destructive, recursive-file-deletion, redirect-truncation-overwrite, registry, sensitive-path-write, system-power-state, wmi-exec. These are the `category=` values emitted by the dedicated `HARD_BLOCKED_PATTERNS` array. Note: the broader `BLOCKED_PATTERNS` array (Layer 1 RED checks) also surfaces additional slugs such as `file-delete`, `code-exec`, `data-exfil`, `persistence`, `priv-esc`, `network-config`, and others â€” all appear in `BLOCKED [RED] category=<slug>` error messages.
 
 Key Windows-specific blocks include:
 - PowerShell destructive cmdlets: `Remove-Item`, `Clear-Content`, `Clear-RecycleBin`
@@ -87,7 +87,7 @@ Between v1.10.0 and v1.12.2, ForgeRift's internal adversarial review identified 
 | v1.10.4 | F-OP-80 / F-OP-82 / F-OP-83 / F-OP-84 / F-OP-85 | `SENSITIVE_PATH_WIN` regex anchored to require leading `/` or drive-letter prefix, closing v1.10.3 regression where benign filenames like `windows-update.log` triggered false-positive blocks (F-OP-80); D10 PowerShell matcher loop fixed so flag tokens are not consumed as destination, ensuring `-LiteralPath` still binds correctly (F-OP-82); SECURITY.md D10 subsection updated to document `BYPASS_BINARIES` as the operator override for UNC and sensitive-path workflows (F-OP-83); `.githooks/pre-commit` added to block merge-conflict artifacts and backup files from commits (F-OP-84); `.gitignore` expanded to cover the full artifact class matched by the pre-commit hook (F-OP-85). |
 | v1.10.5 | H-1, H-2 | Layer 2/3 parse-failure parity fix — high-risk result now consistently blocks regardless of argument ordering |
 | v1.11.0 | - | Transport refactor SSE/HTTP -> stdio; StdioServerTransport; Express and auth.ts retired. 421/421 tests. |
-| v1.12.1 | - | S70 pre-submission cleanup: merge artifact removed, typescript to devDependencies, prepack guard, BUSL references removed, README Quick Start fix. No security logic changes. |
+| v1.12.1 | - | S70 pre-submission cleanup: prepack guard added; BUSL references removed; pattern-count strings corrected in marketplace.json/manifest.json; TROUBLESHOOTING.md rewritten for .mcpb model. No security logic changes. |
 | v1.12.2 | - | S72 doc rewrite: README.md, MARKETPLACE_LISTING.md, CLAUDE_CONTEXT.md rewritten for .mcpb install model; NSSM/Windows Service/setup.ps1 references removed; pattern count 450+ -> 140+; .mcpbignore test exclusions added; .mcpb archive rebuilt. No security logic changes. |
 
 **Known pre-v1.10.4 scope:** (a) v1.10.3 `SENSITIVE_PATH_WIN` was over-broad and blocked benign destinations whose names start with `windows`, `system32`, `syswow64`, `programdata`. No security gain, but consumer-safety regression that breaks legitimate copy/rename workflows producing those filenames. (b) v1.10.3 F-OP-72 fix closed the trailing-colon short-circuit but a derivative form — trailing colon followed by a flag token, e.g. `Set-Content -Path: -Value x -LiteralPath /etc/passwd` — let the matcher consume the flag as the destination and skip the real sensitive path. PowerShell's mutex-parameter-set rules bounded end-to-end exploitability in most host versions; v1.10.4 closes the D10 defense-in-depth gap regardless.

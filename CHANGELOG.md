@@ -60,6 +60,17 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Confirmed: run_powershell does not exist as a plugin tool; the 8 tools are run_command, run_git_command, run_npm_command, list_directory, read_file, get_system_info, find_files, search_file
 
 
+### Pass 33 adversarial review closeout (2026-04-29)
+- Fixed SECURITY.md: removed exact from 27-slug claim; clarified these are HARD_BLOCKED_PATTERNS slugs and BLOCKED_PATTERNS also surfaces additional category= values in error messages
+- Fixed src/tools.ts header comment: 100+ across 20 categories -> 140+ across 27 hard-block categories (rebuilt dist/)
+- Fixed README.md + TROUBLESHOOTING.md: curl/Invoke-WebRequest health-check commands now say run in a separate Command Prompt or PowerShell window, not through Claude (both are RED-blocked)
+- Renamed GETTING_STARTED.md Step 4 to Optional: Prime Claude with plugin context (removes false implication it is required setup)
+- Fixed CLAUDE_CONTEXT.md Layer 2: was flags commands for AI review; now correctly describes AMBER as forcing dry_run=true with user re-confirmation, independent of AI
+- Fixed SECURITY.md v1.12.1 row: removed stale typescript to devDependencies item; aligned with CHANGELOG
+- Fixed README.md Founder Cohort pricing: standard-individual price -> bundle pricing equals the regular Individual plan rate
+- Fixed README.md double-space typo
+
+
 ## [1.12.1] — 2026-04-27
 
 ### Chore — S70 Pre-Submission Cleanup

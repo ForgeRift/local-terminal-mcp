@@ -84,7 +84,7 @@ Two flows originate from this plugin; the third is Claude Desktop's own conversa
 
 License keys are scoped exclusively to subscription validation — they grant no access to your machine and carry no account credentials. A leaked key would allow only redundant subscription-check requests. Server access logs containing the key are restricted to ForgeRift personnel. We plan to migrate to an `Authorization: Bearer` header in a future release.
 
-**License server availability:** The validation endpoint is `https://payments.forgerift.io/validate` (a Cloudflare-proxied vanity hostname for ForgeRift's payments service, with subscription records stored in Supabase).  The request has a 10-second timeout. If the server is unreachable (network outage, server maintenance, or firewall blocking outbound HTTPS to that host), the plugin **fails closed** — it exits immediately with a "Subscription check timed out" or "Network error" message and Claude loses access to all plugin tools until the plugin is restarted successfully. There is no offline grace period or cached validation.
+**License server availability:** The validation endpoint is `https://payments.forgerift.io/validate` (a Cloudflare-proxied vanity hostname for ForgeRift's payments service, with subscription records stored in Supabase). The request has a 10-second timeout. If the server is unreachable (network outage, server maintenance, or firewall blocking outbound HTTPS to that host), the plugin **fails closed** — it exits immediately with a "Subscription check timed out" or "Network error" message and Claude loses access to all plugin tools until the plugin is restarted successfully. There is no offline grace period or cached validation.
 
 Fail-closed was chosen deliberately: a tool with shell access to your machine should never silently fall back to an unverified state. ForgeRift operates the validation endpoint on dedicated infrastructure and treats its uptime as a product commitment.
 
@@ -111,7 +111,7 @@ This is verifiable in the open-source code at [github.com/ForgeRift/local-termin
 
 - Windows 10 / 11
 - Claude Desktop
-- **Network:** Outbound HTTPS to `payments.forgerift.io:443` must be reachable at startup. If your machine sits behind a restrictive corporate proxy or firewall that blocks outbound HTTPS to `payments.forgerift.io`, the plugin will fail to start. Verify reachability before subscribing: `curl -I https://payments.forgerift.io/health`
+- **Network:** Outbound HTTPS to `payments.forgerift.io:443` must be reachable at startup. If your machine sits behind a restrictive corporate proxy or firewall that blocks outbound HTTPS to `payments.forgerift.io`, the plugin will fail to start. Verify reachability before subscribing: `curl -I https://payments.forgerift.io/health (run in a separate Windows Command Prompt or PowerShell window, not through Claude)`
 - **To use the plugin:** Claude Desktop only — no Node.js installation needed (Claude Desktop bundles the runtime).
 - **To build from source:** Node 18 or later required.
 
@@ -183,7 +183,7 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 
 - **Individual:** $14.99/mo or $149/yr — [forgerift.io/#pricing](https://forgerift.io/#pricing)
 - **Bundle (local-terminal-mcp + vps-control-mcp):** $19.99/mo or $199/yr — each plugin installs separately as its own .mcpb extension; local-terminal-mcp is Windows-only (macOS/Linux users get only the vps-control-mcp half of the Bundle)
-- **Founder Cohort (limited):** $9.99/mo individual / $14.99/mo bundle *(both plugins at standard-individual price)* — rate-locked as long as your subscription remains continuously active, monthly billing only; eligibility window closes at the earlier of (a) the 100th paid subscriber signs up or (b) 3 months after the marketplace listing date
+- **Founder Cohort (limited):** $9.99/mo individual / $14.99/mo bundle *(bundle pricing equals the regular Individual plan rate)* — rate-locked as long as your subscription remains continuously active, monthly billing only; eligibility window closes at the earlier of (a) the 100th paid subscriber signs up or (b) 3 months after the marketplace listing date
 - **14-day free trial** — no charge during trial period. Subscriptions are otherwise non-refundable except for confirmed ForgeRift billing errors, prorated convenience-termination refunds, and applicable statutory consumer rights — see [Terms §6.5](https://forgerift.io/terms.html)
 
 ---

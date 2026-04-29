@@ -158,7 +158,7 @@ Claude in Chrome is available as a beta from [claude.ai](https://claude.ai). Ins
 
 ---
 
-## Step 4: Prime Claude with plugin context (recommended)
+## Optional: Prime Claude with plugin context
 
 Claude works even better when it already knows how local-terminal-mcp works — which tools are available, what commands are blocked on Windows, and what to check when something goes wrong. This step primes Claude with that knowledge so it can self-diagnose common issues and give you accurate guidance.
 
