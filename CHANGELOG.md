@@ -8,6 +8,14 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 42 adversarial review closeout (2026-04-29)
+- **F1 (HIGH)** SECURITY.md, README.md, CLAUDE_CONTEXT.md, .claude-plugin/CLAUDE.md, COMMANDS.md, MARKETPLACE_LISTING.md, index.html, faq.md: corrected AMBER tier documentation. Changed all claims that `dry_run=true` is "forced" or that a second call is "required" to accurately state that `dry_run=true` is the **default** and the recommended two-call workflow is enforced by Claude's behavior, not a server-side gate (the plugin has no session state to enforce it).
+- **F2 (MEDIUM-HIGH)** MARKETPLACE_LISTING.md, index.html: added AI layer fail-open disclosure — without an `ANTHROPIC_API_KEY` (or on API failure), AI safety layers are silently skipped and the plugin falls back to static RED blocks plus AMBER warnings. `LAYER_STRICT_MODE=true` documented as the fail-closed option. README.md already disclosed this in two places.
+- **F3 (MEDIUM)** index.html: corrected "newline injection. No override, no flag, no escape" — changed to "newline injection (each line checked independently against the block list)" to accurately describe the multi-line split-and-check behavior rather than implying a monolithic injection block.
+- **F4 (LOW-MEDIUM)** SECURITY.md, CLAUDE_CONTEXT.md: added plain-pipe disclosure. Chaining blocks cover `&&`, `||`, `;`, `&`, pipe-to-shell — plain `|` piping (e.g. `dir | findstr text`) is NOT blocked; each segment is checked independently. Added note to both docs.
+- **F5 (LOW-MEDIUM)** MARKETPLACE_LISTING.md, README.md: added audit log persistence note — the audit log persists after uninstall since Claude Desktop may not delete the extension's install directory automatically.
+- **F6 (MEDIUM)** src/tools.ts → dist/tools.js: added secret-warning to `run_command` `justification` parameter description: "Sent to Anthropic's API for safety classification if an API key is configured — do not include secrets, passwords, tokens, or sensitive data." NUL bytes stripped from src/audit.ts, src/config.ts, src/tools.ts before rebuild. dist rebuilt clean.
+
 ### Pass 40 final verification (2026-04-29)
 - SECURITY.md, README.md: added `.ppk` to sensitive-file extension lists (code already blocked it via SENSITIVE_FILE_PATTERNS since Pass 37; docs were incomplete)
 - forgerift.io/faq.md: added `.ppk` to sensitive-file extension list for consistency
@@ -462,77 +470,4 @@ Closes all 2 CRITICAL, 4 HIGH, and 5 MEDIUM/LOW findings from the second-pass ad
 - **F-NEW-2**: git config RCE — prepend 7 neutralizing `-c` flags to every `run_git_command` invocation (`diff.external=`, `core.pager=cat`, `core.fsmonitor=`, `core.sshCommand=`, `core.editor=true`, `protocol.ext.allow=never`, `protocol.file.allow=user`). Add `GIT_CEILING_DIRECTORIES` to safeGitEnv. Closes the two-step `.git/config` write → `git diff` execute attack chain.
 - **F-NEW-1 + F-NEW-6 (CRITICAL + HIGH)**: `validateGitArgv()` added — rejects `--no-index`, `--ext-diff`, `--textconv`, `--output`, `-O`, `--config-env`, `-c`, `--exec-path`, `-p`, `--patch`, `-S`, `-G`, `--pickaxe-*`. For `git show`: rejects `<ref>:<path>` where path matches `SENSITIVE_FILE_PATTERNS`. Closes arbitrary-file-read via `git diff --no-index` and historical secret exfil via `git log -p -S / git show HEAD:.env`.
 
-**HIGH:**
-- **F-NEW-3**: `find_files` now calls `sanitizeDir()` at entry — blocks UNC/device path NTLM hash leak and SSRF. `list_directory` also rejects UNC paths.
-- **F-NEW-4**: `find_files` result set filtered through `isSensitiveFile()` before returning. Cap added at 500 results.
-- **F-NEW-5**: LOLBin blocklist expanded with full LOLBAS corpus additions: `msiexec`, `msdt.exe`, `cmstp`, `esentutl`, `hh.exe`, `pcalua`, `odbcconf`, `regasm`, `regsvcs`, `wsl.exe`, `bash.exe`, `mavinject`, `xwizard`, `PresentationHost`, `SyncAppvPublishingServer`, `regedit /s`. Single-`&` chaining pattern added (`(?<![>&])&(?![&>])`). `SECRET_KEY_SUBSTRINGS` expanded: SESSION, COOKIE, PASSWORD, PASSWD, CREDENTIAL, CRED, VAULT, KEYSTORE, SALT, SIGNING, JWT.
-
-**MEDIUM/LOW:**
-- **F-NEW-7**: `find_files` now uses `lstatSync` (never follows symlinks), tracks `Set<dev:ino>` for cycle detection, enforces `maxDepth=8` and 15s deadline. Closes DoS and symlink-amplified UNC walk.
-- **F-NEW-11**: `ln --symbolic` and `ln -s` added to BLOCKED_PATTERNS (permissions category). Closes long-form flag bypass.
-- **F-NEW-12**: `sanitizeDir` strips trailing path separators (preserving drive root `C:\`). Closes trailing-backslash edge case.
-- **F-NEW-13**: `splitArgv` strips null bytes, CR/LF, and backticks before parsing. Closes injection via these characters in git/npm sub-commands.
-- **F-NEW-14/15**: Documented in KNOWN_ISSUES (wmic internal path in `get_system_info`; rate-limit is per-session not per-call). No code change — low exploitability.
-
----
-
-## [1.4.1] — 2026-04-18
-
-### Fixed
-
-- **F-17 partial bypass**: `run_command` with `dry_run=false` on the first call to an AMBER-tier command was executing the command without ever showing the AMBER warning (`if (amberResult && isDryRun)` evaluated false, silently falling through to execution). Fixed: AMBER check is now unconditional — if `dry_run=true` the warning is returned; if `dry_run=false` the command executes but the warning is always included in the response. The CHANGELOG entry for v1.4.0 overclaimed this fix.
-- **run_npm_command tool description**: description listed `npm install` and `npm run <script>` as available sub-commands. Both are blocked since v1.4.0 (F-16). Description and command parameter hint now reflect the actual allowlist: `list`, `outdated`, `audit`, `view`, `why`, `explain`.
-- **Doc accuracy**: REVIEWER_GUIDE pattern count updated (120+ → 150+), execSync/execFileSync distinction corrected, ADVERSARIAL_REVIEW.md added to source section; KNOWN_ISSUES semicolon chaining description corrected; `.gitignore` adds `package-lock.json`.
-
----
-
-## [1.4.0] — 2026-04-18
-
-### Security hardening — all 27 findings from the Opus adversarial review closed
-
-This release closes every finding in `ADVERSARIAL_REVIEW.md`. The original Opus verdict was FAIL; all P0/P1/P2 items are now resolved.
-
-**P0 (CRITICAL — 8 findings):**
-- **F-1**: Applied `SENSITIVE_FILE_PATTERNS` to `run_command` argv — `type`, `Get-Content`, `findstr`, etc. can no longer read credential files.
-- **F-2**: Rewrote `del`/`exec` with `\b` word boundaries; `cmd /c del` and `powershell -c "del …"` now caught.
-- **F-3**: Added `rmdir`, `rd`, `Remove-Item`, `Remove-ItemProperty`, `ri` (flagged), `Clear-Item`, `Clear-Content`.
-- **F-4**: Blocked `powershell|pwsh` + `-EncodedCommand`/`-Enc`/`-e`/`-c`/`-Command`/`-File` — base64 PowerShell unreachable.
-- **F-5**: Added `pwsh` to every pattern that previously named only `powershell`.
-- **F-6**: Blocked .NET type accelerators (`[IO.File]::Delete`, `[Net.WebClient]::DownloadFile`, `[Diagnostics.Process]::Start`, etc.).
-- **F-7**: `buildSafeEnv()` strips secret-shaped env keys before every child process; `$env:VAR`, `Get-ChildItem env:`, `cmd /c set` pattern-blocked.
-- **F-8**: LOLBin patterns — `certutil`, `bitsadmin`, `mshta`, `regsvr32`, `rundll32`, `installutil`, `msbuild` inline tasks.
-
-**P1 (HIGH — 10 findings):**
-- **F-9**: `wmic`, `Invoke-CimMethod`, `Get-WmiObject`, `gwmi`, `Get-CimInstance`, `gcim`, `Win32_Process` blocked.
-- **F-10**: `sanitizeDir` denylist replaced with strict allowlist; UNC/device/leading-dash/control-char rejection added.
-- **F-11/F-14**: `read_file` strips ADS suffix, rejects UNC/device, canonicalizes via `realpathSync`; both original and canonical path checked.
-- **F-12**: `sanitizeDir` rejects leading `-`/`/`; `execFileSync` argv (F-19) makes `dir` positional, never a flag.
-- **F-13**: Expanded `SENSITIVE_FILE_PATTERNS` — npm/PyPI/Maven/Cargo/Gradle tokens, Azure/GCP/Terraform credentials, PSReadline history, shell history, Chrome `Local State`, KeePass, crypto wallets.
-- **F-15**: `run_git_command` injects `GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=NUL GIT_TERMINAL_PROMPT=0 GIT_ALLOW_PROTOCOL=https:http:file`; `git fetch` removed from allowlist.
-- **F-16**: `npm run`/`ci`/`install` removed from allowlist; `--ignore-scripts` added to remaining commands.
-- **F-17**: Server-side AMBER enforcement — warning always returned first; client cannot skip with `dry_run: false`.
-- **F-18**: `New-Object -Com`, `Set-Alias`, `New-Alias`, `& $var` call operator blocked.
-- **F-19**: `run_git_command`, `run_npm_command`, `find_files`, `search_file` refactored to `execFileSync(shell:false)` with argv arrays; `runFile()` + `splitArgv()` helpers added.
-
-**P2 (MEDIUM/LOW — 9 findings):**
-- **F-22**: `INPUT_LIMITS` + `checkSize()` — all user-supplied strings capped before regex runs (`command` 4 096, `filePath`/`directory` 512, patterns 256).
-- **F-23**: `isReDoSPattern()` guard in `search_file` rejects nested quantifiers and wide alternation.
-- **F-25**: `scrubSecrets()` redacts token shapes (`ghp_`, `sk-`, `AKIA`, `xoxb-`, Anthropic keys, PEM headers, high-entropy base64) from `run_command` and `run_git_command` output.
-- **F-27**: Control-char rejection added to `read_file` and `search_file` path inputs.
-- **F-20/F-21/F-24/F-26**: Covered by other fixes above (see `ADVERSARIAL_REVIEW.md`).
-
----
-
-## [1.3.0] — 2026-04-17
-
-### Added
-- **SessionStart hook** (`hooks/briefing.js`) that plants a behavioral briefing into Claude's context every time a new session starts, resumes, clears, or compacts. The briefing maps common user intents to the correct structured tool ("What's in this folder?" → `list_directory`, "Read this file" → `read_file`), restates the three-tier RED/AMBER/GREEN model, and makes the sensitive-file block and dry-run-first rules explicit. Wired in `.claude-plugin/plugin.json` via `"hooks": "./hooks/hooks.json"`. Fails closed — any error in the hook exits 0 silently so a broken briefing never blocks a customer's session.
-
-### Changed
-- **Every tool description now embeds an explicit "USE THIS — never ask the user to …" anti-pattern clause.** Too often Claude deferred to the user instead of invoking a structured tool; these description updates instruct Claude to act directly.
-
----
-
-## Audit Trail Notes
-
-**Pattern count note:** Authoritative pattern count throughout the package as of v1.12.2 is **140+** (actual: 140 entries in HARD_BLOCKED_PATTERNS, presented as 140+ per round-number policy). Earlier CHANGELOG entries (v1.12.1 B-4, v1.12.0) cite intermediate correction values (80+, 120+, 150+, 450+) made during the pre-submission cleanup sequence — those are historical correction steps, not current claims. The canonical pattern count as of v1.12.2 is 140+.
+**HI

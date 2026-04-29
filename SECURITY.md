@@ -16,6 +16,8 @@ RED tier commands are permanently blocked regardless of context. Attempts return
 
 **Categories (27 runtime slugs):** audit-log-destruction, background-exec, base64-exec, chaining, com-exec, container-nuclear, credential-key-destruction, database-destruction, destructive-git-history-rewrite, disk-level-write, dotnet-reflection, download-cradle, edr-disable, env-manip, exec-policy, firewall-destruction, git-history-rewrite, lolbin, net-subcommand, os-permission-destruction, pkg-mgr-destructive, recursive-file-deletion, redirect-truncation-overwrite, registry, sensitive-path-write, system-power-state, wmi-exec. These are the `category=` values emitted by the dedicated `HARD_BLOCKED_PATTERNS` array. Note: the broader `BLOCKED_PATTERNS` array (Layer 1 RED checks) also surfaces additional slugs such as `file-delete`, `code-exec`, `data-exfil`, `persistence`, `priv-esc`, `network-config`, and others — all appear in `⛔ BLOCKED [<slug>]` error messages.
 
+**Chaining operators blocked (`chaining` category):** `&&`, `||`, `;`, `&`, and pipe-to-shell forms (e.g. `| cmd /c`, `| bash -c`). **Plain `|` piping** (e.g. `dir | findstr text`) is **not** blocked by the `chaining` category — each segment is checked independently against the block list. If either segment would match a RED pattern, it is blocked when that command is the input.
+
 Key Windows-specific blocks include:
 - PowerShell destructive cmdlets: `Remove-Item`, `Clear-Content`, `Clear-RecycleBin`
 - Windows service management: `sc create/delete/stop`, `nssm`, PowerShell `*-Service` cmdlets
@@ -30,7 +32,7 @@ Key Windows-specific blocks include:
 
 ### AMBER Tier: Warning-Required Commands
 
-AMBER commands are moderately risky but have legitimate use cases. When detected, `dry_run` is forced to `true` and a warning is displayed. The user must re-call with `dry_run=false` to proceed.
+AMBER commands are moderately risky but have legitimate use cases. `dry_run=true` is the default for `run_command` — when an AMBER pattern is detected a warning is included in the response. If `dry_run=false` is passed on the first call against an AMBER pattern, execution proceeds immediately (the plugin has no session state to enforce a two-call gate). The recommended flow is: first call with `dry_run=true` (the default) to see the preview, then re-call with `dry_run=false` to execute.
 
 AMBER patterns: `find -exec`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, wildcard `rename`/`ren`. (`xargs` is hard-blocked under `recursive-file-deletion`, not AMBER.) (`forfiles` was promoted to RED in v1.6.0.)
 
@@ -119,7 +121,7 @@ local-terminal-mcp runs as a **stdio MCP extension** spawned by Claude Desktop a
 ## Threat Model
 
 ### Threat: Unauthorized Command Execution
-**Mitigation:** RED tier blocks 140+ dangerous patterns across 27 categories. AMBER tier forces dry-run preview with mandatory user re-confirmation. The stdio-only transport means no network-exposed attack surface for command injection.
+**Mitigation:** RED tier blocks 140+ dangerous patterns across 27 categories. AMBER tier fires a dry-run warning; the recommended flow is preview-first then re-confirm, though the plugin has no session state to enforce a two-call gate. The stdio-only transport means no network-exposed attack surface for command injection.
 
 ### Threat: Credential Exfiltration
 **Mitigation:** Sensitive file protection blocks reads of `.env`, SSH keys, Windows credential stores, browser data, and cloud credentials — even through read-only tools.
@@ -159,4 +161,4 @@ local-terminal-mcp is a security-enhancing layer that operates on top of your ex
 
 ### Advanced Feature: BYPASS_BINARIES
 
-This feature exists to support legitimate enterprise administrator workflows — for example, an IT operator who needs to manage toolchain installs under `C:\Program Files\`. It is disabled by default and intentionally undiscoverable from the Claude Desktop install UI; enabling it requires editing OS-level environment variables, which are outside Claude's reach. Use only if you understand the security implications. All bypasses are logged with the [SECURITY-BYPASS] tag in the audit log; review the audit log periodically if BYPASS_BINARIES is enabled.
+This feature exists to support legitimate enterprise administrator workflows — for example, an

@@ -48,7 +48,7 @@ Examples: `rm`, `del`, `format`, `shutdown`, `taskkill`, `reg delete`, `curl`, `
 
 ### AMBER — Warning-Required
 
-Moderately risky commands with legitimate use cases. Forces `dry_run=true` with a warning. Must re-call with `dry_run=false` to execute. If an Anthropic API key is configured, the dry-run output is presented alongside the AI safety classification result (which runs for every `run_command`, not only AMBER-tier) for the user's re-confirmation decision; a high-risk evaluation may independently block execution before the re-confirmation step.
+`dry_run=true` is the default for `run_command`. AMBER patterns fire a warning in the response. If `dry_run=false` is passed on the first call against an AMBER pattern, execution proceeds immediately (no session state enforces a two-call gate). The recommended flow: first call with `dry_run=true` (the default) to see the preview, then re-call with `dry_run=false` to execute. If an Anthropic API key is configured, the dry-run output is presented alongside the AI safety classification result (which runs for every `run_command`, not only AMBER-tier) for the re-confirmation decision; a high-risk evaluation may independently block execution.
 
 Examples: `find -exec`, `awk`, `sed -i`, `copy /y`, `robocopy`, `xcopy`, `move`, wildcard `rename`. (`xargs` is RED-blocked, not AMBER.)
 
@@ -175,7 +175,7 @@ Extension configuration is entered via Claude Desktop's user_config prompt when 
 
 ## Logs
 
-The audit log (`audit.log`) is written to the `logs/` subfolder within the extension's install directory, managed by Claude Desktop. Every tool call is recorded with tier, blocked status, and args (secrets auto-redacted).
+The audit log (`audit.log`) is written to the `logs/` subfolder within the extension's install directory, managed by Claude Desktop. Every tool call is recorded with tier, blocked status, and args (secrets auto-redacted). **The audit log persists after uninstall** — Claude Desktop may not delete the extension's install directory automatically. To remove all traces, delete that directory manually after uninstalling the extension.
 
 ---
 
@@ -196,12 +196,4 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 
 - **Email:** support@forgerift.io
 - **Security vulnerabilities:** security@forgerift.io
-- **GitHub Issues:** github.com/ForgeRift/local-terminal-mcp/issues
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
-[forgerift.io](https://forgerift.io) — [Privacy Policy](https://forgerift.io/privacy.html) — [Terms of Service](https://forgerift.io/terms.html)
+- **GitHub Issues:** github.com/

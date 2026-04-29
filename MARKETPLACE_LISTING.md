@@ -67,11 +67,13 @@ local-terminal-mcp gives Claude access to your Windows computer so it can do tha
 
 **Sensitive file protection:** Blocked at the read level in all tools — not just `run_command`. `.env`, SSH keys (`id_rsa`, `id_ed25519`), Windows credential stores, browser login data, cloud credentials (`.aws/`, `.azure/`, `.gcloud/`), npm/yarn auth tokens, and shell configs that commonly contain exported secrets.
 
-**Audit trail:** Structured JSON, secret auto-redaction via expanded prefix + key-name regex, 10MB rotation with one backup. Stored locally at `logs/audit.log` within the extension's install directory.
+**Audit trail:** Structured JSON, secret auto-redaction via expanded prefix + key-name regex, 10MB rotation with one backup. Stored locally at `logs/audit.log` within the extension's install directory. **Note:** the audit log persists after uninstall — Claude Desktop may not delete the extension's install directory automatically. To remove all traces, delete that directory manually after uninstalling.
 
 **Adversarial review:** Multiple rounds of adversarial testing (F-LT and F-OP findings series). All adversarial review was conducted internally by ForgeRift; no independent third-party audit has been performed. The full review log is available at [ADVERSARIAL_REVIEW.md](https://github.com/ForgeRift/local-terminal-mcp/blob/main/ADVERSARIAL_REVIEW.md). Each finding has a corresponding regression test. Shares the same security architecture and findings database as vps-control-mcp.
 
 **Scope limitation by design:** No file writes outside `run_command` (which is itself filtered). The plugin surface is read + gated-execute only. Two narrow outbound flows exist: your license key is sent to ForgeRift at startup for subscription validation; and, if you supply an optional Anthropic API key, the command text and justification for every `run_command` invocation are sent to Anthropic's API for AI-assisted safety classification before execution.
+
+**AI layer fail-open:** Without an Anthropic API key, or if the Anthropic API call fails (network error, rate limit, invalid key), the AI safety classification layers (Layers 2–3) are silently skipped and the plugin falls back to the static RED hard-block list plus AMBER dry-run warnings only. Set `LAYER_STRICT_MODE=true` as an OS environment variable to make the plugin fail closed on API unavailability instead.
 
 **License:** MIT. Full source at [github.com/ForgeRift/local-terminal-mcp](https://github.com/ForgeRift/local-terminal-mcp).
 

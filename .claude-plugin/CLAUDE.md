@@ -12,7 +12,7 @@ Commands that are permanently blocked. You will receive a structured error with 
 Blocked categories: file deletion, disk operations, shutdown/reboot, process killing, user management, permission changes, network configuration, scheduled tasks, service management, code execution (eval/Invoke-Expression/wscript/rundll32), data exfiltration (curl/wget/ssh/scp/Invoke-WebRequest), persistence (registry/startup), database writes, package installation, package removal (choco uninstall/winget uninstall), container operations, system directory writes, environment variable persistence, privilege escalation, credential access, command chaining exploits, HTTP server binding, base64 execution (certutil -decode/[Convert]::FromBase64String), COM object execution (WScript.Shell/Shell.Application), download cradles (Net.WebClient/certutil -urlcache), LOLBins (mshta/regsvr32/rundll32/msiexec), WMI execution (wmic process call create/Invoke-WmiMethod).
 
 ### AMBER (Warning-Required)
-Commands like `find -exec`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, and wildcard renames. (`xargs` is RED-blocked, not AMBER.) These force `dry_run=true` automatically. If you need to run one, call it first (it will show the warning), then call again with `dry_run=false` and explain why in your justification.
+Commands like `find -exec`, `awk`, `sed -i`, `robocopy`, `xcopy`, `copy /y`, `move`, and wildcard renames. (`xargs` is RED-blocked, not AMBER.) `dry_run=true` is the default for `run_command` — AMBER commands fire a warning in the response. If `dry_run=false` is passed on the first call the command executes immediately (no two-call gate is enforced server-side). The recommended flow: call with `dry_run=true` first to see the preview and warning, then call again with `dry_run=false` after the user confirms.
 
 ### GREEN (Allowed)
 All structured tools and any `run_command` that passes RED + AMBER checks.
@@ -29,10 +29,12 @@ All structured tools and any `run_command` that passes RED + AMBER checks.
 - Use `run_npm_command` for npm list, ls, outdated, audit, view, why, explain (install, ci, and run are NOT available)
 
 ### run_command workflow
-1. ALWAYS call with `dry_run=true` first (default) — this previews the command
-2. Review the preview
+1. ALWAYS call with `dry_run=true` first (default) — this previews the command and shows any AMBER warnings
+2. Review the preview; relay any AMBER warning to the user and wait for confirmation
 3. Call again with `dry_run=false` to execute
 4. Always provide a clear `justification` explaining why structured tools can't cover this
+
+**Important:** `dry_run=true` is a default, not a server-enforced gate. Passing `dry_run=false` on the first call against an AMBER pattern executes immediately. Follow this workflow to ensure the user sees the warning before execution.
 
 ### Sensitive files are blocked at the file level
 Even `read_file` and `search_file` will refuse to open `.env`, SSH keys, credential stores, browser data, cloud credentials, `NTUSER.DAT`, and similar files. This is by design. Do not attempt workarounds.
@@ -50,4 +52,4 @@ All commands have a per-tool wall-clock timeout: 30 seconds for run_command and 
 3. **When a RED block fires, explain what happened simply** — don't over-apologize or suggest workarounds to bypass it.
 4. **When an AMBER warning fires, explain the risk** and ask the user if they want to proceed.
 5. **Log your reasoning** in the justification field of run_command — this goes into the audit log.
-6. **Output is truncated at 10,000 characters.** If you expect large output, use `read_file` with line ranges instead.
+6

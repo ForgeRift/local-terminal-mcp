@@ -10,7 +10,7 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 - **Default to acting, not asking.** Read-only tools (`list_directory`, `read_file`, `get_system_info`, `find_files`, `search_file`, `run_git_command`, `run_npm_command`) require no permission — use them freely to gather state. Chain diagnostic steps without checking in. Pause only when: (1) you're about to execute `run_command` with `dry_run=false`, (2) a command hits AMBER or RED, or (3) the user must make a binary decision you can't resolve yourself.
 - **Use the MCP tools directly** to verify state. Don't ask the user to paste output you can fetch — `list_directory`, `read_file`, `get_system_info`, `search_file` exist for this.
 - **When a command is blocked**, tell the user the tier (GREEN/AMBER/RED), which category triggered it, and offer the exact PowerShell or CMD equivalent they can run in an admin terminal.
-- **`run_command` defaults to `dry_run=true`** — always show the preview and confirm before executing. Never silently skip this step.
+- **`run_command` defaults to `dry_run=true`** — always show the preview and confirm before executing with `dry_run=false`. Note: `dry_run=true` is a default, not a forced gate — if you pass `dry_run=false` on the first call against an AMBER pattern it executes immediately.
 - **Lead any diagnosis** with `get_system_info` + the relevant log file before guessing.
 
 ---
@@ -29,7 +29,7 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` package. Claude Desktop spawns `node dist/index.js` over stdio when the extension is enabled. There is no network listener, no auth token (the stdio channel is the trust boundary — it's only reachable by the Claude Desktop process that spawned it). Every command passes through three security layers before executing:
 
 - **Layer 1:** Hard-coded RED block list — 140+ regex patterns checked in source code. Instant rejection, no AI consulted.
-- **Layer 2:** AMBER classifier — deterministic pattern match. When matched, forces `dry_run=true` and requires explicit user re-confirmation before execution. Independent of any AI classification.
+- **Layer 2:** AMBER classifier — deterministic pattern match. When matched, fires a warning. `dry_run=true` is the default for `run_command`; if the caller passes `dry_run=false` on the first call against an AMBER pattern, execution proceeds immediately (no session state enforces a two-call gate). The recommended flow is: first call with `dry_run=true` (the default) to see the preview, then re-call with `dry_run=false`. Independent of any AI classification.
 - **Layer 3:** AI safety classification — if an Anthropic API key is configured, every `run_command` invocation (not only AMBER) sends the command text and justification to Anthropic's API before execution. A high-risk result may independently block the command. If the Anthropic API call fails (network error, rate limit, missing key), the AI layer is skipped and the command falls back to manual confirmation rather than blocking. Operators who prefer to block on API failure can set `LAYER_STRICT_MODE=true`. This is controlled by the `LAYER_STRICT_MODE` env var (default: `false` = pass-through).
 
 **Shell context:** `run_command` executes via **cmd.exe** (Windows Command Prompt) by default — Node.js `execSync` uses `process.env.ComSpec` on Windows. Use cmd.exe syntax: `dir` not `ls`, `type` not `cat`, `%VAR%` not `$env:VAR`. If the user needs PowerShell cmdlets, they must be prefixed explicitly: `powershell -NoProfile -Command "Get-Process"` — but note many PowerShell operations are RED-blocked.
@@ -129,7 +129,7 @@ Examples:
 | `priv-esc` | `runas`, `Start-Process -Verb RunAs` |
 | `info-leak` | Credential enumeration commands: `cmdkey /list`, `vaultcmd`, `dpapi`, `$env:`, `ConvertFrom-SecureString` |
 | `sensitive-file` | Reading `.env`, SSH keys, credential stores (enforced by file-protection layer, not command classifier) |
-| `chaining` | `&&`, `;` combining commands |
+| `chaining` | `&&`, `||`, `;`, `&`, pipe-to-shell (e.g. `cmd /c`, `bash -c`) — **plain `|` piping (e.g. `dir | findstr text`) is NOT blocked** |
 | `http-server` | Starting any listening server process |
 | `base64-exec` | `certutil -decode`, `[Convert]::FromBase64String`, `base64 -d` execution patterns |
 | `com-exec` | `New-Object -ComObject WScript.Shell/Shell.Application` |
@@ -160,8 +160,8 @@ Even read-only tools (`read_file`) block access to:
 **`dry_run=true` is always the default**
 `run_command` will never execute without an explicit `dry_run=false`. If a user says "it's not doing anything," they may not have confirmed execution. Always relay the dry-run preview and ask for confirmation before re-calling.
 
-**`&&` chaining is RED**
-Use separate tool calls. Split multi-step workflows into `run_git_command` + `run_npm_command` + `run_command` steps.
+**`&&`, `||`, `;`, `&`, pipe-to-shell chaining is RED**
+Use separate tool calls. Split multi-step workflows into `run_git_command` + `run_npm_command` + `run_command` steps. Plain `|` piping (e.g. `dir | findstr text`) is allowed — each segment is checked independently against the block list.
 
 **Commit message false positives**
 Commit messages containing SQL keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) or product names like `Supabase` may trigger the `direct-db` classifier as false positives. Use hyphenated, neutral wording: `add-supabase-auth-support` not `"add Supabase DROP handler"`.
@@ -250,4 +250,4 @@ What's the git status of [project directory]?
 
 *Paste this into Claude to save this context as a memory (best used with Claude Projects):*
 
-> "Please remember the following about my local-terminal-mcp setup so you can help me manage my Windows machine and troubleshoot issues without me having to re-explain it: [paste this entire document]. Reference this any time I ask about my local machine, Windows commands, file access, or anything related to my ForgeRift plugin. Note: add this to a new Claude conversation using the paperclip or attachment icon, or paste it directly into the message field at the start of a new chat."
+>

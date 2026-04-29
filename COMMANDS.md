@@ -34,7 +34,7 @@ These are safe, read-only or informational operations that don't modify your sys
 
 ## ⚠️ AMBER — Confirmation Required
 
-A small set of bulk-operation commands that have legitimate uses but require your explicit confirmation before executing. When Claude encounters one, it will always show a dry-run preview first (explaining exactly what would happen) and wait for you to confirm before running for real.
+A small set of bulk-operation commands that have legitimate uses. `run_command` defaults to `dry_run=true` — when Claude encounters an AMBER pattern, the response includes a warning alongside the dry-run preview. If `dry_run=false` is passed on the first call, the command executes immediately (the plugin has no session state to enforce a two-call gate). The recommended workflow is for Claude to call with `dry_run=true` first, relay the warning to you, and only call again with `dry_run=false` after you confirm.
 
 The following commands trigger the AMBER tier (the complete AMBER pattern list is in `src/tools.ts`):
 
@@ -48,12 +48,12 @@ The following commands trigger the AMBER tier (the complete AMBER pattern list i
 | `awk` | Can write to files when output-redirected; used in many one-liner data transforms |
 | `sed -i` | In-place file editing; changes cannot be previewed without running |
 
-For these commands, Claude will:
-1. Call the tool with `dry_run=true` (the default), showing you exactly what would run
-2. Wait for you to say "yes, go ahead" in chat
+For these commands, the recommended workflow is:
+1. Call the tool with `dry_run=true` (the default), showing you exactly what would run and surfacing the AMBER warning
+2. Relay the warning and preview to you in chat, and wait for your confirmation
 3. Only then call again with `dry_run=false` to actually execute
 
-You are always in control of whether execution proceeds.
+This two-step flow is a workflow convention enforced by Claude's behavior, not a server-side gate — `dry_run=true` is a default, not forced. You are always in control of whether execution proceeds.
 
 ---
 
@@ -330,8 +330,4 @@ Claude will tell you it's blocked, explain which category triggered it, and offe
 Ask Claude: *"Show me the audit log"* — the plugin logs every command attempt (including blocked ones) with timestamps.
 
 **Q: Can providing more context or explanation make a RED command go through?**
-No. RED commands are blocked by static code patterns before any AI review happens. Context does not affect RED blocks — they are unconditional.
-
----
-
-*For setup instructions, see [GETTING_STARTED.md](GETTING_STARTED.md). For troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).*
+No. RED commands are blocked by static code patterns before any AI review happens. Context does n

@@ -2026,7 +2026,7 @@ export const TOOLS: Tool[] = [
       properties: {
         command:       { type: "string",  description: "The command to run." },
         dry_run:       { description: "Default true. Pass false (or the string 'false') only after previewing the command." },
-        justification: { type: "string",  description: "Why the structured tools cannot cover this." },
+        justification: { type: "string",  description: "Why the structured tools cannot cover this. Sent to Anthropic's API for safety classification if an API key is configured — do not include secrets, passwords, tokens, or sensitive data." },
       },
       required: ["command", "justification"],
     },
