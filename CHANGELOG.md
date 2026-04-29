@@ -8,6 +8,18 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 37 security-claim accuracy fixes (2026-04-29)
+- src/tools.ts: `run_npm_command` tool description and parameter description now include `ls` (regex already accepted it); dist/ rebuilt
+- src/tools.ts: added `/\.ppk$/i` to SENSITIVE_FILE_PATTERNS (PuTTY private key files); dist/ rebuilt
+- CLAUDE_CONTEXT.md: removed `wmic read queries` from GREEN examples (all wmic calls are RED `code-exec` blocked)
+- CLAUDE_CONTEXT.md: `direct-db` row now describes actual blocked trigger (SQL write keywords) instead of implying binaries are blocked
+- CLAUDE_CONTEXT.md: commit-message false-positive example fixed to actually-blocked keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`); removed `SELECT` and `INSERT` which are not blocked
+- CLAUDE_CONTEXT.md: `env-manip` row: removed "(machine-scope)" qualifier; pattern blocks all scopes
+- CLAUDE_CONTEXT.md: `info-leak` row split into `info-leak` (command-level credential enumeration) and `sensitive-file` (file-protection layer) to accurately describe two distinct mechanisms
+- CLAUDE_CONTEXT.md: `BYPASS_BINARIES` example updated to use real HARD_BLOCKED slugs (`sensitive-path-write`, `pkg-mgr-destructive`); added note that bypass only applies to HARD_BLOCKED_PATTERNS categories
+- COMMANDS.md: `env-manip` section: removed "with Machine scope" qualifier; blocked at all scopes (Process/User/Machine)
+- TROUBLESHOOTING.md: `chaining` category description corrected: plain `|` is NOT blocked; only pipe-to-shell (`| cmd`, `| powershell`, `| bash`) is blocked
+
 ### Pass 36 doc-fix closeout (2026-04-29)
 - TROUBLESHOOTING.md: corrected RED-block error format example to actual emitted format (`⛔ BLOCKED [file-delete]`); replaced fictional `credential-access` category with real `info-leak` slug; aligned curl health-check command to `curl -I` (consistent with README.md)
 - CLAUDE_CONTEXT.md: updated runtime slug note to describe actual error format (`⛔ BLOCKED [<slug>]`) instead of fictional `BLOCKED [RED] category=<slug>` syntax

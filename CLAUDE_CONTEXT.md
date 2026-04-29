@@ -90,7 +90,6 @@ Common GREEN examples:
 - `npm list`, `npm outdated`, `npm audit`
 - `Get-Process`, `Get-Service` (read-only)
 - `ping`, `ipconfig /all`
-- `wmic` read queries
 - `Test-Path`, `Get-Item` (non-system paths)
 
 ### ⚠️ AMBER — Warning Required, `dry_run` Forced
@@ -121,14 +120,15 @@ Examples:
 | `code-exec` | `Invoke-Expression`, `IEX`, `eval`, `iwr \| iex` |
 | `data-exfil` | `curl`, `wget`, `Invoke-WebRequest` posting data out |
 | `persistence` | Startup folder writes, registry run key edits |
-| `direct-db` | `sqlcmd` write ops, `sqlite3` destructive queries |
+| `direct-db` | SQL write keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) anywhere in the command |
 | `pkg-install` | `choco install`, `winget install`, `pip install` |
 | `pkg-remove` | `choco uninstall`, `winget uninstall` |
 | `container` | `docker rm -f`, `docker system prune` |
 | `file-write` | Writing to `C:\Windows\`, `C:\Program Files\`, system paths |
-| `env-manip` | `[System.Environment]::SetEnvironmentVariable` (machine-scope) |
+| `env-manip` | `[System.Environment]::SetEnvironmentVariable` (any scope), `setx` |
 | `priv-esc` | `runas`, `Start-Process -Verb RunAs` |
-| `info-leak` | Reading `.env`, SSH keys, credential stores |
+| `info-leak` | Credential enumeration commands: `cmdkey /list`, `vaultcmd`, `dpapi`, `$env:`, `ConvertFrom-SecureString` |
+| `sensitive-file` | Reading `.env`, SSH keys, credential stores (enforced by file-protection layer, not command classifier) |
 | `chaining` | `&&`, `;` combining commands |
 | `http-server` | Starting any listening server process |
 | `base64-exec` | `certutil -decode`, `[Convert]::FromBase64String`, `base64 -d` execution patterns |
@@ -164,7 +164,7 @@ Even read-only tools (`read_file`) block access to:
 Use separate tool calls. Split multi-step workflows into `run_git_command` + `run_npm_command` + `run_command` steps.
 
 **Commit message false positives**
-Commit messages containing SQL keywords (`SELECT`, `DROP`, `INSERT`) or product names like `Supabase` may trigger the `direct-db` classifier as false positives. Use hyphenated, neutral wording: `add-supabase-auth-support` not `"add Supabase INSERT handler"`.
+Commit messages containing SQL keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) or product names like `Supabase` may trigger the `direct-db` classifier as false positives. Use hyphenated, neutral wording: `add-supabase-auth-support` not `"add Supabase DROP handler"`.
 
 **Path syntax in cmd.exe**
 In cmd.exe, use single backslashes: `C:\Users\dustin\`. Forward slashes (`/`) also work for most path operations. If passing paths to a `powershell -Command "..."` prefix, double-escape backslashes inside the quoted string.
@@ -185,7 +185,7 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 If Claude Desktop reports that the extension fails to start, add Claude Desktop's installation directory to Windows Defender exclusions.
 
 **`BYPASS_BINARIES` usage**
-Format: `processname:category-name` (comma-separated). Example: `node:file-write,npm:pkg-install`. Every bypass is logged as `[SECURITY-BYPASS]` in the audit trail.
+Format: `processname:category-name` (comma-separated). Example: `my-tool:sensitive-path-write,legacy-app:pkg-mgr-destructive`. Only applies to categories in `HARD_BLOCKED_PATTERNS` (the 27 HARD_BLOCKED slugs). Every bypass is logged as `[SECURITY-BYPASS]` in the audit trail.
 
 ---
 

@@ -64,7 +64,7 @@ RED blocks emit a structured message starting with the category name. Example (f
 ⛔ BLOCKED [file-delete]
 ```
 Common categories:
-- `chaining` -- `&&`, `;`, `|` used to chain commands. Use separate tool calls.
+- `chaining` -- `&&`, `||`, `;`, single `&`, pipe-to-shell (`| cmd`, `| powershell`, `| bash`), and backticks. Use separate tool calls.
 - `data-exfil` -- `curl`, `wget`, `Invoke-WebRequest`. Use structured tools where possible.
 - `file-delete` -- `rm`, `del`, `Remove-Item`. Permanently blocked.
 - `sensitive-path-write` -- Writing to system paths or credential directories.

@@ -1383,6 +1383,7 @@ export const SENSITIVE_FILE_PATTERNS: RegExp[] = [
   /\.pk8$/i,
   /\.p12$/i,
   /\.pfx$/i,
+  /\.ppk$/i,
 
   // Credential files
   /\.credentials/i,
@@ -1990,13 +1991,13 @@ export const TOOLS: Tool[] = [
   {
     name: "run_npm_command",
     annotations: { title: 'Run NPM Command', readOnlyHint: true, destructiveHint: false },
-    description: "Run read-only npm commands in a project directory. Approved sub-commands: list, outdated, audit, view, why, explain. npm install, npm run, and npm ci are NOT available (they execute lifecycle scripts). USE THIS — never ask the user to open a terminal and type npm commands themselves. This tool runs npm in their project directory with full audit logging.",
+    description: "Run read-only npm commands in a project directory. Approved sub-commands: list, ls, outdated, audit, view, why, explain. npm install, npm run, and npm ci are NOT available (they execute lifecycle scripts). USE THIS — never ask the user to open a terminal and type npm commands themselves. This tool runs npm in their project directory with full audit logging.",
     inputSchema: {
       type: "object",
       properties: {
         directory:         { type: "string", description: "Project directory to run the command in. Also accepted as 'working_directory'." },
         working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted." },
-        command:           { type: "string", description: "npm sub-command — one of: list, outdated, audit, view, why, explain." },
+        command:           { type: "string", description: "npm sub-command — one of: list, ls, outdated, audit, view, why, explain." },
       },
       required: ["directory", "command"],
     },

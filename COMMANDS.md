@@ -202,9 +202,9 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Environment Variable Persistence
-**What it is:** `[System.Environment]::SetEnvironmentVariable` with Machine scope, `setx` for system-wide vars
+**What it is:** `[System.Environment]::SetEnvironmentVariable` (any scope), `setx`
 
-**Why blocked:** Machine-scope environment variable changes persist and affect all users and processes. Per-command session vars (not persisted) are GREEN.
+**Why blocked:** `SetEnvironmentVariable` is blocked at all scopes (Process/User/Machine) because scope-leakage bugs can cause unintended persistence. Use session-local variable assignment (`$x = "val"`) for process-scoped values instead.
 
 ---
 
