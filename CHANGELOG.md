@@ -8,6 +8,11 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 52 adversarial review closeout (2026-04-29)
+- **F12 (MEDIUM)** forgerift.io/terms.html Section 8 "Gated Operations" paragraph implied that per-invocation confirmation is server-enforced for all plugins. In local-terminal-mcp, AMBER-tier confirmation is a workflow convention (`dry_run=true` default, not a server-side gate) as already disclosed in Schedule B.1. Added clarifying sentence to the Section 8 paragraph calling out the per-plugin mechanism and cross-referencing Schedule B.1, so both the general clause and the specific schedule are consistent.
+- **F13 (LOW)** SECURITY.md release table: F-OP-79 cited in the Operator Override prose (line 76, "the F-OP-79 fail-closed guard") but absent from the engineering log table, leaving the label undefined. Added F-OP-79 to the v1.10.3 row with a description: fail-closed guard extended to reject UNC destinations that cannot be fully resolved at classification time, preventing bypasses via deferred path binding.
+- **Note:** Pass 52 reviewer reported 11 additional CRITICAL truncation findings (manifest.json, README.md, COMMANDS.md, SECURITY.md, CLAUDE_CONTEXT.md, .claude-plugin/CLAUDE.md, CHANGELOG.md, TROUBLESHOOTING.md, index.html, terms.html, faq.md). These were false positives caused by stale Linux mount cache in the review sandbox — all files were verified intact in git HEAD (d18c17d). No file content changes were needed for those items.
+
 ### Pass 51 adversarial review closeout (2026-04-29)
 - **F1 (MEDIUM)** CLAUDE_CONTEXT.md, .claude-plugin/CLAUDE.md: `get_system_info` internally calls `wmic` for disk and memory data. On hardened endpoints with strict AV/EDR policies `wmic` may trigger a security alert even though the user never invoked it directly. No doc warned about this. Added disclosure and fallback guidance (ask user to run `systeminfo` manually if the tool is flagged).
 - **F2 (LOW)** SECURITY.md: BYPASS_BINARIES section did not disclose that binary matching uses `argv[0].toLowerCase()` with no path normalization and no `.exe` stripping — already present in CLAUDE_CONTEXT.md since Pass 50 but missing from SECURITY.md. Added the note with the same phrasing.
