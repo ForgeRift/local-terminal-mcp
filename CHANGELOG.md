@@ -8,6 +8,9 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 49 adversarial review closeout (2026-04-29)
+- **F1 (LOW)** forgerift.io/faq.md: "Shutting down, rebooting, or **suspending** the system" — hibernate/sleep/suspend are not blocked by any pattern. Code only blocks `shutdown`, `Restart-Computer`, `Stop-Computer`, `poweroff`, `halt`. Removed "suspending"; added explicit list of blocked commands.
+
 ### Pass 48 adversarial review closeout (2026-04-29)
 - **F1 (HIGH)** src/tools.ts → dist/tools.js: `read_file` `end_line` parameter is hard-capped at 500 (absolute line number). Content past line 500 is inaccessible — `start_line=600, end_line=800` returns empty. Tool description said "Default 500" with no indication it was also the hard ceiling. Updated tool description and `end_line` param description to disclose this constraint explicitly. Dist rebuilt.
 - **F2 (MEDIUM-HIGH)** MARKETPLACE_LISTING.md: claimed yarn auth tokens (`.yarnrc`) and shell configs (`.bashrc`) are file-level blocked. `.yarnrc` is not in SENSITIVE_FILE_PATTERNS. Shell configs (`~/.bashrc`, `~/.bash_profile`) are only BLOCKED_PATTERNS write-blocks (persistence slug) — not file-read blocked. Removed yarn claim; corrected to list only actually blocked files: `.npmrc`, SSH keys, credential stores, cloud credentials, kubeconfig.
