@@ -42,7 +42,7 @@ Even `read_file` and `search_file` will refuse to open `.env`, SSH keys, credent
 ### Command chaining is blocked
 Do NOT use `&&`, `||`, `;`, `&`, backticks, or pipe-to-shell in `run_command`. If you need sequential commands, make separate tool calls. For git operations that need a working directory, use `git -C <path>` instead of `cd <path> && git ...`.
 
-**Plain `|` piping IS allowed:** `dir | findstr error`, `type file.txt | findstr text`, etc. Each piped segment is checked independently against the block list. You may use plain pipes to standard commands when helpful.
+**Plain `|` piping IS allowed:** `dir | findstr error`, `type file.txt | findstr text`, etc. The full command string is checked as one unit — plain `|` to non-shell targets is not in the block list. You may use plain pipes to standard commands when helpful.
 
 ### Command timeout
 All commands have a per-tool wall-clock timeout: 30 seconds for run_command and run_git_command, 60 seconds for run_npm_command. For long-running operations, warn the user first.

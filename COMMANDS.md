@@ -105,7 +105,7 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Permission Changes
-**What it is:** Changing file or folder permissions — `icacls`, `attrib`, mass `chmod`-equivalent, `takeown`
+**What it is:** Changing file or folder permissions — `icacls`, `cacls`, `takeown`, `Set-Acl`, mass `chmod`-equivalent
 
 **Why blocked:** Permission changes can expose protected files or lock you out of your own system.
 
@@ -154,9 +154,9 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Container Operations
-**What it is:** `docker rm`, `docker rmi`, `docker system prune`, running privileged containers, mounting host filesystems
+**What it is:** `docker run`, `docker exec`, `docker build`, `docker push`, `docker pull`, `docker system prune -af`, running privileged containers, mounting host filesystems
 
-**Why blocked:** Container operations can destroy data or expose the host filesystem. `docker ps` and `docker logs` (read-only) may be GREEN; destructive or privileged operations are RED.
+**Why blocked:** Container operations can destroy data or expose the host filesystem. `docker ps`, `docker logs`, `docker images` (read-only) may be GREEN; execution, build, and nuclear-prune operations are RED. Note: `docker rm` and `docker rmi` (removing stopped containers/images) are not currently blocked — only the patterns listed above.
 
 ---
 
@@ -189,7 +189,7 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### System State (Shutdown / Reboot)
-**What it is:** `shutdown`, `Restart-Computer`, `Stop-Computer`, hibernate, sleep
+**What it is:** `shutdown`, `Restart-Computer`, `Stop-Computer`, `poweroff`, `halt`
 
 **Why blocked:** Shutting down or restarting would kill your Claude session and any work in progress.
 
@@ -221,14 +221,14 @@ These are hard stops. Static patterns in the code reject them immediately — no
 
 **Why blocked:** Chaining is blocked in `run_command`. Use separate tool calls instead. For git operations needing a working directory, use `git -C <path>` rather than `cd <path> && git ...`.
 
-**Plain `|` piping is NOT blocked:** `dir | findstr error`, `type file.txt | findstr keyword`, and similar pipes to standard commands work fine — each segment is checked independently against the block list.
+**Plain `|` piping is NOT blocked:** `dir | findstr error`, `type file.txt | findstr keyword`, and similar pipes to standard commands work fine — the full command string is checked against the block list, and plain `|` piping to non-shell targets is not in the block list. Pipe-to-shell forms (`| cmd /c`, `| bash -c`, etc.) are blocked under `chaining`.
 
 ---
 
 ### HTTP Server Binding
-**What it is:** Starting any listening server process — `python -m http.server`, `npx serve`, `node server.js`
+**What it is:** Starting a network listener — `nc -l`, `python -m http.server`, `simple-server`, `http-server --port`
 
-**Why blocked:** A listening server exposes your filesystem or application to the network. Start dev servers in your own terminal.
+**Why blocked:** A listening server exposes your filesystem or application to the network. Start dev servers in your own terminal. Note: `npx serve` and `node server.js` are not matched by the `http-server` pattern — they would be blocked under `code-exec` (interpreter+script) or pass through; start them in your own terminal regardless.
 
 ---
 
@@ -261,9 +261,9 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Firewall Destruction
-**What it is:** `netsh advfirewall set allprofiles state off`, disabling Windows Firewall, deleting firewall rules en masse
+**What it is:** `iptables -F/-X`, `ufw disable/reset`, `firewall-cmd --panic-off`, `nft flush ruleset`, `setenforce 0` — Linux/cross-platform firewall teardown patterns
 
-**Why blocked:** Disabling the firewall exposes your machine to the network.
+**Why blocked:** Disabling the firewall exposes your machine to the network. Note: Windows-side `netsh advfirewall` commands are blocked under the `network-config` category (not `firewall-destruction`) — the emitted error slug will be `network-config`.
 
 ---
 

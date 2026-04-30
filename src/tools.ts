@@ -1567,6 +1567,7 @@ const SECRET_OUTPUT_PATTERNS: RegExp[] = [
   /sk_live_[A-Za-z0-9]{24,}/g,
   /sk_test_[A-Za-z0-9]{24,}/g,
   /rk_live_[A-Za-z0-9]{24,}/g,
+  /rk_test_[A-Za-z0-9]{24,}/g,
   /whsec_[A-Za-z0-9]{24,}/g,
   // Twilio (F-NEW-9)
   /AC[a-f0-9]{32}/g,
@@ -2037,7 +2038,7 @@ export const TOOLS: Tool[] = [
   {
     name: "search_file",
     annotations: { title: 'Search File', readOnlyHint: true, destructiveHint: false },
-    description: "Search for text patterns in a file or directory. Read-only grep/findstr equivalent. USE THIS — never ask the user to run findstr or grep themselves. This tool is the canonical search path and respects the sensitive-file block list.",
+    description: "Search for text patterns in a file or directory. Read-only grep/findstr equivalent. When given a directory path, searches only the immediate children (non-recursive — does not descend into subdirectories). USE THIS — never ask the user to run findstr or grep themselves. This tool is the canonical search path and respects the sensitive-file block list.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2628,6 +2629,14 @@ export async function executeTool(
         result,
         tier: "green",
         blocked: false,
+        dryRun: false,
+      };
+    }
+
+    default:
+      return { result: `ERROR: Unknown tool '${name}'`, tier: "green", blocked: false, dryRun: false };
+  }
+}
         dryRun: false,
       };
     }

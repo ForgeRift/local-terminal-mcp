@@ -8,6 +8,19 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 47 adversarial review closeout (2026-04-29)
+- **F1 (HIGH)** COMMANDS.md: `system-state` description falsely listed `hibernate` and `sleep` as blocked. Neither is in any pattern. Corrected to list only what the code actually blocks: `shutdown`, `Restart-Computer`, `Stop-Computer`, `poweroff`, `halt`.
+- **F2 (HIGH)** COMMANDS.md: `container` description falsely listed `docker rm` and `docker rmi` as blocked. Code only blocks `docker run/exec/build/push/pull` and `docker system prune -af`. Corrected; added note that `docker rm`/`docker rmi` are not currently blocked.
+- **F3 (HIGH)** COMMANDS.md: `http-server` description falsely listed `npx serve` and `node server.js` as blocked. Code only matches `nc -l`, `python -m http.server`, `simple-server`, `http-server --port`. Corrected; added note about actual scope.
+- **F4 (MEDIUM)** CLAUDE_CONTEXT.md: `network-config` row listed `Set-NetIPAddress` as a blocked example — not in any pattern. Replaced with `New-NetFirewallRule` and `Set-NetAdapter` (actual patterns at tools.ts:100-101).
+- **F5 (MEDIUM)** CLAUDE_CONTEXT.md: `priv-esc` row listed `Start-Process -Verb RunAs` — actually blocked by `\bstart-process\b` in `code-exec` (HARD_BLOCKED line 189), not `priv-esc`. Corrected; `Start-Process` now noted under `code-exec`.
+- **F6 (MEDIUM)** CLAUDE_CONTEXT.md line 217: claimed audit entries include "Layer 1/2/3 decision source" and `[SECURITY-BYPASS]` tag. audit.ts only writes `{ts, tool, tier, blocked, dry_run, args}`; Layer verdicts and SECURITY-BYPASS notices go to stderr only. Corrected.
+- **F7 (MEDIUM)** src/tools.ts → dist/tools.js: `search_file` description implied recursive directory search. Implementation only searches immediate children of a directory (non-recursive). Added disclosure. Dist rebuilt.
+- **F8 (MEDIUM)** COMMANDS.md, CLAUDE_CONTEXT.md, README.md, .claude-plugin/CLAUDE.md, faq.md: "each segment is checked independently against the block list" — misleading for plain-pipe behavior. The full command string is checked as one unit; there is no per-pipe-segment re-scan. Corrected in all five files.
+- **F9 (MEDIUM)** COMMANDS.md: `permissions` description listed `attrib` — not in any pattern. Replaced with accurate examples: `icacls`, `cacls`, `takeown`, `Set-Acl`.
+- **F10 (LOW-MEDIUM)** COMMANDS.md: `firewall-destruction` section described `netsh advfirewall` as its primary example, but `netsh` emits the `network-config` slug (HARD_BLOCKED line 95), not `firewall-destruction`. Corrected; `firewall-destruction` section now lists actual Linux-side patterns; Windows `netsh` firewall noted under `network-config`.
+- **F11 (LOW)** src/tools.ts → dist/tools.js: `rk_test_` Stripe restricted-key test token was in audit.ts `SECRET_VALUE_PREFIXES` (audit-arg redaction) but missing from tools.ts `SECRET_OUTPUT_PATTERNS` (tool-output redaction). Added `/rk_test_[A-Za-z0-9]{24,}/g` to SECRET_OUTPUT_PATTERNS for consistency. Dist rebuilt.
+
 ### Pass 46 adversarial review closeout (2026-04-29)
 - **F1 (MEDIUM)** src/tools.ts → dist/tools.js: AMBER tier header comment still said "Forces dry_run=true with ToS warning" — contradicting all doc corrections from P42. Fixed to: "dry_run=true is the default (not server-enforced); a warning is added to the response." Dist rebuilt.
 - **F2 (MEDIUM)** src/tools.ts → dist/tools.js, CLAUDE_CONTEXT.md, SECURITY.md: `data-destruction` slug (`vssadmin`, `wbadmin`, `wevtutil`, `ntdsutil`) was present in code (BLOCKED_PATTERNS) but entirely absent from docs and had no `BLOCKED_ALTERNATIVES` entry. Added BLOCKED_ALTERNATIVES entry to tools.ts; added `data-destruction` row to CLAUDE_CONTEXT.md RED category table; added to SECURITY.md additional-slugs list. Dist rebuilt.

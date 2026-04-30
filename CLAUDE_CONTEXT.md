@@ -113,7 +113,7 @@ Examples:
 | `process-kill` | `taskkill`, `Stop-Process`, `kill` |
 | `user-mgmt` | `net user`, `New-LocalUser`, `Add-LocalGroupMember` |
 | `permissions` | `icacls /grant Everyone`, mass permission changes |
-| `network-config` | `netsh`, `Set-NetIPAddress`, firewall rule changes |
+| `network-config` | `netsh`, `New-NetFirewallRule`, `Set-NetAdapter`, route table changes |
 | `scheduled-exec` | `schtasks /create`, `Register-ScheduledTask` |
 | `service-mgmt` | `sc create`, `sc delete`, `New-Service` |
 | `code-exec` | `Invoke-Expression`, `IEX`, `eval`, `iwr \| iex` |
@@ -125,7 +125,7 @@ Examples:
 | `container` | `docker rm -f`, `docker system prune` |
 | `file-write` | Writing to `C:\Windows\`, `C:\Program Files\`, system paths |
 | `env-manip` | `[System.Environment]::SetEnvironmentVariable` (any scope), `setx` |
-| `priv-esc` | `runas`, `Start-Process -Verb RunAs` |
+| `priv-esc` | `runas`, `sudo` (Note: `Start-Process` is blocked under `code-exec`, not `priv-esc`) |
 | `info-leak` | Credential enumeration commands: `cmdkey /list`, `vaultcmd`, `dpapi`, `$env:`, `ConvertFrom-SecureString` |
 | `sensitive-file` | Reading `.env`, SSH keys, credential stores (enforced by file-protection layer, not command classifier) |
 | `chaining` | `&&`, `||`, `;`, `&`, pipe-to-shell (e.g. `cmd /c`, `bash -c`) — **plain `|` piping (e.g. `dir | findstr text`) is NOT blocked** |
@@ -161,7 +161,7 @@ Even read-only tools (`read_file`) block access to:
 `run_command` will never execute without an explicit `dry_run=false`. If a user says "it's not doing anything," they may not have confirmed execution. Always relay the dry-run preview and ask for confirmation before re-calling.
 
 **`&&`, `||`, `;`, `&`, pipe-to-shell chaining is RED**
-Use separate tool calls. Split multi-step workflows into `run_git_command` + `run_npm_command` + `run_command` steps. Plain `|` piping (e.g. `dir | findstr text`) is allowed — each segment is checked independently against the block list.
+Use separate tool calls. Split multi-step workflows into `run_git_command` + `run_npm_command` + `run_command` steps. Plain `|` piping (e.g. `dir | findstr text`) is allowed — the full command string is checked against the block list, and plain `|` piping to non-shell targets is not in the block list. Pipe-to-shell (`| cmd /c`, `| bash -c`) is blocked.
 
 **Commit message false positives**
 Commit messages containing SQL keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) or product names like `Supabase` may trigger the `direct-db` classifier as false positives. Use hyphenated, neutral wording: `add-supabase-auth-support` not `"add Supabase DROP handler"`.
@@ -214,7 +214,7 @@ Format: `processname:category-name` (comma-separated). Example: `my-tool:sensiti
 |------|----------|
 | `logs\audit.log` | every tool call with tier, blocked status, args (secrets auto-redacted) |
 
-Every audit entry has: timestamp, tool name, security tier, command/args, Layer 1/2/3 decision source, and `[SECURITY-BYPASS]` tag when `BYPASS_BINARIES` matched.
+Every audit entry written to `audit.log` has: `ts` (ISO timestamp), `tool` (tool name), `tier` (green/amber/red), `blocked` (boolean), `dry_run` (boolean), and `args` (sanitized, truncated to 300 chars). Layer 1/2/3 verdicts and `[SECURITY-BYPASS]` notices are written to stderr (console), not to the audit log file.
 
 ---
 
