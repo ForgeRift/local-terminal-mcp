@@ -175,7 +175,7 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Registry Modifications
-**What it is:** `reg add`, `reg delete`, `reg import`, `Set-ItemProperty HKLM:\...` (writes); also `reg query`, `reg export`, `reg compare`, `reg copy`, `reg save` (reads/exports) — all `reg` subcommands are blocked
+**What it is:** `reg add`, `reg delete`, `reg import`, `Set-ItemProperty HKLM:\...` (writes); also `reg query`, `reg export`, `reg compare`, `reg copy`, `reg flags`, `reg save` (reads/exports) — the following `reg` subcommands are blocked (bare `reg` with unrecognized subcommands is not matched)
 
 **Why blocked:** Registry changes persist and can affect system behavior in ways that are difficult to diagnose or reverse.
 
@@ -216,8 +216,8 @@ These are hard stops. Static patterns in the code reject them immediately — no
 
 ---
 
-### Command Chaining (`&&`, `||`, `;`, `&`, pipe-to-shell)
-**What it is:** Combining multiple commands with `&&`, `||`, `;`, `&`, or pipe-to-shell forms (e.g., `| cmd /c`, `| bash -c`).
+### Command Chaining (`&&`, `||`, `;`, `&`, backticks, pipe-to-shell)
+**What it is:** Combining multiple commands with `&&`, `||`, `;`, `&`, backticks (`` ` ``), or pipe-to-shell forms (e.g., `| cmd /c`, `| bash -c`).
 
 **Why blocked:** Chaining is blocked in `run_command`. Use separate tool calls instead. For git operations needing a working directory, use `git -C <path>` rather than `cd <path> && git ...`.
 

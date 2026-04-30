@@ -46,7 +46,7 @@ See [COMMANDS.md](COMMANDS.md) for the full category breakdown.
 
 Examples: `rm`, `del`, `format`, `shutdown`, `taskkill`, `reg delete`, `curl`, `wget`, `Invoke-Expression`, `runas`, `schtasks`, `sc create`, `netsh`, `choco install`.
 
-**Note on piping:** The `chaining` block covers `&&`, `||`, `;`, `&`, and pipe-to-shell forms. Plain `|` piping (e.g. `dir | findstr error`) is **not** blocked — the full command string is checked as one unit, and plain `|` to non-shell targets is not in the block list.
+**Note on piping:** The `chaining` block covers `&&`, `||`, `;`, `&`, backticks (`` ` ``), and pipe-to-shell forms. Plain `|` piping (e.g. `dir | findstr error`) is **not** blocked — the full command string is checked as one unit, and plain `|` to non-shell targets is not in the block list.
 
 ### AMBER — Warning-Required
 

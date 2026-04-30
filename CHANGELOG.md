@@ -1,5 +1,14 @@
 # Changelog
 
+## [Pass 56 Closeout] -- 2026-04-29
+
+### Fixed (documentation accuracy -- 4 findings)
+- F1 (HIGH) CLAUDE_CONTEXT.md: Fixed runtime error format example -- recursive-file-deletion is HARD_BLOCKED (multi-line BLOCKED: format); documented both RED error formats
+- F2 (MEDIUM) CLAUDE_CONTEXT.md: Fixed msiexec/lolbin ordering -- HARD_BLOCKED Layer 1 runs first; msiexec /[qixa] fires lolbin in Layer 1; bare msiexec falls through to BLOCKED_PATTERNS code-exec
+- F3 (LOW) SECURITY.md / README.md / CLAUDE_CONTEXT.md / COMMANDS.md: Added backticks to chaining category operator list -- tools.ts line 343 blocks backtick command substitution under chaining
+- F4 (LOW) CLAUDE_CONTEXT.md / COMMANDS.md: Added reg flags to blocked registry subcommand lists; softened all-subcommands claim in COMMANDS.md
+
+
 ## [Pass 55 Closeout] — 2026-04-29
 
 ### Fixed (documentation accuracy — 9 findings)

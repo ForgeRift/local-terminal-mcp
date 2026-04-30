@@ -41,7 +41,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 
 - **Run elevated/admin commands** — `priv-esc` is RED. Commands requiring Administrator must be run manually in an elevated terminal.
 - **Install or uninstall software** — `pkg-install` and `pkg-remove` are RED. No `choco`, `winget`, `pip install`, etc.
-- **Modify or query the registry** — both registry writes (`reg add`, `reg delete`, `reg import`) and read/export operations (`reg query`, `reg export`, `reg compare`, `reg copy`, `reg save`) are RED.
+- **Modify or query the registry** — both registry writes (`reg add`, `reg delete`, `reg import`) and read/export operations (`reg query`, `reg export`, `reg compare`, `reg copy`, `reg flags`, `reg save`) are RED.
 - **Delete files** — `file-delete` is RED. No `del`, `rm`, `Remove-Item`.
 - **Start listening servers** — `http-server` category is RED.
 - **Read sensitive files** — `.env`, SSH keys, credential stores, browser login data are blocked even in read-only tools.
@@ -104,7 +104,7 @@ Examples:
 ### 🔴 RED — Always Blocked, No Override
 140+ hard-coded patterns across 27 categories. Returns a structured error with category name, reason, and ToS warning. The AI safety layer is never consulted.
 
-> **Runtime slug note:** RED blocks emit a structured message whose first line is `⛔ BLOCKED [<slug>]` (e.g., `⛔ BLOCKED [recursive-file-deletion]`). The runtime slugs are listed in SECURITY.md. The table below uses user-friendly grouping names for readability — match to runtime slugs via SECURITY.md.
+> **Runtime slug note:** There are two RED error formats. **BLOCKED_PATTERNS hits** (slugs like `file-delete`, `code-exec`, `data-exfil`, `persistence`, etc.) emit `⛔ BLOCKED [<slug>]` as the first line. **HARD_BLOCKED_PATTERNS hits** (the 27 slugs listed in SECURITY.md, e.g. `recursive-file-deletion`, `lolbin`, `wmi-exec`) emit a multi-line `BLOCKED:` message with `Category:`, `Reason:`, and `Detected by: Layer 1 — pattern match` fields. The table below uses user-friendly grouping names for readability — match to runtime slugs via SECURITY.md.
 
 | Category | What's Blocked |
 |----------|---------------|
@@ -129,12 +129,12 @@ Examples:
 | `priv-esc` | `runas`, `sudo` (Note: `Start-Process` is blocked under `code-exec`, not `priv-esc`) |
 | `info-leak` | Credential enumeration commands: `cmdkey /list`, `vaultcmd`, `dpapi`, `$env:`, `ConvertFrom-SecureString` |
 | `sensitive-file` | Reading `.env`, SSH keys, credential stores (enforced by file-protection layer, not command classifier) |
-| `chaining` | `&&`, `||`, `;`, `&`, pipe-to-shell (e.g. `| cmd /c`, `| bash -c`). Note: standalone `cmd /c` / `bash -c` (without `|`) fire `code-exec` not `chaining`. **Plain `|` piping (e.g. `dir | findstr text`) is NOT blocked.** |
+| `chaining` | `&&`, `||`, `;`, `&`, backticks (`` ` ``), pipe-to-shell (e.g. `| cmd /c`, `| bash -c`). Note: standalone `cmd /c` / `bash -c` (without `|`) fire `code-exec` not `chaining`. **Plain `|` piping (e.g. `dir | findstr text`) is NOT blocked.** |
 | `http-server` | Starting any listening server process |
 | `base64-exec` | `certutil -decode`, `[Convert]::FromBase64String`, `base64 -d` execution patterns |
 | `com-exec` | `New-Object -ComObject WScript.Shell/Shell.Application` |
 | `download-cradle` | `Invoke-WebRequest`, `Net.WebClient`, `certutil -urlcache`, `curl`, `wget`, `nc`, `scp`, `ftp` |
-| `lolbin` | `mshta`, `wscript`, `cscript`, `regsvr32`, `rundll32` (Note: bare `msiexec` fires `code-exec` — BLOCKED_PATTERNS runs first; `lolbin` only fires for `msiexec ... /[qixa]` forms if `code-exec` somehow doesn't match first) |
+| `lolbin` | `mshta`, `wscript`, `cscript`, `regsvr32`, `rundll32` (Note: HARD_BLOCKED Layer 1 runs first. `msiexec /[qixa]` matches the Layer 1 `lolbin` pattern and fires `lolbin`. Bare `msiexec` without `/[qixa]` falls through Layer 1 and is caught by BLOCKED_PATTERNS under `code-exec`.) |
 | `wmi-exec` | `wmic process call create`, `Invoke-WmiMethod`, `New-CimInstance` |
 | `data-destruction` | `vssadmin`, `wbadmin`, `wevtutil`, `ntdsutil` — shadow-copy, backup, event-log, and AD database operations |
 
