@@ -8,6 +8,10 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 54 adversarial review closeout (2026-04-29)
+- **F1 (HIGH)** CLAUDE_CONTEXT.md Architecture section: incorrectly labelled "Layer 2" as the AMBER classifier and "Layer 3" as AI safety. In src/tools.ts Layer 2 = AI pre-classifier (Anthropic API) and Layer 3 = multi-perspective safety board (Anthropic API) — AMBER is a separate unnumbered stage that runs after BLOCKED_PATTERNS. Rewrote the architecture bullet list to accurately reflect: Layer 1 (HARD_BLOCKED static patterns) → Layer 2 + Layer 3 (two parallel AI calls) → BLOCKED_PATTERNS RED scan → AMBER classifier.
+- **F2 (MEDIUM)** forgerift.io/index.html: pipeline sentence attached "140+ patterns total" to the BLOCKED_PATTERNS reference. The "140+" count refers to HARD_BLOCKED_PATTERNS (27 categories), not BLOCKED_PATTERNS (~310 entries). Moved the parenthetical to the HARD_BLOCKED_PATTERNS reference earlier in the sentence.
+
 ### Pass 53 adversarial review closeout (2026-04-29)
 - **F1 (HIGH)** manifest.json long_description: "AMBER (dry-run preview required)" — "required" implies a server-enforced gate that does not exist. Changed to "AMBER (dry-run preview by default)" to match all other docs.
 - **F2 (HIGH)** forgerift.io/index.html: pipeline order description added in Pass 51 said "static RED pattern checks first... then AI safety checks" — incorrect. Actual order: HARD_BLOCKED_PATTERNS (Layer 1) first → AI Layer 2 + Layer 3 in parallel → BLOCKED_PATTERNS full scan → AMBER classifier. Rewrote the sentence to reflect the true execution sequence.
