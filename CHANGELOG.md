@@ -8,6 +8,10 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 45 adversarial review closeout (2026-04-29)
+- **F1 (MEDIUM)** forgerift.io/index.html: AMBER tier description listed "package updates" as an AMBER example. Package install/update/remove operations are `pkg-mgr-destructive` HARD_BLOCKED (RED), not AMBER. Replaced with `<code>sed -i</code>`, which is a genuine AMBER pattern.
+- **F2 (LOW)** forgerift.io/terms.html Schedule B.1: AMBER wording said commands "require explicit user confirmation" implying server-side enforcement. Replaced with accurate workflow-convention language matching README/FAQ/SECURITY.md: confirmed no session-state gate exists.
+
 ### Pass 44 adversarial review closeout (2026-04-29)
 - **F1 (HIGH)** Restored truncated file tails in 6 files that were truncated mid-sentence since the P42 session. All git-tracked versions prior to P42 were complete; P42 Python edits preserved a truncated working-tree state. Restored: SECURITY.md (BYPASS_BINARIES paragraph body); README.md (License section + footer links); COMMANDS.md (final FAQ answer + closing line); CLAUDE_CONTEXT.md (memory prompt text after the `>` blockquote marker); .claude-plugin/CLAUDE.md (Behavioral Rule 6 body); forgerift.io/index.html (footer links + `</footer></body></html>` closing tags).
 - **F2 (MEDIUM)** CLAUDE_CONTEXT.md: P43 missed two occurrences of `running processes` in the tool list (line ~56) and diagnostic prompt (line ~224). Updated to remove the false claim; added `(use run_command with tasklist)` parenthetical.
