@@ -8,6 +8,13 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 50 adversarial review closeout (2026-04-29)
+- **F1 (LOW)** forgerift.io/terms.html: Schedule B.1 system-power-state examples listed `reboot` and `init 0` — neither is in any pattern. Code blocks `shutdown`, `Restart-Computer`, `Stop-Computer`, `poweroff`, `halt`, `telinit [06]`, `systemctl poweroff/halt/reboot`. Corrected table row to match actual patterns.
+- **F2 (LOW)** CLAUDE_CONTEXT.md, COMMANDS.md: `data-exfil` described as "`curl`, `wget`, `Invoke-WebRequest` **posting data out**" — implying read-only GET requests might be allowed. All uses of these tools are blocked unconditionally. Removed "posting data out" qualifier from both files.
+- **F3 (LOW)** CLAUDE_CONTEXT.md: BYPASS_BINARIES binary-name matching uses `argv[0].toLowerCase()` with no `.exe` stripping or path normalization. `git` bypasses `git.exe` would NOT work. Added disclosure; operators must use the bare token as it appears first in the command.
+- **F4 (LOW)** CLAUDE_CONTEXT.md, COMMANDS.md: Registry block documented as writes only (`reg add`, `reg delete`). Code also hard-blocks `reg query`, `reg export`, `reg compare`, `reg copy`, `reg flags`, `reg save` (HARD_BLOCKED line 783) to prevent passive recon and credential exfiltration. Added read/export operations to both docs.
+- **F5 (LOW)** manifest.json: "each command invocation sends **a** small classification request" — singular. Code runs Layer 2 and Layer 3 in `Promise.all` — two parallel Anthropic API calls per invocation. Corrected to "two parallel classification requests (Layer 2 safety check and Layer 3 board review)."
+
 ### Pass 49 adversarial review closeout (2026-04-29)
 - **F1 (LOW)** forgerift.io/faq.md: "Shutting down, rebooting, or **suspending** the system" — hibernate/sleep/suspend are not blocked by any pattern. Code only blocks `shutdown`, `Restart-Computer`, `Stop-Computer`, `poweroff`, `halt`. Removed "suspending"; added explicit list of blocked commands.
 

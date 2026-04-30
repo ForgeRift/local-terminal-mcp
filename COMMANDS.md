@@ -84,7 +84,7 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Data Exfiltration
-**What it is:** Sending data out of your system — `curl`, `wget`, `Invoke-WebRequest` posting data out, `scp`, `ssh`, network file copies
+**What it is:** All outbound network transfer commands — `curl`, `wget`, `Invoke-WebRequest`, `scp`, `ssh`, network file copies. All uses are blocked unconditionally (not only data-sending POST/upload patterns).
 
 **Why blocked:** Outbound data transfer commands are blocked without exception. If you need to POST to an API or transfer a file, do it in your own terminal.
 
@@ -175,7 +175,7 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Registry Modifications
-**What it is:** `reg add`, `reg delete`, `Set-ItemProperty HKLM:\...`, any write to HKLM or HKCU
+**What it is:** `reg add`, `reg delete`, `reg import`, `Set-ItemProperty HKLM:\...` (writes); also `reg query`, `reg export`, `reg compare`, `reg copy`, `reg save` (reads/exports) — all `reg` subcommands are blocked
 
 **Why blocked:** Registry changes persist and can affect system behavior in ways that are difficult to diagnose or reverse.
 

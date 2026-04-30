@@ -40,7 +40,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 
 - **Run elevated/admin commands** — `priv-esc` is RED. Commands requiring Administrator must be run manually in an elevated terminal.
 - **Install or uninstall software** — `pkg-install` and `pkg-remove` are RED. No `choco`, `winget`, `pip install`, etc.
-- **Modify the registry** — registry write operations are RED.
+- **Modify or query the registry** — both registry writes (`reg add`, `reg delete`, `reg import`) and read/export operations (`reg query`, `reg export`, `reg compare`, `reg copy`, `reg save`) are RED.
 - **Delete files** — `file-delete` is RED. No `del`, `rm`, `Remove-Item`.
 - **Start listening servers** — `http-server` category is RED.
 - **Read sensitive files** — `.env`, SSH keys, credential stores, browser login data are blocked even in read-only tools.
@@ -117,7 +117,7 @@ Examples:
 | `scheduled-exec` | `schtasks /create`, `Register-ScheduledTask` |
 | `service-mgmt` | `sc create`, `sc delete`, `New-Service` |
 | `code-exec` | `Invoke-Expression`, `IEX`, `eval`, `iwr \| iex` |
-| `data-exfil` | `curl`, `wget`, `Invoke-WebRequest` posting data out |
+| `data-exfil` | `curl`, `wget`, `Invoke-WebRequest` — all uses blocked unconditionally (not only data-sending) |
 | `persistence` | Startup folder writes, registry run key edits |
 | `direct-db` | SQL write keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) followed by whitespace anywhere in the command (e.g., `DROP TABLE` fires; `echo DROP` at end-of-line does not) |
 | `pkg-install` | `choco install`, `winget install`, `pip install` |
@@ -185,7 +185,7 @@ The audit log (`audit.log`) is written to the `logs/` subfolder within the exten
 If Claude Desktop reports that the extension fails to start, add Claude Desktop's installation directory to Windows Defender exclusions.
 
 **`BYPASS_BINARIES` usage**
-Format: `processname:category-name` (comma-separated). Example: `my-tool:sensitive-path-write,legacy-app:pkg-mgr-destructive`. Only applies to categories in `HARD_BLOCKED_PATTERNS` (the 27 HARD_BLOCKED slugs). Every bypass is logged as `[SECURITY-BYPASS]` in the audit trail.
+Format: `processname:category-name` (comma-separated). Example: `my-tool:sensitive-path-write,legacy-app:pkg-mgr-destructive`. Only applies to categories in `HARD_BLOCKED_PATTERNS` (the 27 HARD_BLOCKED slugs). Every bypass is logged as `[SECURITY-BYPASS]` in the audit trail. **Important:** the binary name is matched against `argv[0].toLowerCase()` with no path or `.exe` stripping — `git` matches `git` but NOT `git.exe` or `C:\Program Files\Git\bin\git.exe`. Use the bare process name exactly as it appears as the first token in the command.
 
 ---
 
