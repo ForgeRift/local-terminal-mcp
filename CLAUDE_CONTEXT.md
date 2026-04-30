@@ -217,7 +217,7 @@ Format: `processname:category-name` (comma-separated). Example: `my-tool:sensiti
 |------|----------|
 | `logs\audit.log` | every tool call with tier, blocked status, args (secrets auto-redacted) |
 
-Every audit entry written to `audit.log` has: `ts` (ISO timestamp), `tool` (tool name), `tier` (green/amber/red), `blocked` (boolean), `dry_run` (boolean), and `args` (sanitized, truncated to 300 chars). Layer 1/2/3 verdicts and `[SECURITY-BYPASS]` notices are written to stderr (console), not to the audit log file.
+Every audit entry written to `audit.log` has: `ts` (ISO timestamp), `tool` (tool name), `tier` (green/amber/red), `blocked` (boolean), `dry_run` (boolean), and `args` (sanitized, truncated to 300 chars). Layer 1/2/3 verdicts are written to stdout (console.log) and `[SECURITY-BYPASS]` notices are written to stderr (console.warn), not to the audit log file.
 
 ---
 
@@ -233,7 +233,7 @@ List what's in [directory path]
 Search for any .env files in [project path]
 ```
 ```
-Show me lines 100-200 of [log file path] (for tail-N: first read_file to see total lines, then re-read with start_line=total-N)
+Show me lines 100-200 of [log file path] (Note: read_file is hard-capped at 500 lines absolute — lines past 500 are inaccessible)
 ```
 ```
 What's the git status of [project directory]?

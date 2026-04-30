@@ -1,5 +1,18 @@
 # Changelog
 
+## [Pass 55 Closeout] — 2026-04-29
+
+### Fixed (documentation accuracy — 9 findings)
+- **F1 (HIGH) SECURITY.md**: Rewrote v1.10.3 release row — removed incorrect claim that F-OP-72 extended the matcher to cover `Export-Csv` and `Export-Clixml`; F-OP-72 actually closed the trailing-colon short-circuit (``-Destination:`` with no inline value returning `undefined`)
+- **F2 (HIGH) SECURITY.md**: Fixed v1.10.3 row F-OP-74 description — was "UNC path write guard / canonicalization"; corrected to "sensitive-path regex patterns hoisted to module scope and unified across all D10 matchers"
+- **F3 (HIGH) SECURITY.md**: Removed F-OP-75 from v1.10.3 row entirely — tilde expansion logic does not exist in the codebase; the F-OP number was fictional
+- **F4 (MEDIUM) CLAUDE_CONTEXT.md**: Removed tail-N hint ("first read_file to see total lines, then re-read with start_line=total-N") — impossible because read_file is hard-capped at 500 lines absolute; replaced with accurate cap disclosure
+- **F5 (MEDIUM) SECURITY.md**: Rewrote secret redaction scope — removed false claim that key-value pairs like `password=`, `token=`, `api_key=` are redacted from output; `SECRET_OUTPUT_PATTERNS` covers token-shape patterns only; key-name redaction applies only to audit log JSON args
+- **F6 (MEDIUM) SECURITY.md**: Changed BLOCKED_PATTERNS label from "(Layer 1 RED checks)" to "(main RED check list)" — Layer 1 is `HARD_BLOCKED_PATTERNS`; BLOCKED_PATTERNS is the subsequent scan
+- **F7 (MEDIUM) SECURITY.md**: Reconciled contradiction between "caught internally before user-facing release" claim (line 81) and "operators running v1.10.0–v1.10.2" scope note (line 97); revised to accurately state earlier versions carried the affected logic
+- **F8 (LOW) COMMANDS.md**: Added category note to Background/Hidden Execution section — `Start-Job` and `Start-Process` fire `code-exec` slug, not `background-exec`; only `cmd /b` fires `background-exec`
+- **F9 (LOW) CLAUDE_CONTEXT.md**: Fixed layer verdict output channel — Layer 1/2/3 verdicts use console.log (stdout); only `[SECURITY-BYPASS]` notices use console.warn (stderr)
+
 All notable changes to local-terminal-mcp.
 
 The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning is [SemVer](https://semver.org/spec/v2.0.0.html).

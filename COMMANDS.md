@@ -277,9 +277,11 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Background / Hidden Execution
-**What it is:** `Start-Job`, `Start-Process -WindowStyle Hidden`, backgrounding with `&`
+**What it is:** `cmd /b` (backgrounding with `&`), `Start-Job`, `Start-Process -WindowStyle Hidden`
 
 **Why blocked:** Background execution hides what's running. Every command must produce visible output.
+
+**Category note:** `cmd /b` fires the `background-exec` slug. `Start-Job` and `Start-Process` fire `code-exec` (not `background-exec`) because they are treated as shell invocation vectors; both result in a RED block.
 
 ---
 
