@@ -221,6 +221,8 @@ These are hard stops. Static patterns in the code reject them immediately — no
 
 **Why blocked:** Chaining is blocked in `run_command`. Use separate tool calls instead. For git operations needing a working directory, use `git -C <path>` rather than `cd <path> && git ...`.
 
+**Note on `run_command` working directory:** Unlike `run_git_command` and `run_npm_command`, `run_command` has **no `directory` or `working_directory` parameter**. It always executes in Claude Desktop's spawned-child working directory (typically the Claude install directory). If a command must run from a specific path, use the structured tools (`run_git_command`, `run_npm_command`) which accept a `directory` parameter, or ask the user to run the command themselves from the correct directory.
+
 **Plain `|` piping is NOT blocked:** `dir | findstr error`, `type file.txt | findstr keyword`, and similar pipes to standard commands work fine — the full command string is checked against the block list, and plain `|` piping to non-shell targets is not in the block list. Pipe-to-shell forms (`| cmd /c`, `| bash -c`, etc.) are blocked under `chaining`.
 
 ---

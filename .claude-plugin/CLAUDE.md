@@ -24,7 +24,7 @@ All structured tools and any `run_command` that passes RED + AMBER checks.
 - Use `read_file` instead of `type` or `cat`
 - Use `find_files` instead of `dir /s /b`
 - Use `search_file` instead of `findstr` or `grep`
-- Use `get_system_info` instead of `systeminfo`, `wmic`, or other system-inquiry commands
+- Use `get_system_info` instead of `systeminfo`, `wmic`, or other system-inquiry commands. **Note:** `get_system_info` internally calls `wmic` for disk/memory data — on hardened endpoints with strict AV/EDR policies this may trigger a security alert. If it fails or is flagged, tell the user and ask them to run `systeminfo` manually.
 - Use `run_git_command` for git status, log, diff, branch, show, stash list, tag, rev-parse, ls-files (fetch is NOT available)
 - Use `run_npm_command` for npm list, ls, outdated, audit, view, why, explain (install, ci, and run are NOT available)
 

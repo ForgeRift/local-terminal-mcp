@@ -8,6 +8,13 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 51 adversarial review closeout (2026-04-29)
+- **F1 (MEDIUM)** CLAUDE_CONTEXT.md, .claude-plugin/CLAUDE.md: `get_system_info` internally calls `wmic` for disk and memory data. On hardened endpoints with strict AV/EDR policies `wmic` may trigger a security alert even though the user never invoked it directly. No doc warned about this. Added disclosure and fallback guidance (ask user to run `systeminfo` manually if the tool is flagged).
+- **F2 (LOW)** SECURITY.md: BYPASS_BINARIES section did not disclose that binary matching uses `argv[0].toLowerCase()` with no path normalization and no `.exe` stripping — already present in CLAUDE_CONTEXT.md since Pass 50 but missing from SECURITY.md. Added the note with the same phrasing.
+- **F3 (LOW)** src/tools.ts → dist/tools.js: `run_npm_command` and `run_git_command` schemas described `working_directory` as an alias for `directory`, "either param accepted." But both schemas had `required: ["directory", "command"]` — MCP schema validation would reject any call that omitted `directory`, making the alias claim false. Changed `required` to `["command"]` in both tools so callers may provide either `directory` or `working_directory`. Runtime code already handles the fallback via `args.directory ?? args.working_directory`. Dist rebuilt.
+- **F4 (LOW)** CLAUDE_CONTEXT.md, COMMANDS.md: `run_command` has no `directory`/`working_directory` parameter — unlike the structured tools it always executes in Claude Desktop's spawned-child working directory. This asymmetry was undisclosed. Added notes to both docs explaining the limitation and directing callers to `git -C <path>` for directory-scoped git ops.
+- **F5 (LOW)** forgerift.io/index.html: security pipeline description implied the AI safety layer runs without clarifying that static RED/AMBER pattern checks happen first. Added explicit ordering: static RED pattern checks → AMBER → then (if API key configured) two parallel AI checks (Layer 2 + Layer 3).
+
 ### Pass 50 adversarial review closeout (2026-04-29)
 - **F1 (LOW)** forgerift.io/terms.html: Schedule B.1 system-power-state examples listed `reboot` and `init 0` — neither is in any pattern. Code blocks `shutdown`, `Restart-Computer`, `Stop-Computer`, `poweroff`, `halt`, `telinit [06]`, `systemctl poweroff/halt/reboot`. Corrected table row to match actual patterns.
 - **F2 (LOW)** CLAUDE_CONTEXT.md, COMMANDS.md: `data-exfil` described as "`curl`, `wget`, `Invoke-WebRequest` **posting data out**" — implying read-only GET requests might be allowed. All uses of these tools are blocked unconditionally. Removed "posting data out" qualifier from both files.

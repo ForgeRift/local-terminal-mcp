@@ -1998,11 +1998,11 @@ export const TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        directory:         { type: "string", description: "Project directory to run the command in. Also accepted as 'working_directory'." },
-        working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted." },
+        directory:         { type: "string", description: "Project directory to run the command in. Alias: 'working_directory' (either param accepted)." },
+        working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted — provide exactly one." },
         command:           { type: "string", description: "npm sub-command — one of: list, ls, outdated, audit, view, why, explain." },
       },
-      required: ["directory", "command"],
+      required: ["command"],
     },
   },
   {
@@ -2012,11 +2012,11 @@ export const TOOLS: Tool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        directory:         { type: "string", description: "Git repo directory. Also accepted as 'working_directory'." },
-        working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted." },
+        directory:         { type: "string", description: "Git repo directory. Alias: 'working_directory' (either param accepted)." },
+        working_directory: { type: "string", description: "Alias for 'directory'. Either param is accepted — provide exactly one." },
         command:           { type: "string", description: "Git sub-command e.g. 'status', 'log --oneline -10', 'diff'." },
       },
-      required: ["directory", "command"],
+      required: ["command"],
     },
   },
 
@@ -2663,4 +2663,7 @@ ${rawResult}` : rawResult;
   }
 }
 
+}
+, tier: "green", blocked: false, dryRun: false };
+  }
 }

@@ -163,3 +163,5 @@ local-terminal-mcp is a security-enhancing layer that operates on top of your ex
 
 This feature exists to support legitimate enterprise administrator workflows — for example, an
  IT operator who needs to manage toolchain installs under `C:\Program Files\`. It is disabled by default and intentionally undiscoverable from the Claude Desktop install UI; enabling it requires editing OS-level environment variables, which are outside Claude's reach. Use only if you understand the security implications. All bypasses are logged with the [SECURITY-BYPASS] tag in the audit log; review the audit log periodically if BYPASS_BINARIES is enabled.
+
+**Binary name matching:** the binary is extracted from `argv[0].toLowerCase()` with **no path normalization and no `.exe` stripping**. The entry `git` matches `git` but does **not** match `git.exe` or `C:\Program Files\Git\bin\git.exe`. Use the bare process name exactly as it appears as the first token in the command string.

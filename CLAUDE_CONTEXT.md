@@ -53,7 +53,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 ### Read-Only (always GREEN — no review, runs immediately)
 - `list_directory` — list files and folders at a path
 - `read_file` — read up to 500 lines of any text file; supports `start_line` / `end_line` parameters for reading specific ranges (sensitive files blocked)
-- `get_system_info` — OS version, hostname, username, disk space, memory (use `run_command` with `tasklist` to see running processes)
+- `get_system_info` — OS version, hostname, username, disk space, memory (use `run_command` with `tasklist` to see running processes). **Note:** internally calls `wmic` for disk/memory data. On hardened endpoints with strict AV/EDR policies, this may trigger a security alert even though the user never invoked `wmic` directly. If `get_system_info` fails or is flagged, ask the user to run `systeminfo` in their own terminal.
 - `find_files` — search for files by name pattern
 - `search_file` — grep/findstr for text patterns within files
 
@@ -63,7 +63,7 @@ These are GREEN because the plugin's wrapper rejects any subcommand not on the a
 - `run_git_command` — read-only git only: `status`, `log`, `diff`, `branch`, `show`, `stash list`, `tag`, `rev-parse`, `ls-files` (fetch is NOT available — it can enable RCE via custom transport helpers in .git/config)
 
 ### Escape Hatch (RED/AMBER/GREEN pipeline)
-- `run_command` — arbitrary shell command. **`dry_run=true` by default.** Must explicitly pass `dry_run=false` after reviewing the preview to execute. This is intentional — not a bug.
+- `run_command` — arbitrary shell command. **`dry_run=true` by default.** Must explicitly pass `dry_run=false` after reviewing the preview to execute. This is intentional — not a bug. **No `directory`/`working_directory` parameter** — unlike `run_git_command` and `run_npm_command`, `run_command` has no directory param; it always executes in Claude Desktop's spawned-child working directory (typically the Claude install directory). Chaining (`cd /d <path> && <cmd>`) is RED-blocked; for directory-scoped git ops use `git -C <path> <sub-command>` instead.
 
 **`run_command` flow example:**
 1. User asks: "copy the dist folder to the backup location"
