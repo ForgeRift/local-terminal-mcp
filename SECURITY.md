@@ -51,7 +51,7 @@ Beyond command-level blocking, local-terminal-mcp enforces file-level access con
 - `.ssh/`, SSH keys, `authorized_keys`, `known_hosts`
 - Private keys: `.pem`, `.key`, `.pk8`, `.p12`, `.pfx`, `.ppk`
 - Credential files: `.aws/credentials`, `.gcloud/`, `.azure/`
-- Windows credential stores: `\Microsoft\Credentials`, `\Microsoft\Protect`, `SAM`, `SYSTEM`, `SECURITY`
+- Windows credential stores: `\Microsoft\Credentials`, `\Microsoft\Protect`, `SAM`, `SYSTEM`, `SECURITY` (any file whose basename ends in these literals is blocked, not only the registry hive files in `System32\config`)
 - Application secrets: `secrets.yml`, `secrets.json`, `credentials.json`, `token.json`
 - Browser data: `Login Data`, `Cookies`, `Web Data`
 - Docker/K8s config: `.docker/config.json`, `kubeconfig`
@@ -162,3 +162,4 @@ local-terminal-mcp is a security-enhancing layer that operates on top of your ex
 ### Advanced Feature: BYPASS_BINARIES
 
 This feature exists to support legitimate enterprise administrator workflows — for example, an
+ IT operator who needs to manage toolchain installs under `C:\Program Files\`. It is disabled by default and intentionally undiscoverable from the Claude Desktop install UI; enabling it requires editing OS-level environment variables, which are outside Claude's reach. Use only if you understand the security implications. All bypasses are logged with the [SECURITY-BYPASS] tag in the audit log; review the audit log periodically if BYPASS_BINARIES is enabled.

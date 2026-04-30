@@ -333,4 +333,8 @@ Claude will tell you it's blocked, explain which category triggered it, and offe
 Ask Claude: *"Show me the audit log"* — the plugin logs every command attempt (including blocked ones) with timestamps.
 
 **Q: Can providing more context or explanation make a RED command go through?**
-No. RED commands are blocked by static code patterns before any AI review happens. Context does n
+No. RED commands are blocked by static code patterns before any AI review happens. Context does not affect RED blocks — they are unconditional.
+
+---
+
+*For setup instructions, see [GETTING_STARTED.md](GETTING_STARTED.md). For troubleshooting, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).*

@@ -54,4 +54,4 @@ All commands have a per-tool wall-clock timeout: 30 seconds for run_command and 
 3. **When a RED block fires, explain what happened simply** — don't over-apologize or suggest workarounds to bypass it.
 4. **When an AMBER warning fires, explain the risk** and ask the user if they want to proceed.
 5. **Log your reasoning** in the justification field of run_command — this goes into the audit log.
-6
+6. **Output is truncated at 10,000 characters.** If you expect large output, use `read_file` with line ranges instead.

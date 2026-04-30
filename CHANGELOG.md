@@ -8,6 +8,13 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 44 adversarial review closeout (2026-04-29)
+- **F1 (HIGH)** Restored truncated file tails in 6 files that were truncated mid-sentence since the P42 session. All git-tracked versions prior to P42 were complete; P42 Python edits preserved a truncated working-tree state. Restored: SECURITY.md (BYPASS_BINARIES paragraph body); README.md (License section + footer links); COMMANDS.md (final FAQ answer + closing line); CLAUDE_CONTEXT.md (memory prompt text after the `>` blockquote marker); .claude-plugin/CLAUDE.md (Behavioral Rule 6 body); forgerift.io/index.html (footer links + `</footer></body></html>` closing tags).
+- **F2 (MEDIUM)** CLAUDE_CONTEXT.md: P43 missed two occurrences of `running processes` in the tool list (line ~56) and diagnostic prompt (line ~224). Updated to remove the false claim; added `(use run_command with tasklist)` parenthetical.
+- **F3 (LOW)** SECURITY.md: Added clarification that `SAM`, `SYSTEM`, `SECURITY` sensitive-file patterns block any file whose basename ends in those literals (not only the registry hive files in `System32\\config`). No code change — documentation disclosure.
+- **F4 (LOW)** README.md: Clarified that Layer 3 `PROCEED WITH CAUTION` warnings are also withheld until `dry_run=false`. No code change — documentation disclosure only.
+- **F5 (LOW)** README.md: Added disclosure that `dry_run=true` preview calls also consume Anthropic API tokens — the recommended AMBER preview-then-execute flow charges twice. No code change.
+
 ### Pass 43 adversarial review closeout (2026-04-29)
 - **F1 (HIGH)** CLAUDE_CONTEXT.md: AMBER section heading still read `### ⚠️ AMBER — Warning Required, \`dry_run\` Forced` and body still said `\`run_command\` forces \`dry_run=true\`...User must re-call`. Pass 42 had fixed the architecture bullet and the behavioral tip but missed this section. Fixed heading and body to match corrected language (default, not forced gate).
 - **F2 (HIGH)** src/tools.ts → dist/tools.js: `formatAmberWarning()` runtime string still said `dry_run has been forced to true for safety.` — the most user-visible surface. Changed to `dry_run defaulted to true (the safe default) — the command was NOT executed.` Dist rebuilt.

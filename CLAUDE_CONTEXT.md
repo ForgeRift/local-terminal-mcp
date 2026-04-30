@@ -53,7 +53,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 ### Read-Only (always GREEN — no review, runs immediately)
 - `list_directory` — list files and folders at a path
 - `read_file` — read up to 500 lines of any text file; supports `start_line` / `end_line` parameters for reading specific ranges (sensitive files blocked)
-- `get_system_info` — OS version, disk space, memory, running processes
+- `get_system_info` — OS version, hostname, username, disk space, memory (use `run_command` with `tasklist` to see running processes)
 - `find_files` — search for files by name pattern
 - `search_file` — grep/findstr for text patterns within files
 
@@ -221,7 +221,7 @@ Every audit entry has: timestamp, tool name, security tier, command/args, Layer 
 ## Useful Diagnostic Prompts
 
 ```
-Show me system info — OS, disk space, memory, running processes
+Show me system info — OS, disk space, memory
 ```
 ```
 List what's in [directory path]
@@ -250,4 +250,4 @@ What's the git status of [project directory]?
 
 *Paste this into Claude to save this context as a memory (best used with Claude Projects):*
 
->
+> "Please remember the following about my local-terminal-mcp setup so you can help me manage my Windows machine and troubleshoot issues without me having to re-explain it: [paste this entire document]. Reference this any time I ask about my local machine, Windows commands, file access, or anything related to my ForgeRift plugin. Note: add this to a new Claude conversation using the paperclip or attachment icon, or paste it directly into the message field at the start of a new chat."
