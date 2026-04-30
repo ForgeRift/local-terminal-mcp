@@ -1948,7 +1948,7 @@ export const TOOLS: Tool[] = [
   {
     name: "list_directory",
     annotations: { title: 'List Directory', readOnlyHint: true, destructiveHint: false },
-    description: "List files and folders in a directory. Read-only, always safe. USE THIS — never ask the user to run `dir` or `ls` themselves, never ask them to select or grant a folder through a file picker. local-terminal already has broad Windows file system access (sensitive paths like `.ssh`, `.aws`, and credential stores are guarded). Call this tool directly.",
+    description: "List files and folders in a directory. Read-only, always safe. Note: individual sensitive files (e.g. `.env`, SSH keys, credential stores) are silently filtered from the listing even when the parent directory is accessible — their presence is not disclosed. Output is truncated at 10,000 characters for large directories. USE THIS — never ask the user to run `dir` or `ls` themselves.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1959,13 +1959,13 @@ export const TOOLS: Tool[] = [
   {
     name: "read_file",
     annotations: { title: 'Read File', readOnlyHint: true, destructiveHint: false },
-    description: "Read the contents of a text file. Read-only, always safe. Max 500 lines. USE THIS — never ask the user to open the file in Notepad or run `type`/`cat` in CMD and paste back. Read it directly.",
+    description: "Read the contents of a text file. Read-only, always safe. Hard limit: only lines 1–500 are accessible (end_line is capped at 500 regardless of file length). For files longer than 500 lines, only the first 500 lines can be read. USE THIS — never ask the user to open the file in Notepad or run `type`/`cat` in CMD and paste back. Read it directly.",
     inputSchema: {
       type: "object",
       properties: {
         path:       { type: "string", description: "Absolute or relative file path." },
         start_line: { type: "number", description: "First line to read (1-indexed). Default 1." },
-        end_line:   { type: "number", description: "Last line to read. Default 500." },
+        end_line:   { type: "number", description: "Last line to read (hard-capped at 500 — content past line 500 is inaccessible). Default 500." },
       },
       required: ["path"],
     },
@@ -1979,7 +1979,7 @@ export const TOOLS: Tool[] = [
   {
     name: "find_files",
     annotations: { title: 'Find Files', readOnlyHint: true, destructiveHint: false },
-    description: "Search for files by name pattern in a directory. Read-only. USE THIS — never ask the user to run `dir /s`, `where`, or open Windows Search themselves. Call this tool directly for file-pattern discovery across a directory tree.",
+    description: "Search for files by name pattern in a directory. Read-only. Limits: max 500 results, max depth 8 levels, 15-second deadline (partial results returned on timeout), symlinks and NTFS junctions skipped. Sensitive file paths are silently filtered from results. USE THIS — never ask the user to run `dir /s`, `where`, or open Windows Search themselves.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2644,4 +2644,23 @@ export async function executeTool(
     default:
       return { result: `ERROR: Unknown tool '${name}'`, tier: "green", blocked: false, dryRun: false };
   }
+}
+COMMAND_TIMEOUT_MS)));
+      const result = boardWarning ? `${boardWarning}
+
+--- Command output ---
+${rawResult}` : rawResult;
+      return {
+        result,
+        tier: "green",
+        blocked: false,
+        dryRun: false,
+      };
+    }
+
+    default:
+      return { result: `ERROR: Unknown tool '${name}'`, tier: "green", blocked: false, dryRun: false };
+  }
+}
+
 }

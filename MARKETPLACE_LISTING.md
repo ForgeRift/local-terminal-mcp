@@ -65,7 +65,7 @@ local-terminal-mcp gives Claude access to your Windows computer so it can do tha
 
 **Lifecycle:** Installed as a Claude Desktop `.mcpb` extension. Claude Desktop spawns `node dist/index.js` over stdio and manages restart on crash. No network port opened, no inbound traffic. One outbound HTTPS call is made at startup to ForgeRift's license validation endpoint to verify your subscription; if unreachable, the plugin fails closed.
 
-**Sensitive file protection:** Blocked at the read level in all tools — not just `run_command`. `.env`, SSH keys (`id_rsa`, `id_ed25519`), Windows credential stores, browser login data, cloud credentials (`.aws/`, `.azure/`, `.gcloud/`), npm/yarn auth tokens, and shell configs that commonly contain exported secrets.
+**Sensitive file protection:** Blocked at the read level in all tools — not just `run_command`. `.env`, SSH keys (`id_rsa`, `id_ed25519`), Windows credential stores, browser login data, cloud credentials (`.aws/`, `.azure/`, `.gcloud/`), `.npmrc` (npm auth tokens), kubeconfig, and related credential files.
 
 **Audit trail:** Structured JSON, secret auto-redaction via expanded prefix + key-name regex, 10MB rotation with one backup. Stored locally at `logs/audit.log` within the extension's install directory. **Note:** the audit log persists after uninstall — Claude Desktop may not delete the extension's install directory automatically. To remove all traces, delete that directory manually after uninstalling.
 

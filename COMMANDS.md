@@ -233,7 +233,7 @@ These are hard stops. Static patterns in the code reject them immediately — no
 ---
 
 ### Base64-Encoded Execution
-**What it is:** Decoding a base64 string and executing it — `powershell -EncodedCommand`, `[Convert]::FromBase64String(...)` piped to execution
+**What it is:** Decoding a base64 string and executing it — `certutil -decode` piped to execution, `[Convert]::FromBase64String(...)`, `base64 -d` execution patterns. Note: `powershell -EncodedCommand` is blocked under `code-exec` (not `base64-exec`) since the `powershell -Command` pattern fires first.
 
 **Why blocked:** This is the most common technique for bypassing pattern scanners.
 

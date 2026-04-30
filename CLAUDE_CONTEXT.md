@@ -119,7 +119,7 @@ Examples:
 | `code-exec` | `Invoke-Expression`, `IEX`, `eval`, `iwr \| iex` |
 | `data-exfil` | `curl`, `wget`, `Invoke-WebRequest` posting data out |
 | `persistence` | Startup folder writes, registry run key edits |
-| `direct-db` | SQL write keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) anywhere in the command |
+| `direct-db` | SQL write keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) followed by whitespace anywhere in the command (e.g., `DROP TABLE` fires; `echo DROP` at end-of-line does not) |
 | `pkg-install` | `choco install`, `winget install`, `pip install` |
 | `pkg-remove` | `choco uninstall`, `winget uninstall` |
 | `container` | `docker rm -f`, `docker system prune` |
@@ -133,7 +133,7 @@ Examples:
 | `base64-exec` | `certutil -decode`, `[Convert]::FromBase64String`, `base64 -d` execution patterns |
 | `com-exec` | `New-Object -ComObject WScript.Shell/Shell.Application` |
 | `download-cradle` | `Invoke-WebRequest`, `Net.WebClient`, `certutil -urlcache`, `curl`, `wget`, `nc`, `scp`, `ftp` |
-| `lolbin` | `mshta`, `wscript`, `cscript`, `regsvr32`, `rundll32`, `msiexec` |
+| `lolbin` | `mshta`, `wscript`, `cscript`, `regsvr32`, `rundll32` (Note: bare `msiexec` fires `code-exec` — BLOCKED_PATTERNS runs first; `lolbin` only fires for `msiexec ... /[qixa]` forms if `code-exec` somehow doesn't match first) |
 | `wmi-exec` | `wmic process call create`, `Invoke-WmiMethod`, `New-CimInstance` |
 | `data-destruction` | `vssadmin`, `wbadmin`, `wevtutil`, `ntdsutil` — shadow-copy, backup, event-log, and AD database operations |
 
@@ -202,9 +202,11 @@ Format: `processname:category-name` (comma-separated). Example: `my-tool:sensiti
 
 | Variable | Default | What It Does |
 |----------|---------|-------------|
-| `AUDIT_MAX_SIZE_MB` | `10` | Audit log rotation threshold |
+| `AUDIT_MAX_SIZE_MB` | `10` | Audit log rotation threshold (MB) |
 | `BYPASS_BINARIES` | — | `process:category` pairs exempt from blocking (logged as `[SECURITY-BYPASS]`) |
 | `LAYER_STRICT_MODE` | false | If true, Layer 2/3 failures block rather than pass-through |
+| `LAYER3_MODEL` | `claude-sonnet-4-6` | Layer 3 AI model; allowlist: `claude-sonnet-4-6`, `claude-opus-4-6`, `claude-haiku-4-5-20251001` |
+| `MCP_LOG_DIR` | `<install>/logs/` | Override audit log directory; `/tmp` and world-writable paths rejected at startup |
 
 ---
 
