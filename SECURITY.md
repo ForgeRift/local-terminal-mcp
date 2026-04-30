@@ -116,7 +116,7 @@ Logs are written to `logs/audit.log` in the extension's install directory. When 
 
 ## Transport & Trust Boundary
 
-local-terminal-mcp runs as a **stdio MCP extension** spawned by Claude Desktop as a child process. There is no network listener, no HTTP server, and no inbound port opened. Two narrow outbound HTTPS flows exist: one at startup to ForgeRift's license-validation endpoint, and (if `ANTHROPIC_API_KEY` is configured) one per `run_command` invocation to Anthropic's API. The trust boundary is the stdio pipe itself: only the Claude Desktop process that spawned the plugin can send tool calls. No authentication token is used because no inbound network channel exists to authenticate.
+local-terminal-mcp runs as a **stdio MCP extension** spawned by Claude Desktop as a child process. There is no network listener, no HTTP server, and no inbound port opened. Two narrow outbound HTTPS flows exist: one at startup to ForgeRift's license-validation endpoint, and (if `ANTHROPIC_API_KEY` is configured) two parallel calls per `run_command` invocation to Anthropic's API (Layer 2 pre-classifier + Layer 3 safety board). The trust boundary is the stdio pipe itself: only the Claude Desktop process that spawned the plugin can send tool calls. No authentication token is used because no inbound network channel exists to authenticate.
 
 ## Threat Model
 

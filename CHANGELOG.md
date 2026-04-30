@@ -1,5 +1,12 @@
 # Changelog
 
+## [Pass 57 Closeout] -- 2026-04-29
+
+### Fixed (documentation accuracy -- 2 findings)
+- F1 (MEDIUM) SECURITY.md: Changed 'one per run_command invocation to Anthropic's API' to 'two parallel calls per run_command invocation (Layer 2 pre-classifier + Layer 3 safety board)' -- matches manifest.json, README, and GETTING_STARTED.md
+- F2 (LOW) COMMANDS.md: Added Category note to Privilege Escalation section clarifying runas/sudo fire priv-esc while Start-Process (including -Verb RunAs) fires code-exec -- matches CLAUDE_CONTEXT.md existing note
+
+
 ## [Pass 56 Closeout] -- 2026-04-29
 
 ### Fixed (documentation accuracy -- 4 findings)

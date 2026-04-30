@@ -165,6 +165,8 @@ These are hard stops. Static patterns in the code reject them immediately — no
 
 **Why blocked:** Elevation expands what subsequent commands can do. If a task genuinely requires elevation, run it yourself in an already-elevated terminal.
 
+**Category note:** `runas` and `sudo` fire `priv-esc`. `Start-Process` (including `-Verb RunAs`) fires `code-exec` because the `start-process` pattern is matched before any `-Verb` argument is inspected. Both result in a RED block.
+
 ---
 
 ### Persistence (Startup / Registry Run Keys)
