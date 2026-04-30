@@ -53,7 +53,7 @@ After installation, Claude Desktop will prompt you for your ForgeRift license ke
 
 If you also have an Anthropic API key, enter it in the **Anthropic API Key** field. This is optional — the plugin works without it, but AI-assisted safety classification won't run for any `run_command` invocation.
 
-**Cost note:** When an Anthropic API key is configured, every shell command Claude runs through this plugin sends a small classification request to Anthropic's API, consuming tokens billed to your Anthropic account at standard API rates. Active developers typically see a few dollars per month; heavier workloads may cost more. The plugin is fully functional without this key — only the AI-assisted safety layer is skipped.
+**Cost note:** When an Anthropic API key is configured, every shell command Claude runs through this plugin sends two parallel classification requests to Anthropic's API (Layer 2 safety check and Layer 3 board review), consuming tokens billed to your Anthropic account at standard API rates. Active developers typically see a few dollars per month; heavier workloads may cost more. The plugin is fully functional without this key — only the AI-assisted safety layer is skipped.
 
 These are two different keys from two different companies. Your **ForgeRift license key** arrives in your welcome email and begins with a ForgeRift-specific prefix. Your **Anthropic API key** comes from [console.anthropic.com](https://console.anthropic.com) and starts with `sk-ant-`. Do not paste one into the other field.
 

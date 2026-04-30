@@ -47,7 +47,7 @@ A transient network error blocked the validation request. Restart Claude Desktop
 
 ---
 
-## AMBER Dry-Run Gate Confusion
+## AMBER Dry-Run Default Confusion
 
 **`run_command` always executes in dry-run -- I never get real output**
 This is intentional. `run_command` defaults to `dry_run=true` so you can preview the command before it runs. To execute, explicitly pass `dry_run=false` after reviewing the preview. If Claude is not offering to execute, prompt it: *"Run that command for real."*

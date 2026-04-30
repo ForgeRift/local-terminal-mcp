@@ -122,13 +122,13 @@ Examples:
 | `direct-db` | SQL write keywords (`DROP`, `DELETE`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `REVOKE`) followed by whitespace anywhere in the command (e.g., `DROP TABLE` fires; `echo DROP` at end-of-line does not) |
 | `pkg-install` | `choco install`, `winget install`, `pip install` |
 | `pkg-remove` | `choco uninstall`, `winget uninstall` |
-| `container` | `docker rm -f`, `docker system prune` |
+| `container` | `docker run`, `docker exec`, `docker build`, `docker push`, `docker pull`; also `docker system prune -af` (`container-nuclear`). Note: `docker rm` and `docker rmi` are NOT blocked. |
 | `file-write` | Writing to `C:\Windows\`, `C:\Program Files\`, system paths |
 | `env-manip` | `[System.Environment]::SetEnvironmentVariable` (any scope), `setx` |
 | `priv-esc` | `runas`, `sudo` (Note: `Start-Process` is blocked under `code-exec`, not `priv-esc`) |
 | `info-leak` | Credential enumeration commands: `cmdkey /list`, `vaultcmd`, `dpapi`, `$env:`, `ConvertFrom-SecureString` |
 | `sensitive-file` | Reading `.env`, SSH keys, credential stores (enforced by file-protection layer, not command classifier) |
-| `chaining` | `&&`, `||`, `;`, `&`, pipe-to-shell (e.g. `cmd /c`, `bash -c`) — **plain `|` piping (e.g. `dir | findstr text`) is NOT blocked** |
+| `chaining` | `&&`, `||`, `;`, `&`, pipe-to-shell (e.g. `| cmd /c`, `| bash -c`). Note: standalone `cmd /c` / `bash -c` (without `|`) fire `code-exec` not `chaining`. **Plain `|` piping (e.g. `dir | findstr text`) is NOT blocked.** |
 | `http-server` | Starting any listening server process |
 | `base64-exec` | `certutil -decode`, `[Convert]::FromBase64String`, `base64 -d` execution patterns |
 | `com-exec` | `New-Object -ComObject WScript.Shell/Shell.Application` |
