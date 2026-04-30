@@ -60,7 +60,7 @@ Beyond command-level blocking, local-terminal-mcp enforces file-level access con
 
 ### Destination-Path Write Protection (D10)
 
-Command-surface destination-path protection (D10) blocks writes to OS-critical paths across the `cp` / `mv` / `install` / `copy-item` (`cpi`) / `move-item` (`mi`) / `new-item` (`ni`) / `out-file` / `set-content` / `add-content` command set — plus `tee` and `dd of=...`. After `../` canonicalization and Windows env-var guard (`%SystemRoot%` fails closed), a normalized destination matching any of the following sensitive prefixes is blocked:
+Command-surface destination-path protection (D10) blocks writes to OS-critical paths across the `copy` / `move` / `xcopy` / `robocopy` / `cp` / `mv` / `install` / `copy-item` (`cpi`) / `move-item` (`mi`) / `new-item` (`ni`) / `out-file` / `set-content` / `add-content` command set — plus `tee` and `dd of=...`. After `../` canonicalization and Windows env-var guard (`%SystemRoot%` fails closed), a normalized destination matching any of the following sensitive prefixes is blocked:
 
 - **Windows:** `/windows/`, `/system32/`, `/syswow64/`, `/program files/`, `/programdata/` (accepted with or without leading drive letter: `C:/windows`, `/windows`, `/C:/windows`)
 - **Unix:** `/etc/`, `/root/`, `/usr/bin/`, `/usr/sbin/`, `/bin/`, `/sbin/`, `/lib/`, `/lib64/`, `/boot/`

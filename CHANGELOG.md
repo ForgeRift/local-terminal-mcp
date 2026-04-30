@@ -1,5 +1,11 @@
 # Changelog
 
+## [Pass 59 Closeout] -- 2026-04-29
+
+### Fixed (documentation completeness -- 1 finding)
+- F1 (LOW) SECURITY.md: Added copy, move, xcopy, robocopy to D10 binary list -- these four cmd.exe binaries are in DEST_CMDS (src/tools.ts lines 852-856) and checked by the D10 sensitive-path matcher but were omitted from the SECURITY.md D10 disclosure
+
+
 ## [Pass 57 Closeout] -- 2026-04-29
 
 ### Fixed (documentation accuracy -- 2 findings)
