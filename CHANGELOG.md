@@ -8,6 +8,15 @@ The format loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [1.12.2] — 2026-04-29
 
+### Pass 46 adversarial review closeout (2026-04-29)
+- **F1 (MEDIUM)** src/tools.ts → dist/tools.js: AMBER tier header comment still said "Forces dry_run=true with ToS warning" — contradicting all doc corrections from P42. Fixed to: "dry_run=true is the default (not server-enforced); a warning is added to the response." Dist rebuilt.
+- **F2 (MEDIUM)** src/tools.ts → dist/tools.js, CLAUDE_CONTEXT.md, SECURITY.md: `data-destruction` slug (`vssadmin`, `wbadmin`, `wevtutil`, `ntdsutil`) was present in code (BLOCKED_PATTERNS) but entirely absent from docs and had no `BLOCKED_ALTERNATIVES` entry. Added BLOCKED_ALTERNATIVES entry to tools.ts; added `data-destruction` row to CLAUDE_CONTEXT.md RED category table; added to SECURITY.md additional-slugs list. Dist rebuilt.
+- **F3 (LOW-MEDIUM)** src/tools.ts → dist/tools.js: `formatBlockedError()` lacked any ToS warning, unlike `formatAmberWarning()`. Added "Note: Repeated bypass attempts may violate the Terms of Service (forgerift.io/terms.html)." as a trailing line. Dist rebuilt.
+- **F4 (LOW)** CLAUDE_CONTEXT.md: `get_system_info` tool description in the diagnostic workflow still read "last 50 lines" — misleading since `read_file` uses line ranges not tail-N. Updated to "lines 100-200 of [log file path]" with guidance on locating the tail without a `tail` binary.
+- **F5 (LOW)** CLAUDE_CONTEXT.md: `run_command` GREEN example block contained PowerShell cmdlets (`Get-ChildItem`, `Get-Process`) that cannot run via the cmd.exe host. Removed or replaced with cmd.exe equivalents.
+- **F6 (LOW)** CLAUDE_CONTEXT.md: GREEN-tier run_command description omitted that AI pipeline still runs when ANTHROPIC_API_KEY is configured. Added parenthetical disclosure.
+- **F7 (LOW)** CLAUDE_CONTEXT.md: Memory/context prompt block had been truncated to a bare `>` with no content. Restored full memory workflow prompt text.
+
 ### Pass 45 adversarial review closeout (2026-04-29)
 - **F1 (MEDIUM)** forgerift.io/index.html: AMBER tier description listed "package updates" as an AMBER example. Package install/update/remove operations are `pkg-mgr-destructive` HARD_BLOCKED (RED), not AMBER. Replaced with `<code>sed -i</code>`, which is a genuine AMBER pattern.
 - **F2 (LOW)** forgerift.io/terms.html Schedule B.1: AMBER wording said commands "require explicit user confirmation" implying server-side enforcement. Replaced with accurate workflow-convention language matching README/FAQ/SECURITY.md: confirmed no session-state gate exists.

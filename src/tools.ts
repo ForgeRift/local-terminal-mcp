@@ -6,7 +6,7 @@ import crypto from "crypto";
 
 // ─── Three-Tier Security Model ──────────────────────────────────────────────────
 // GREEN  — Read-only tools + approved sub-commands. Always allowed with audit.
-// AMBER  — Moderately risky commands. Forces dry_run=true with ToS warning.
+// AMBER  — Moderately risky commands. dry_run=true is the default (not server-enforced); a warning is added to the response.
 // RED    — Hard-blocked. 140+ patterns across 27 hard-block categories (plus additional RED patterns in BLOCKED_PATTERNS). Structured error.
 //
 // Every command passes through: RED check → AMBER check → GREEN execution.
@@ -1879,6 +1879,7 @@ function truncateOutput(output: string): string {
 
 // Category-specific "what to do instead" guidance shown in every RED block.
 const BLOCKED_ALTERNATIVES: Record<string, string> = {
+  'data-destruction': 'Backup, shadow-copy, event-log, and Active Directory operations must be performed in an admin terminal outside of Claude.',
   'file-delete':    'File deletion is not available via MCP. Perform this operation manually in Explorer or CMD outside of Claude.',
   'disk-ops':       'Disk and partition operations are not available via MCP.',
   'system-state':   'System shutdown/restart must be done manually.',
@@ -1917,6 +1918,8 @@ function formatBlockedError(category: string, reason: string): string {
     ``,
     `This command is classified RED (hard-blocked) under the local-terminal-mcp security model.`,
     `It cannot be executed regardless of dry_run setting or justification.`,
+    ``,
+    `Note: Repeated bypass attempts may violate the Terms of Service (forgerift.io/terms.html).`,
   ].join('\n');
 }
 

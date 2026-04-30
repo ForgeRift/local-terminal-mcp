@@ -32,7 +32,7 @@ local-terminal-mcp is a Claude Desktop extension distributed as a `.mcpb` packag
 - **Layer 2:** AMBER classifier — deterministic pattern match. When matched, fires a warning. `dry_run=true` is the default for `run_command`; if the caller passes `dry_run=false` on the first call against an AMBER pattern, execution proceeds immediately (no session state enforces a two-call gate). The recommended flow is: first call with `dry_run=true` (the default) to see the preview, then re-call with `dry_run=false`. Independent of any AI classification.
 - **Layer 3:** AI safety classification — if an Anthropic API key is configured, every `run_command` invocation (not only AMBER) sends the command text and justification to Anthropic's API before execution. A high-risk result may independently block the command. If the Anthropic API call fails (network error, rate limit, missing key), the AI layer is skipped and the command falls back to manual confirmation rather than blocking. Operators who prefer to block on API failure can set `LAYER_STRICT_MODE=true`. This is controlled by the `LAYER_STRICT_MODE` env var (default: `false` = pass-through).
 
-**Shell context:** `run_command` executes via **cmd.exe** (Windows Command Prompt) by default — Node.js `execSync` uses `process.env.ComSpec` on Windows. Use cmd.exe syntax: `dir` not `ls`, `type` not `cat`, `%VAR%` not `$env:VAR`. If the user needs PowerShell cmdlets, they must be prefixed explicitly: `powershell -NoProfile -Command "Get-Process"` — but note many PowerShell operations are RED-blocked.
+**Shell context:** `run_command` executes via **cmd.exe** (Windows Command Prompt) by default — Node.js `execSync` uses `process.env.ComSpec` on Windows. Use cmd.exe syntax: `dir` not `ls`, `type` not `cat`. **Note: Reading environment variables via `run_command` is blocked** — `%VAR%` triggers the obfuscation classifier (RED) and `$env:VAR` triggers info-leak (RED). Use `get_system_info` for OS-level info; ask the user to read specific variables themselves. PowerShell cmdlets via `powershell -Command` are also RED-blocked.
 
 ---
 
@@ -74,7 +74,7 @@ These are GREEN because the plugin's wrapper rejects any subcommand not on the a
 
 Note: `Remove-Item` is RED (file-delete category) — Claude cannot run it. Tell the user to run it in their own terminal.
 
-A **GREEN `run_command`** = passes the RED block list, doesn't match any AMBER patterns → executes with `dry_run=false` without additional review. Most read-only cmd.exe commands land here (e.g., `dir`, `type`, `ipconfig /all`).
+A **GREEN `run_command`** = passes the RED block list, doesn't match any AMBER patterns → executes with `dry_run=false` without an AMBER warning. Note: when `ANTHROPIC_API_KEY` is configured, every `run_command` (including GREEN ones) still passes through the Layer 2/3 AI pipeline before execution; a high-risk verdict can independently block. Most read-only cmd.exe commands land in GREEN (e.g., `dir`, `type`, `ipconfig /all`).
 
 ---
 
@@ -83,14 +83,13 @@ A **GREEN `run_command`** = passes the RED block list, doesn't match any AMBER p
 ### ✅ GREEN — Runs Immediately
 All read-only tools plus `run_npm_command` and `run_git_command`. Any `run_command` that passes RED + AMBER checks runs with full audit logging.
 
-Common GREEN examples:
-- `Get-ChildItem`, `dir`
-- `Get-Content` (non-sensitive files), `type`
+Common GREEN examples (cmd.exe commands — note PowerShell cmdlets like `Get-ChildItem` won't work in cmd.exe):
+- `dir`, `type` (not `Get-ChildItem`/`Get-Content` — those are PowerShell and won't run in cmd.exe)
 - `git status`, `git log`, `git diff`
 - `npm list`, `npm outdated`, `npm audit`
-- `Get-Process`, `Get-Service` (read-only)
+- `tasklist` (not `Get-Process` — PowerShell)
 - `ping`, `ipconfig /all`
-- `Test-Path`, `Get-Item` (non-system paths)
+- `sc query` (use `get_system_info` for process/service queries where possible)
 
 ### ⚠️ AMBER — Warning Required, `dry_run` Defaults to true
 Moderately risky commands with legitimate uses. `run_command` defaults to `dry_run=true` and fires a warning. The recommended workflow: preview first, relay the warning, then re-call with `dry_run=false` after confirmation. `dry_run=true` is a default — not a server-enforced gate. Passing `dry_run=false` on the first call executes immediately.
@@ -136,6 +135,7 @@ Examples:
 | `download-cradle` | `Invoke-WebRequest`, `Net.WebClient`, `certutil -urlcache`, `curl`, `wget`, `nc`, `scp`, `ftp` |
 | `lolbin` | `mshta`, `wscript`, `cscript`, `regsvr32`, `rundll32`, `msiexec` |
 | `wmi-exec` | `wmic process call create`, `Invoke-WmiMethod`, `New-CimInstance` |
+| `data-destruction` | `vssadmin`, `wbadmin`, `wevtutil`, `ntdsutil` — shadow-copy, backup, event-log, and AD database operations |
 
 **If a user hits RED:** Explain the category and reason, offer to write the exact PowerShell or CMD command they can run in an admin terminal themselves.
 
@@ -230,7 +230,7 @@ List what's in [directory path]
 Search for any .env files in [project path]
 ```
 ```
-Show me the last 50 lines of [log file path]
+Show me lines 100-200 of [log file path] (for tail-N: first read_file to see total lines, then re-read with start_line=total-N)
 ```
 ```
 What's the git status of [project directory]?
