@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.13.0] — 2026-05-02
+
+### Added — License validation on startup
+
+- **auth.ts**: New `validateSubscription(licenseKey)` function that POSTs to `payments.forgerift.io/validate` on every server startup
+- **auth.ts**: `getMachineId()` reads Windows `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` via `reg query`, SHA-256 hashes the result before transmission; falls back to `os.hostname()` on non-Windows or permission failure
+- License key is read from the `LT_LICENSE_KEY` environment variable; server exits with a clear error if validation fails or the network is unreachable (with 12 s timeout)
+- Machine fingerprint is never transmitted in plaintext — only its SHA-256 hex digest is sent; the server double-hashes before storage
+
+### Changed
+
+- Validation transport changed from `GET ?token=<key>` (key visible in URLs and logs) to `POST` with a JSON body `{ license_key, machine_id, plugin_version }` — key never appears in URLs or server logs
+- Version constant bumped to `1.13.0`; `plugin_version` is now included in every validation request for telemetry and support
+
+---
+
 ## [Pass 59 Closeout] -- 2026-04-29
 
 ### Fixed (documentation completeness -- 1 finding)

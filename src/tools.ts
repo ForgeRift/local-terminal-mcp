@@ -2637,33 +2637,3 @@ export async function executeTool(
       return { result: `ERROR: Unknown tool '${name}'`, tier: "green", blocked: false, dryRun: false };
   }
 }
-        dryRun: false,
-      };
-    }
-
-    default:
-      return { result: `ERROR: Unknown tool '${name}'`, tier: "green", blocked: false, dryRun: false };
-  }
-}
-COMMAND_TIMEOUT_MS)));
-      const result = boardWarning ? `${boardWarning}
-
---- Command output ---
-${rawResult}` : rawResult;
-      return {
-        result,
-        tier: "green",
-        blocked: false,
-        dryRun: false,
-      };
-    }
-
-    default:
-      return { result: `ERROR: Unknown tool '${name}'`, tier: "green", blocked: false, dryRun: false };
-  }
-}
-
-}
-, tier: "green", blocked: false, dryRun: false };
-  }
-}
