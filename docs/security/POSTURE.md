@@ -104,7 +104,7 @@ The plugin runs every shell command through a three-layer pipeline:
 
 2. **ALLOWLIST gate** — the binary must be on the positive allowlist
    AND its argv must pass that binary's specific arg validator (e.g.
-   `curl` URLs must be `localhost` / `127.0.0.1` / `[::1]`;
+   `curl` is denied outright in LT (data-exfil category);
    `git` flags must not be in the file-read or code-exec set;
    `npm` is read-only — `ls`, `view`, `outdated`).
 

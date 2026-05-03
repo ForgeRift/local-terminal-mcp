@@ -29,8 +29,13 @@ small surface to Claude:
 
 It does **not** expose:
 
-  - Arbitrary network access (egress binaries are denylisted; `curl`
-    is allowlist-restricted to `localhost` / `127.0.0.1` / `[::1]`).
+  - Arbitrary network access (egress binaries are fully denied in
+    LT, including `curl`, `wget`, `Invoke-WebRequest`,
+    `Invoke-RestMethod`, `scp`, `sftp`, `bitsadmin`, `certutil`,
+    and others under the `data-exfil` deny category. The localhost-
+    only `curl` allowlist documented for vps-control-mcp does not
+    apply here — on Windows the same surface is satisfied by other
+    means and the deny is kept absolute).
   - Privilege escalation (run-as verbs, user-account mutation, service
     create / config, scheduled-task create / modify, AV / EDR exclusion
     cmdlets, symbolic-link / junction primitives, registry write).
@@ -103,11 +108,12 @@ positive allowlist (`cmd.exe`, `powershell.exe`, `git`, `npm`,
 
 Each allowed binary has its own argv validator. Examples:
 
-  - `curl` — URL must resolve to `localhost` / `127.0.0.1` /
-    `[::1]`; the validator walks every arg, normalises `--key=value`
-    to its value half, matches URLs by substring, also covers
-    `--proxy=URL` (this is the post-F010 shape after the bypass fix
-    in `vps-control-mcp`; the same validator structure is used here).
+  - `curl` — denied outright in LT (data-exfil category). The
+    localhost-allowlist + `--key=value` normaliser + `--proxy=URL`
+    coverage described under the same `curl` heading in
+    `vps-control-mcp/docs/security/WHITEPAPER.md` lives only in the
+    VPS plugin; LT chooses denial-by-default for outbound HTTP from
+    a developer workstation.
   - `git` — upload-pack / receive-pack / askpass / credential-helper
     / protocol-ext config flags are stripped; repo-local hooks are
     neutralised by pre-pending `-c core.hooksPath=NUL`.
