@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.13.1+nf-s69-5] - 2026-05-03 (post-release docs/UX)
+
+Independent reviewer pass after 1.13.1 surfaced one UX gap that
+made the MachineGuid fail-closed behavior unactionable for customers
+in sandboxed/containerized environments. Closed in commit `5236260`.
+No version-archive bump -- changes are doc + error-message only.
+
+### UX
+
+- **NF-S69-5** -- `src/auth.ts` MachineGuid throw paths rewritten.
+  Both the registry-read failure and the format-mismatch path now
+  name what failed, name Windows Sandbox as the likely cause, and
+  route to `TROUBLESHOOTING.md` and `support@forgerift.io`. Prior
+  wording (""Could not read MachineGuid from registry"") was opaque
+  for non-technical customers.
+- `src/index.ts` startup-error wrapper differentiates MachineGuid
+  errors from subscription failures. MachineGuid errors print
+  `Cannot start: ...` with no follow-up about subscriptions; real
+  subscription failures keep the original
+  `Subscription check failed: ... Visit forgerift.io to manage your
+  subscription.` shape. Sandbox users no longer get sent to the
+  billing portal when the issue is environmental.
+
+### Documentation
+
+- `TROUBLESHOOTING.md` new section ""Machine Fingerprint /
+  MachineGuid Errors"" between ""License Key Issues"" and ""Tools Don't
+  Appear"", covering both error variants, why fail-closed (no
+  `os.hostname()` fallback per F008 design), and the `winver` +
+  `reg query` info to send to support if it's not a Sandbox case.
+
+### Tests
+
+- `npm run build` clean. `npm test` 421/421 still pass. No
+  behavior change for healthy installs.
+
 ## [1.13.1] — 2026-05-03
 
 S69 pre-marketplace audit close-out. Two findings shipped on top of

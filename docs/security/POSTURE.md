@@ -19,6 +19,7 @@ archive built from this repo's `main` branch.
 |---|---|---|---|---|
 | F008 | CRITICAL | fixed `0fca724` (this repo) + `b26b253` (api) | auth | Plugin sends `product_id`, fails closed on registry-read failure, uses `execFileSync` for the registry probe |
 | F009 | MAJOR | fixed `66b7fee` (this repo) + `82aeac4` (api) | version | `src/index.ts` `VERSION` constant aligned with `package.json` (1.13.0) |
+| NF-S69-5 | MINOR | fixed `5236260` | UX | MachineGuid registry-read failure surfaced opaque "Could not read MachineGuid from registry" with billing-portal trailer. Now actionable: names Sandbox as common cause, routes to TROUBLESHOOTING.md, differentiates from subscription failures. New TROUBLESHOOTING.md section |
 
 The audit's other findings (F001-F006, F007, F010-F013) sit on
 `forgerift-license-api` or `vps-control-mcp`; they're tracked in the
@@ -67,6 +68,36 @@ had moved to 1.13.0 via `6da77d1`. Customers installing the 1.13.0
 making support tickets confusing. `VERSION` is now `1.13.0` with a
 sync-reminder comment for future bumps. `dist/` is gitignored and
 rebuilt fresh on every archive. `npm test` 421/421 pass post-bump.
+
+## Post-audit UX cleanup (2026-05-03 evening, NF-S69-5)
+
+Independent reviewer pass after F008/F009 surfaced that the
+MachineGuid startup error path -- while functionally correct
+(fail-closed on unreadable registry, no `os.hostname()` fallback) --
+gave customers an unactionable error message. Closed in commit
+`5236260`.
+
+  - `src/auth.ts` -- both throw paths (registry-read failure +
+    format mismatch) now name what failed, name Windows Sandbox as
+    the likely cause when the read fails entirely, and route to
+    `TROUBLESHOOTING.md` and `support@forgerift.io`.
+  - `src/index.ts` -- the startup error wrapper now branches on
+    `msg.includes("MachineGuid")`. MachineGuid errors print
+    `[local-terminal-mcp] Cannot start: ...` with no follow-up
+    about subscriptions; real subscription errors keep the original
+    `Subscription check failed:` + `Visit forgerift.io to manage
+    your subscription.` shape. Sandbox users no longer get sent to
+    the billing portal when the issue is environmental.
+  - `TROUBLESHOOTING.md` -- new section "Machine Fingerprint /
+    MachineGuid Errors" between "License Key Issues" and "Tools
+    Don't Appear", covering both error variants, why fail-closed
+    (no `os.hostname()` fallback, F008 design choice), and the
+    `winver` + `reg query` info to send to support if it's not a
+    Sandbox case.
+
+`npm run build` clean. `npm test` 421/421 still pass. No
+behavior change for healthy installs -- only the error messages
+and the docs changed.
 
 ## Stale-fork backup branch
 
@@ -149,8 +180,6 @@ regression suite. Every new bypass class gets a row in
 
 - All findings owned by this repo are fixed.
 - Central `findings.csv` has zero `open-needs-dustin` rows.
-- `security:` commits pushed to `origin/main`: `0fca724` (F008),
-  `66b7fee` (F009), `8f57fc1` (docs scaffold + stale-fork
-  reconciliation).
+- `security:` commits pushed to `origin/main`: `0fca724` (F008), `66b7fee` (F009), `8f57fc1` (docs scaffold + stale-fork reconciliation), `5236260` (NF-S69-5 MachineGuid UX, 2026-05-03 evening).
 - POSTURE + WHITEPAPER + methodology in place.
 - `npm test` 421/421 pass on `HEAD`.
