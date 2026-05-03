@@ -33,6 +33,49 @@ Your key was not matched to an active subscription. Check that:
 
 ---
 
+## Machine Fingerprint / MachineGuid Errors
+
+The plugin reads `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` at
+startup to identify your machine for license activation. If the read
+fails, the plugin refuses to start (intentional fail-closed behavior --
+a tool with shell access should never run with an unknown machine
+identity).
+
+**"Cannot start: Could not read MachineGuid from Windows registry"**
+The registry value is not readable in your current environment. The
+common cause is running the plugin inside **Windows Sandbox** or another
+container that does not expose the host's `MachineGuid` registry value.
+
+What to do:
+1. Install on a regular Windows 10 or Windows 11 install (desktop, laptop,
+   or full-VM image like the Microsoft Windows 11 dev VM). Sandbox is
+   not a supported test environment.
+2. If you are on a stock Windows install and still see this error,
+   email `support@forgerift.io` with your Windows version
+   (`winver`) and we will help diagnose.
+
+**"Cannot start: MachineGuid registry value is present but did not match the expected GUID format"**
+`reg.exe` returned a value but it is not a 36-character GUID. This is
+unusual on a stock Windows install. Email `support@forgerift.io` with
+your Windows version (`winver`) and the output of:
+
+```powershell
+reg query "HKLM\SOFTWARE\Microsoft\Cryptography" /v MachineGuid
+```
+
+(Run that in a separate PowerShell window, not through Claude.) Do not
+share the actual GUID value publicly; send it via the support email.
+
+**Why the plugin fails closed instead of falling back**
+Earlier versions could fall back to `os.hostname()` if the registry
+read failed. That defeats the per-machine activation cap (a stable
+hostname-based fingerprint is identical across machines with the same
+name) so we removed the fallback in v1.13.0. The trade-off is that
+restricted environments that block the registry read cannot run the
+plugin -- by design.
+
+---
+
 ## Tools Don't Appear After Install
 
 **The extension shows as installed but no tools appear in Claude**

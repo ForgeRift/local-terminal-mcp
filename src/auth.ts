@@ -62,11 +62,25 @@ function getMachineId(): string {
       }
     );
   } catch {
-    throw new Error("Could not read MachineGuid from registry");
+    throw new Error(
+      "Could not read MachineGuid from Windows registry " +
+      "(HKLM\\SOFTWARE\\Microsoft\\Cryptography\\MachineGuid). " +
+      "This usually means the plugin is running in a sandboxed or " +
+      "containerized environment (e.g. Windows Sandbox) where the " +
+      "registry value is not exposed. Install on a real Windows 10 " +
+      "or Windows 11 machine. See TROUBLESHOOTING.md > \"MachineGuid " +
+      "registry not readable\" or email support@forgerift.io."
+    );
   }
   const match = /MachineGuid\s+REG_SZ\s+([0-9a-f\-]{36})/i.exec(stdout);
   if (!match) {
-    throw new Error("MachineGuid registry value is malformed");
+    throw new Error(
+      "MachineGuid registry value is present but did not match the " +
+      "expected GUID format. This is unusual on a stock Windows " +
+      "install; it can happen in heavily customized or restricted " +
+      "environments. See TROUBLESHOOTING.md > \"MachineGuid registry " +
+      "not readable\" or email support@forgerift.io."
+    );
   }
   return createHash("sha256").update(match[1].toLowerCase()).digest("hex");
 }

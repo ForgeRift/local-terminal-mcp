@@ -1,4 +1,4 @@
-﻿import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { fileURLToPath } from "url";
@@ -43,8 +43,14 @@ try {
   await validateSubscription(licenseKey);
 } catch (err: unknown) {
   const msg = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`[local-terminal-mcp] Subscription check failed: ${msg}\n`);
-  process.stderr.write("[local-terminal-mcp] Visit forgerift.io to manage your subscription.\n");
+  // MachineGuid failures are environmental, not subscription problems --
+  // route the user to TROUBLESHOOTING.md / support, not the billing portal.
+  if (msg.includes("MachineGuid")) {
+    process.stderr.write(`[local-terminal-mcp] Cannot start: ${msg}\n`);
+  } else {
+    process.stderr.write(`[local-terminal-mcp] Subscription check failed: ${msg}\n`);
+    process.stderr.write("[local-terminal-mcp] Visit forgerift.io to manage your subscription.\n");
+  }
   process.exit(1);
 }
 
