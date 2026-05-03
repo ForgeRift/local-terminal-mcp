@@ -1,4 +1,4 @@
-// auth.ts -- subscription validation for stdio transport (v1.13.0)
+// auth.ts -- subscription validation for stdio transport (v1.13.1)
 // Called once on startup before server.connect(). Exits if subscription is invalid.
 //
 // Changes from v1.12.0:
@@ -22,7 +22,7 @@ import { execFileSync } from "child_process";
 const VALIDATE_HOSTNAME = "payments.forgerift.io";
 const VALIDATE_PATH     = "/validate";
 const TIMEOUT_MS        = 12_000;
-const VERSION           = "1.13.0"; // sent with each validation for telemetry / support
+const VERSION           = "1.13.1"; // sent with each validation for telemetry / support
 
 // Stripe product id for local-terminal-mcp (live mode).
 // vps-control-mcp uses prod_UPLLq4Yfv880Se; the Bundle uses prod_UPLLQCpdUvZ0cl.

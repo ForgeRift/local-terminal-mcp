@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.13.1] — 2026-05-03
+
+S69 pre-marketplace audit close-out. Two findings shipped on top of
+1.13.0; no behavior change for healthy installs.
+
+### Security
+
+- **F008 close-out (commit `0fca724`)** — the audit was originally
+  written against a stale local fork still on the v1.12.0 sslip.io
+  shape; on origin the v1.13.0 protocol switch had already shipped.
+  Three remaining gaps closed:
+  (1) plugin sends `product_id = "prod_UPLLbMa79v84EI"` so the
+  Worker's `product_mismatch` deny path actually fires;
+  (2) `getMachineId()` no longer falls back to `os.hostname()` on a
+  registry-read failure (fail closed instead of serving a stable
+  cross-machine fingerprint);
+  (3) `execSync(string)` -> `execFileSync(argv)` for the `reg.exe`
+  registry probe so a hostile `%PATH%` / `%PATHEXT%` cannot
+  substitute a different binary.
+  End-to-end verified against the live Worker: bad key denied,
+  LT-bound key accepted + activation registered, VPS-bound key denied
+  with `different product` (no activation row), idempotent
+  already-active on rerun.
+
+- **F009 close-out (commit `66b7fee`)** — `src/index.ts` `VERSION`
+  constant was hard-coded `1.12.2` while `package.json` had moved
+  to 1.13.0. MCP clients saw the wrong server version on `initialize`.
+  Aligned to `1.13.1` in this release; same value across
+  `src/index.ts`, `src/auth.ts`, `package.json`, `manifest.json`,
+  `.claude-plugin/plugin.json`, `README`, `CLAUDE_CONTEXT.md`,
+  `SECURITY.md`.
+
+### Tests
+
+- `npm test` 421/421 pass.
+
 ## [1.13.0] — 2026-05-02
 
 ### Added — License validation on startup

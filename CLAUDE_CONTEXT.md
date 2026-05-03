@@ -20,7 +20,7 @@ When this document is loaded, treat yourself as the user's expert assistant for 
 **local-terminal-mcp** gives Claude controlled access to your local Windows machine — browse files, read code, run approved commands, and manage projects without leaving your AI workflow. Installed as a Claude Desktop `.mcpb` extension. Claude Desktop manages the Node.js process lifecycle. stdio transport — no network socket, no inbound traffic.
 
 **Built by:** ForgeRift LLC  
-**Version:** 1.12.2  
+**Version:** 1.13.1  
 **License:** MIT  
 **Docs:** github.com/ForgeRift/local-terminal-mcp
 
