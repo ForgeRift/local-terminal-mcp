@@ -84,7 +84,23 @@ would heavily conflict). Each cherry-pick should land with its own
 `src/__tests__/bypass-corpus.test.ts`, and a `F-LT-XX` finding row
 in the central `findings.csv`.
 
-The orphan `v1.13.1` tag at `3bab1b1` is left in place on the backup
-branch; it does not point at any release-buildable revision of main.
-The next release version on main will be `1.13.1` driven by the F009
-fix, not by promoting the orphan tag.
+**Tag move 2026-05-03 (post version-string sweep).** The `v1.13.1` tag
+was moved off the orphan commit `3bab1b1` to the legitimate release
+commit on main (`e03ae70 build(mcpb): migrate manifest to v0.4 schema`,
+which is the commit at HEAD when the .mcpb archive was built). Sequence:
+
+  1. `git tag -d v1.13.1` (deletes locally; was pointing at `3bab1b1`)
+  2. `git push origin :refs/tags/v1.13.1` (deletes from origin)
+  3. `git tag -a v1.13.1 -m '...' e03ae70` (retags on main)
+  4. `git push origin v1.13.1`
+
+The underlying orphan commit `3bab1b1` is preserved on
+`s67-s68-stale-fork-backup` (verified: `git branch --contains 3bab1b1`
+returns the backup branch). Only the tag pointer moved; the commit
+itself is reachable.
+
+Practical impact of the force-move: near-zero. Per the F008 audit
+context the plugin had 0 customer installs in the wild at the moment
+of the cutover, so no clone has the old tag cached in a way that
+matters. Anyone re-cloning post-move sees the new tag; anyone with a
+stale local clone can `git fetch --prune-tags` to reconcile.
