@@ -1,4 +1,4 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+﻿import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { fileURLToPath } from "url";
@@ -19,7 +19,12 @@ dotenv.config({ path: join(PLUGIN_ROOT, ".env") });
 const _origError = console.error.bind(console);
 console.log = console.info = console.warn = console.debug = _origError;
 
-const VERSION = "1.12.2";
+// Kept in sync with package.json `version`. F009 (2026-05-03):
+// the constant had drifted from "1.12.2" while package.json was at "1.13.0",
+// so MCP clients saw the wrong server version on `initialize`. Bumped to
+// "1.13.0" so the two agree. If package.json is bumped further, this
+// constant must move with it.
+const VERSION = "1.13.0";
 
 // ---------------------------------------------------------------------------
 // Subscription validation -- required before serving any tools.
