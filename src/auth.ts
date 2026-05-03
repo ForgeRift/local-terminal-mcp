@@ -4,6 +4,12 @@
 // Changes from v1.12.0:
 //   - Switched from GET ?token= to POST with JSON body (key never appears in URLs / logs)
 //   - Added machine fingerprinting via Windows MachineGuid (pre-hashed with SHA-256)
+//   - F008 (audit 2026-05-03): send product_id so the per-product license
+//     binding shipped on the Worker actually fires; drop os.hostname()
+//     fallback (fail closed -- a stable cross-machine fingerprint would
+//     defeat the activation cap); switch execSync(string) to
+//     execFileSync(argv) so a hostile %PATH% / %PATHEXT% can't substitute
+//     a different reg.exe.
 //
 // The validation endpoint: https://payments.forgerift.io/validate
 // Enforces 1 machine per license key. The machine_id is double-hashed server-side
@@ -11,44 +17,58 @@
 
 import https from "https";
 import { createHash } from "crypto";
-import { execSync } from "child_process";
-import os from "os";
+import { execFileSync } from "child_process";
 
 const VALIDATE_HOSTNAME = "payments.forgerift.io";
 const VALIDATE_PATH     = "/validate";
 const TIMEOUT_MS        = 12_000;
 const VERSION           = "1.13.0"; // sent with each validation for telemetry / support
 
+// Stripe product id for local-terminal-mcp (live mode).
+// vps-control-mcp uses prod_UPLLq4Yfv880Se; the Bundle uses prod_UPLLQCpdUvZ0cl.
+// Hard-coded rather than env-derived so a misconfigured environment can't
+// silently weaken the per-product binding.
+const PRODUCT_ID = "prod_UPLLbMa79v84EI";
+
 // -- Machine fingerprint -------------------------------------------------------
 
 /**
  * Derive a stable machine identifier and hash it with SHA-256.
- * Primary source: Windows MachineGuid from registry (stable across reboots,
- * unique per OS install). Fallback: hostname (less stable, no registry access).
+ * Source: Windows MachineGuid from registry (stable across reboots,
+ * unique per OS install). The raw GUID is never transmitted -- only its
+ * SHA-256 hex digest. The server additionally hashes the received digest,
+ * so ForgeRift's DB contains SHA-256(SHA-256(rawGuid)) -- two layers
+ * removed from the source.
  *
- * The raw GUID/hostname is never transmitted -- only its SHA-256 hex digest.
- * The server additionally hashes the received digest, so ForgeRift's DB
- * contains SHA-256(SHA-256(rawGuid)) -- two layers removed from the source.
+ * Fails closed on registry-read failure: a missing machine_id would make
+ * the Worker's per-machine activation cap unenforceable. Caller surfaces
+ * this as a "cannot validate license" startup error.
+ *
+ * Uses execFileSync against reg.exe directly (argv array, not a shell
+ * string) so cmd.exe's parsing rules and a hostile %PATH% / %PATHEXT%
+ * cannot be used to substitute a different reg.exe.
  */
 function getMachineId(): string {
-  let raw = "";
-
+  let stdout: string;
   try {
-    const out = execSync(
-      'reg query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid',
-      { timeout: 3000, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] }
-    ).toString();
-    const match = /MachineGuid\s+REG_SZ\s+([0-9a-f\-]{36})/i.exec(out);
-    if (match) raw = match[1].toLowerCase();
-  } catch (_err) {
-    // Non-Windows or permission failure -- fall through to hostname
+    stdout = execFileSync(
+      "reg.exe",
+      ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"],
+      {
+        encoding:    "utf8",
+        timeout:     3000,
+        windowsHide: true,
+        stdio:       ["ignore", "pipe", "ignore"],
+      }
+    );
+  } catch {
+    throw new Error("Could not read MachineGuid from registry");
   }
-
-  if (!raw) {
-    raw = os.hostname() || "unknown";
+  const match = /MachineGuid\s+REG_SZ\s+([0-9a-f\-]{36})/i.exec(stdout);
+  if (!match) {
+    throw new Error("MachineGuid registry value is malformed");
   }
-
-  return createHash("sha256").update(raw).digest("hex");
+  return createHash("sha256").update(match[1].toLowerCase()).digest("hex");
 }
 
 // -- Validation request -------------------------------------------------------
@@ -64,11 +84,17 @@ interface ValidateResponse {
  * Resolves on HTTP 200 + valid:true; rejects with a human-readable error otherwise.
  */
 export async function validateSubscription(licenseKey: string): Promise<void> {
-  const machineId = getMachineId();
+  let machineId: string;
+  try {
+    machineId = getMachineId();
+  } catch (e) {
+    return Promise.reject(e instanceof Error ? e : new Error(String(e)));
+  }
 
   const payload = JSON.stringify({
     license_key:    licenseKey,
     machine_id:     machineId,
+    product_id:     PRODUCT_ID,
     plugin_version: VERSION,
   });
 
