@@ -36,6 +36,42 @@ No version-archive bump -- changes are doc + error-message only.
 - `npm run build` clean. `npm test` 421/421 still pass. No
   behavior change for healthy installs.
 
+## [1.13.3] - 2026-05-04 (post-install-test polish, NF-S69-8)
+
+Independent reviewer pass after Gemini chat highlighted ANSI escape
+sequence injection as a defense-in-depth gap. Closed in this release.
+
+### Security
+
+- **NF-S69-8** -- Centralised `stripAnsi()` helper applied to ALL
+  command output paths. Previously, only `run_git_command` stripped
+  ANSI/CSI/OSC sequences (F-LT-18 fix). The `run_command` and
+  `run_npm_command` paths returned raw output, leaving an attack
+  surface where a malicious command's output could embed ANSI codes
+  to hide content from the human reading the rendered output (or do
+  terminal-state shenanigans if Claude relayed output downstream).
+  Pattern unchanged: `\x1b(?:\[[0-9;]*[mGKHFABCDJst]|\][^\x07]*\x07)`.
+
+### Internal
+
+- Version constants synced to 1.13.3 across manifest, package.json,
+  .claude-plugin/plugin.json, src/index.ts, src/auth.ts.
+- README badge bumped 1.13.2 -> 1.13.3.
+- marketplace.json ref pinned 'v1.13.2' -> 'v1.13.3'.
+- package-lock.json root version synced.
+
+### Tests
+
+- npm test 421/421 still pass. ANSI codes are not in test fixtures so
+  behaviour is unchanged for normal data; the new helper is a no-op
+  when no ANSI sequences are present.
+
+### .mcpb
+
+- filename: local-terminal-mcp-1.13.3.mcpb
+- size:     3.83 MB (matches 1.13.2)
+- files:    2396 (matches 1.13.2; .mcpbignore strips 1801)
+- SHA-256:  39355287D5320F4A4C81AFA2274CC8A909BCD5720704EEB63CC42FD6C94C8395
 ## [1.13.2] - 2026-05-04 (post-install-test polish)
 
 User-facing polish surfaced during the install-flow validation test.

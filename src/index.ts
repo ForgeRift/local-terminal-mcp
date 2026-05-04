@@ -22,10 +22,10 @@ console.log = console.info = console.warn = console.debug = _origError;
 // Kept in sync with package.json `version`. F009 (2026-05-03):
 // the constant had drifted from "1.12.2" while package.json was at "1.13.0" (now 1.13.1),
 // so MCP clients saw the wrong server version on `initialize`. Aligned
-// to "1.13.2" in the v1.13.1 release sweep. If package.json is bumped
+// to "1.13.3" in the v1.13.1 release sweep. If package.json is bumped
 // further, this
 // constant must move with it.
-const VERSION = "1.13.2";
+const VERSION = "1.13.3";
 
 // ---------------------------------------------------------------------------
 // Subscription validation -- required before serving any tools.

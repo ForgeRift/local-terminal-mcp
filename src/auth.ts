@@ -22,7 +22,7 @@ import { execFileSync } from "child_process";
 const VALIDATE_HOSTNAME = "payments.forgerift.io";
 const VALIDATE_PATH     = "/validate";
 const TIMEOUT_MS        = 12_000;
-const VERSION           = "1.13.2"; // sent with each validation for telemetry / support
+const VERSION           = "1.13.3"; // sent with each validation for telemetry / support
 
 // Stripe product id for local-terminal-mcp (live mode).
 // vps-control-mcp uses prod_UPLLq4Yfv880Se; the Bundle uses prod_UPLLQCpdUvZ0cl.

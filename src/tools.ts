@@ -1596,6 +1596,21 @@ const SECRET_OUTPUT_PATTERNS: RegExp[] = [
   /[A-Za-z0-9+/]{80,}={0,2}(?=\s|$)/g,
 ];
 
+// F-LT-86 (NF-S69-8): strip ANSI/terminal escape sequences from any tool output
+// before it reaches the model. Applied to ALL command output paths (run_command,
+// run_npm_command, run_git_command). Previously the strip lived only inside
+// run_git_command's runFile-result handler (F-LT-18); ANSI codes in non-git
+// output (e.g. `tasklist` colorized via env settings, or attacker-controlled
+// strings via run_command) reached the model unchanged. Centralising here
+// closes the gap.
+//
+// Pattern covers:
+//   ESC [...m / ESC [...G/K/H/F/A/B/C/D/J/s/t  -- CSI cursor + color codes
+//   ESC ]...BEL                                 -- OSC sequences (terminal title, hyperlinks)
+function stripAnsi(output: string): string {
+  return output.replace(/\x1b(?:\[[0-9;]*[mGKHFABCDJst]|\][^\x07]*\x07)/g, '');
+}
+
 function scrubSecrets(output: string): string {
   let scrubbed = output;
   for (const pattern of SECRET_OUTPUT_PATTERNS) {
@@ -2408,7 +2423,7 @@ export async function executeTool(
       // F-TOK-3 (S58): scrub secrets then truncate — `npm list` on a monorepo or
       // `npm audit` with many vulnerable deps can exceed MAX_CMD_OUTPUT_CHARS.
       // scrubSecrets before truncate so redaction isn't cut off mid-pattern.
-      return { result: truncateOutput(scrubSecrets(result)), tier: "green", blocked: false, dryRun: false };
+      return { result: truncateOutput(scrubSecrets(stripAnsi(result))), tier: "green", blocked: false, dryRun: false };
     }
 
     case "run_git_command": {
@@ -2602,7 +2617,7 @@ export async function executeTool(
         }
         // dry_run=false — execute but always surface the warning so it is never silently skipped
         // F-25: scrub token shapes from command output
-        const amberOutput = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
+        const amberOutput = truncateOutput(scrubSecrets(stripAnsi(runCommand(cmd, COMMAND_TIMEOUT_MS))));
         const amberPrefix = boardWarning ? `${boardWarning}\n\n` : '';
         return {
           result: `${amberPrefix}⚠️ AMBER command executed (acknowledged risk: ${amberResult.risk})\n\n${amberOutput}`,
@@ -2623,7 +2638,7 @@ export async function executeTool(
       }
 
       // GREEN execution — F-25: scrub token shapes from command output
-      const rawResult = truncateOutput(scrubSecrets(runCommand(cmd, COMMAND_TIMEOUT_MS)));
+      const rawResult = truncateOutput(scrubSecrets(stripAnsi(runCommand(cmd, COMMAND_TIMEOUT_MS))));
       const result = boardWarning ? `${boardWarning}\n\n--- Command output ---\n${rawResult}` : rawResult;
       return {
         result,
