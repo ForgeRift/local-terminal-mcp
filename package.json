@@ -14,7 +14,7 @@
     "prepack": "node -e \"const f=require('child_process').execSync('git ls-files --others --exclude-standard src/').toString().trim(); if(f.match(/\\.(orig|bak|rej|swp)$|_HEAD\\.|_BRANCH\\.|_LOCAL\\.|_REMOTE\\./)){console.error('Untracked artifact in src/: '+f);process.exit(1);}\""
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.38.0",
+    "@anthropic-ai/sdk": "^0.92.0",
     "@modelcontextprotocol/sdk": "^1.10.2",
     "dotenv": "^16.4.5"
   },
