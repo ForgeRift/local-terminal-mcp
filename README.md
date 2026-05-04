@@ -112,7 +112,7 @@ This is verifiable in the open-source code at [github.com/ForgeRift/local-termin
 ## Requirements
 
 - Windows 10 / 11
-- Claude Desktop
+- Claude Desktop standard chat (Local Terminal is not loaded by Cowork or Claude in Chrome -- those modes use a separate MCP pool that does not include `.mcpb` extensions)
 - **Network:** Outbound HTTPS to `payments.forgerift.io:443` must be reachable at startup. If your machine sits behind a restrictive corporate proxy or firewall that blocks outbound HTTPS to `payments.forgerift.io`, the plugin will fail to start. Verify reachability before subscribing: `curl -I https://payments.forgerift.io/health` (run in a separate Windows Command Prompt or PowerShell window, not through Claude)
 - **To use the plugin:** Claude Desktop only — no Node.js installation needed (Claude Desktop bundles the runtime).
 - **To build from source:** Node 18 or later required.

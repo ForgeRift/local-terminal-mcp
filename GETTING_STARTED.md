@@ -10,6 +10,8 @@ local-terminal-mcp is a Claude Desktop extension that gives Claude audited, secu
 
 Think of it like hiring an assistant who can actually sit at your computer, rather than one who has to shout instructions through a window.
 
+> **Where it works:** Local Terminal is loaded by Claude Desktop's standard chat sessions. Cowork (Anthropic's desktop-automation mode) and Claude in Chrome use a separate MCP pool and do not currently load `.mcpb` extensions, so Local Terminal is not available there. If you want Claude to use Local Terminal, use a regular chat in Claude Desktop.
+
 **What Claude can do with this installed:**
 - Browse your files and folders
 - Read code, configs, and logs

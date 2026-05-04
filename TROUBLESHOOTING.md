@@ -76,6 +76,14 @@ plugin -- by design.
 
 ---
 
+## Tools Don't Appear In Cowork or Claude in Chrome
+
+Local Terminal is a Claude Desktop ``.mcpb`` extension. It loads into Claude Desktop's standard chat sessions when you open a new conversation. **Cowork** (Anthropic's desktop-automation mode) and **Claude in Chrome** use a separate MCP server pool and do not currently load ``.mcpb`` extensions, so Local Terminal does not appear there. This is a Claude Desktop / Cowork architectural distinction, not a Local Terminal bug.
+
+If you want Claude to use Local Terminal, use a standard Claude Desktop chat. The license you paid for is the same; only the entry point differs.
+
+---
+
 ## Tools Don't Appear After Install
 
 **The extension shows as installed but no tools appear in Claude**
