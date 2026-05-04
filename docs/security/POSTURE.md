@@ -21,7 +21,7 @@ archive built from this repo's `main` branch.
 | F009 | MAJOR | fixed `66b7fee` (this repo) + `82aeac4` (api) | version | `src/index.ts` `VERSION` constant aligned with `package.json` (1.13.0) |
 | NF-S69-5 | MINOR | fixed `5236260` | UX | MachineGuid registry-read failure surfaced opaque "Could not read MachineGuid from registry" with billing-portal trailer. Now actionable: names Sandbox as common cause, routes to TROUBLESHOOTING.md, differentiates from subscription failures. New TROUBLESHOOTING.md section |
 | NF-S69-7 | MINOR | fixed `31a1d42` | docs / manifest | Install-preview pane and marketplace listing showed `support` as a GitHub Issues link. Changed to `mailto:support@forgerift.io` to match paid-plugin support expectations. Surfaced during live install-flow validation test 2026-05-04. |
-| NF-S69-8 | MINOR | fixed `<v1.13.3>` | tools.ts / output | `run_command` and `run_npm_command` returned raw output without stripping ANSI/CSI/OSC escape sequences. Only `run_git_command` had the strip (F-LT-18). Centralised `stripAnsi()` helper now applied to all output paths so attacker-controlled output cannot embed ANSI codes to hide content from the human. |
+| NF-S69-8 | MINOR | fixed `540f7e8` | tools.ts / output | `run_command` and `run_npm_command` returned raw output without stripping ANSI/CSI/OSC escape sequences. Only `run_git_command` had the strip (F-LT-18). Centralised `stripAnsi()` helper now applied to all output paths so attacker-controlled output cannot embed ANSI codes to hide content from the human. |
 
 The audit's other findings (F001-F006, F007, F010-F013) sit on
 `forgerift-license-api` or `vps-control-mcp`; they're tracked in the
