@@ -76,6 +76,30 @@ plugin -- by design.
 
 ---
 
+## Subscription & Billing
+
+### I lost my license key
+
+Email ``support@forgerift.io`` from the email address you used to subscribe. We can regenerate your key (the prior key is invalidated). Turnaround is usually within one business day.
+
+If you suspect your key has been compromised (e.g. it appeared in a screenshot you posted, or you're on a shared machine and someone may have copied it), email us so we can rotate it immediately.
+
+### How do I cancel my subscription?
+
+Email ``support@forgerift.io`` from the email address you used to subscribe and ask to cancel. The cancellation takes effect at the end of your current billing period -- you keep the time you paid for, then access ends. No prorated refunds (per the pricing terms at [forgerift.io/#pricing](https://forgerift.io/#pricing)).
+
+A self-service customer portal is on the post-marketplace roadmap.
+
+### How do I update my payment method or download an invoice?
+
+Email ``support@forgerift.io`` and we'll send you a secure link from Stripe to update your card or pull invoices. Same channel as cancellation -- self-service is on the roadmap.
+
+### My card was declined / subscription is past_due
+
+Stripe will retry the charge automatically a few times. During the retry window, the plugin keeps working (``past_due`` is treated as ``active`` by the validation flow, which is a deliberate grace period to avoid interrupting paying customers over a transient bank issue). If retries fail, the subscription transitions to ``unpaid`` and the plugin stops validating. If you want to update your card before then, email support.
+
+---
+
 ## Tools Don't Appear In Cowork or Claude in Chrome
 
 Local Terminal is a Claude Desktop ``.mcpb`` extension. It loads into Claude Desktop's standard chat sessions when you open a new conversation. **Cowork** (Anthropic's desktop-automation mode) and **Claude in Chrome** use a separate MCP server pool and do not currently load ``.mcpb`` extensions, so Local Terminal does not appear there. This is a Claude Desktop / Cowork architectural distinction, not a Local Terminal bug.

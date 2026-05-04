@@ -4,6 +4,8 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Security](https://img.shields.io/badge/security-hardened-brightgreen.svg)](SECURITY.md)
 
+> **Built by [ForgeRift LLC](https://forgerift.io).** Claude is a product of Anthropic PBC. ForgeRift is an independent third-party developer and is not affiliated with, endorsed by, or sponsored by Anthropic.
+
 Give Claude controlled access to your local Windows machine — browse files, read code, run approved commands, and manage projects without leaving your AI workflow.
 
 Installed as a Claude Desktop extension. Lifecycle managed by Claude Desktop — no terminal, no service install, no config files. Arbitrary shell commands pass through a three-tier security model (RED/AMBER/GREEN); structured tools (file ops, git read-ops, npm) bypass classification but enforce sensitive-file guards. Destructive patterns are hard-blocked at the plugin layer. Every call is audit-logged.
