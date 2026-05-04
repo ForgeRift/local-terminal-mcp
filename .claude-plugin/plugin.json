@@ -1,6 +1,6 @@
 {
   "name": "local-terminal",
-  "version": "1.13.1",
+  "version": "1.13.2",
   "description": "Windows 10/11 only — Give Claude controlled, audited access to your local Windows terminal. Three-tier security model (RED/AMBER/GREEN) with 140+ hard-blocked dangerous patterns, sensitive file protection, and full audit logging. Browse files, read code, run approved commands, and manage projects without leaving Claude Desktop.",
   "platforms": ["windows"],
   "license": "MIT",

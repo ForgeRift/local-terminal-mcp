@@ -2,7 +2,7 @@
     "manifest_version":  "0.4",
     "name":  "local-terminal",
     "display_name":  "Local Terminal (ForgeRift)",
-    "version":  "1.13.1",
+    "version":  "1.13.2",
     "description":  "Windows shell access for Claude: RED/AMBER/GREEN tiering, audit logging. Subscription required.",
     "long_description":  "Local Terminal gives Claude security-hardened access to your Windows shell. Every command is classified RED (hard-blocked), AMBER (dry-run preview by default), or GREEN (auto-execute). Over 140 patterns are permanently blocked including network exfiltration, credential theft, registry tampering, and privilege escalation. A comprehensive audit log records every tool call. Runs as a child process spawned by Claude Desktop. Two narrow data flows leave your machine: your license key (sent to ForgeRift at startup for subscription validation) and, if you supply an optional Anthropic API key, the command text and user-provided justification for every run_command invocation (not only AMBER-tier) are sent to Anthropic\u0027s API for AI-assisted safety classification before execution. When an Anthropic API key is configured, each command invocation sends two parallel classification requests to Anthropic\u0027s API (Layer 2 safety check and Layer 3 board review), consuming tokens billed to your Anthropic account. A high-risk AI evaluation may independently block execution regardless of dry_run value; the AI review is not purely advisory. Requires a paid ForgeRift subscription (forgerift.io).",
     "author":  {
@@ -16,7 +16,7 @@
                    },
     "homepage":  "https://forgerift.io",
     "documentation":  "https://github.com/ForgeRift/local-terminal-mcp#readme",
-    "support":  "https://github.com/ForgeRift/local-terminal-mcp/issues",
+    "support":  "mailto:support@forgerift.io",
     "server":  {
                    "type":  "node",
                    "entry_point":  "dist/index.js",

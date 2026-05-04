@@ -36,6 +36,35 @@ No version-archive bump -- changes are doc + error-message only.
 - `npm run build` clean. `npm test` 421/421 still pass. No
   behavior change for healthy installs.
 
+## [1.13.2] - 2026-05-04 (post-install-test polish)
+
+User-facing polish surfaced during the install-flow validation test.
+Closed in this release.
+
+### Documentation
+
+- **NF-S69-7** -- ``manifest.json`` ``support`` field changed from
+  ``https://github.com/ForgeRift/local-terminal-mcp/issues`` to
+  ``mailto:support@forgerift.io``. Better fits a paid-plugin support
+  model where customers expect direct email rather than public
+  issue-tracker triage. Surfaces in Claude Desktop's install-preview
+  pane and in the Anthropic marketplace listing's "Support" link.
+
+### Internal
+
+- Version constants synced to 1.13.2 across ``manifest.json``,
+  ``package.json``, ``.claude-plugin/plugin.json``, ``src/index.ts``,
+  ``src/auth.ts`` (per F009 sync-reminder convention). Re-built with
+  the official ``@anthropic-ai/mcpb pack`` CLI; new SHA-256:
+  ``251655E346AE9EC7E4521997117D6BE2AEE365965CA60B2DE6D6C3E154B9235F``.
+
+### Tests
+
+- ``npm test`` 421/421 pass. End-to-end install/license-validation/
+  tool-call/audit-log flow verified live against ``payments.forgerift.io``
+  and Supabase activations using the v1.13.1 .mcpb earlier today; the
+  1.13.2 build is functionally identical except for the manifest
+  ``support`` field and version constants.
 ## [1.13.1] — 2026-05-03
 
 S69 pre-marketplace audit close-out. Two findings shipped on top of

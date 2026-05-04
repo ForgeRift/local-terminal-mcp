@@ -20,6 +20,7 @@ archive built from this repo's `main` branch.
 | F008 | CRITICAL | fixed `0fca724` (this repo) + `b26b253` (api) | auth | Plugin sends `product_id`, fails closed on registry-read failure, uses `execFileSync` for the registry probe |
 | F009 | MAJOR | fixed `66b7fee` (this repo) + `82aeac4` (api) | version | `src/index.ts` `VERSION` constant aligned with `package.json` (1.13.0) |
 | NF-S69-5 | MINOR | fixed `5236260` | UX | MachineGuid registry-read failure surfaced opaque "Could not read MachineGuid from registry" with billing-portal trailer. Now actionable: names Sandbox as common cause, routes to TROUBLESHOOTING.md, differentiates from subscription failures. New TROUBLESHOOTING.md section |
+| NF-S69-7 | MINOR | fixed `<v1.13.2>` | docs / manifest | Install-preview pane and marketplace listing showed `support` as a GitHub Issues link. Changed to `mailto:support@forgerift.io` to match paid-plugin support expectations. Surfaced during live install-flow validation test 2026-05-04. |
 
 The audit's other findings (F001-F006, F007, F010-F013) sit on
 `forgerift-license-api` or `vps-control-mcp`; they're tracked in the
