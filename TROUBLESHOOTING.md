@@ -78,6 +78,21 @@ plugin -- by design.
 
 ## Subscription & Billing
 
+### Self-service billing portal
+
+Manage your subscription yourself at:
+
+> **https://billing.stripe.com/p/login/4gMdR91Sg5sgd1ybuE2Ry00**
+
+Enter the email address you used at checkout and Stripe will send you a one-time login link. From the portal you can:
+
+- Cancel your subscription (takes effect at the end of the current billing period)
+- Update your payment method
+- View and download past invoices
+- Update your billing address / customer information
+
+The portal is the fastest path. Email ``support@forgerift.io`` is the fallback for anything the portal can't do (lost license key, account-level questions, billing disputes).
+
 ### I lost my license key
 
 Email ``support@forgerift.io`` from the email address you used to subscribe. We can regenerate your key (the prior key is invalidated). Turnaround is usually within one business day.
@@ -86,17 +101,17 @@ If you suspect your key has been compromised (e.g. it appeared in a screenshot y
 
 ### How do I cancel my subscription?
 
-Email ``support@forgerift.io`` from the email address you used to subscribe and ask to cancel. The cancellation takes effect at the end of your current billing period -- you keep the time you paid for, then access ends. No prorated refunds (per the pricing terms at [forgerift.io/#pricing](https://forgerift.io/#pricing)).
+Use the self-service portal above. Cancellation takes effect at the end of your current billing period -- you keep the time you paid for, then access ends. No prorated refunds (per the pricing terms at [forgerift.io/#pricing](https://forgerift.io/#pricing) and the Terms of Service at [forgerift.io/terms.html](https://forgerift.io/terms.html)).
 
-A self-service customer portal is on the post-marketplace roadmap.
+If you can't reach the portal for any reason, email ``support@forgerift.io`` from the email address you used to subscribe and we'll cancel for you.
 
 ### How do I update my payment method or download an invoice?
 
-Email ``support@forgerift.io`` and we'll send you a secure link from Stripe to update your card or pull invoices. Same channel as cancellation -- self-service is on the roadmap.
+Use the self-service portal above. If you can't reach it, email ``support@forgerift.io``.
 
 ### My card was declined / subscription is past_due
 
-Stripe will retry the charge automatically a few times. During the retry window, the plugin keeps working (``past_due`` is treated as ``active`` by the validation flow, which is a deliberate grace period to avoid interrupting paying customers over a transient bank issue). If retries fail, the subscription transitions to ``unpaid`` and the plugin stops validating. If you want to update your card before then, email support.
+Stripe will retry the charge automatically a few times. During the retry window, the plugin keeps working (``past_due`` is treated as ``active`` by the validation flow, which is a deliberate grace period to avoid interrupting paying customers over a transient bank issue). If retries fail, the subscription transitions to ``unpaid`` and the plugin stops validating. To update your card before then, use the self-service portal above; if you can't reach it, email support.
 
 ---
 
