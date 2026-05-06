@@ -247,6 +247,21 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // command-list file on the remote host. All are SSH-equivalent exfil and RCE.
   { pattern: /\b(plink|pscp|psftp|putty(\.exe)?|kitty(\.exe)?|mobaxterm(\.exe)?)\b/i,
                                                   category: 'data-exfil',     reason: 'PuTTY family (plink/pscp/psftp/putty/kitty/mobaxterm) is prohibited (SSH-equivalent exfil/RCE).' },
+  // FN-LT-005 (2026-05): cloud-CLI upload primitives — the modern exfil surface.
+  // None of these were caught by name. Each ships in a typical dev workstation
+  // and writes user files to attacker-controlled buckets / repos / gists.
+  { pattern: /\baws\b[^|&;\n]*\bs3\b[^|&;\n]*\b(cp|sync|mv|mb|presign)\b/i,
+                                                  category: 'data-exfil',     reason: 'aws s3 cp/sync/mv/mb/presign is prohibited (cloud upload exfil).' },
+  { pattern: /\bgcloud\b[^|&;\n]*\bstorage\b[^|&;\n]*\b(cp|rsync|mv)\b/i,
+                                                  category: 'data-exfil',     reason: 'gcloud storage cp/rsync/mv is prohibited (cloud upload exfil).' },
+  { pattern: /\baz\b[^|&;\n]*\bstorage\b[^|&;\n]*\b(blob|file|share)\b[^|&;\n]*\bupload\b/i,
+                                                  category: 'data-exfil',     reason: 'az storage upload is prohibited (cloud upload exfil).' },
+  { pattern: /\bgh\b[^|&;\n]*\b(release\s+upload|gist\s+create)\b/i,
+                                                  category: 'data-exfil',     reason: 'gh release upload / gh gist create is prohibited (file publish to GitHub).' },
+  { pattern: /\brclone\b[^|&;\n]*\b(copy|sync|copyto|copyurl|move|moveto)\b/i,
+                                                  category: 'data-exfil',     reason: 'rclone copy/sync/move is prohibited (multi-cloud exfil tool).' },
+  { pattern: /\bb2\b[^|&;\n]*\bupload-file\b/i,   category: 'data-exfil',     reason: 'b2 upload-file (Backblaze) is prohibited.' },
+  { pattern: /\bmc\b[^|&;\n]*\b(cp|mirror)\b/i,   category: 'data-exfil',     reason: 'mc cp/mirror (MinIO client) is prohibited.' },
 
   // ── Environment Variable Enumeration (F-7 supplement) ────────────────────
   { pattern: /\$env:[A-Za-z_]/i,                  category: 'info-leak',      reason: 'PowerShell $env: variable access is prohibited.' },
