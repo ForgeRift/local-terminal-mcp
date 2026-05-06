@@ -1427,6 +1427,15 @@ export const AMBER_PATTERNS: AmberWarning[] = [
   { pattern: /\bmove\b/i,                   risk: 'move relocates files/directories. Review carefully.' },
   { pattern: /\brename\b.*\*/i,             risk: 'Wildcard rename can affect many files. Review carefully.' },
   { pattern: /\bren\b.*\*/i,               risk: 'Wildcard rename can affect many files. Review carefully.' },
+  // FN-LT-007 (2026-05): plain `npm install` / `pnpm add` / `yarn add` runs the
+  // package's `preinstall`/`install`/`postinstall` scripts under the current
+  // user without supervision. A typosquat or compromised dep is the most
+  // common real-world local-RCE vector for the dev persona. AMBER (not RED)
+  // because plain npm install is a routine workflow; the warning surfaces the
+  // lifecycle-script exec to the reviewer. --ignore-scripts disables the
+  // primitive, so commands that explicitly include it skip the warning.
+  { pattern: /\b(npm|pnpm|yarn)\b\s+(?:i|install|add|ci)\b(?!.*--ignore-scripts)/i,
+    risk: 'npm/pnpm/yarn install runs the package\'s preinstall/install/postinstall scripts under your user account. A typosquat or compromised dep is a common local-RCE vector. Pass --ignore-scripts if you only need the files, or audit the package\'s scripts field before approving.' },
 ];
 
 export function checkAmber(cmd: string): AmberWarning | null {

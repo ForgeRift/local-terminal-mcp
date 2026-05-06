@@ -623,6 +623,41 @@ describe('FN-LT-010 — git config write to sensitive key blocked', () => {
   it('allows git config user.name "alice"', () => assertNotBlocked('git config user.name "alice"'));
 });
 
+// ─── FN-LT-007 — npm install lifecycle scripts (AMBER warning) ───────────────
+// Plain `npm install` runs preinstall/install/postinstall under the user. A
+// typosquat / compromised dep is the most common local-RCE vector for the dev
+// persona. AMBER (not RED) because plain npm install is routine. Skipped when
+// the user explicitly passes --ignore-scripts.
+describe('FN-LT-007 — npm/pnpm/yarn install AMBER warns about lifecycle scripts', () => {
+  it('AMBER fires for npm install', () => {
+    assert.ok(checkAmber('npm install'));
+  });
+  it('AMBER fires for npm i', () => {
+    assert.ok(checkAmber('npm i left-pad'));
+  });
+  it('AMBER fires for npm install --save-dev pkg', () => {
+    assert.ok(checkAmber('npm install --save-dev innocent-pkg'));
+  });
+  it('AMBER fires for npm ci', () => {
+    assert.ok(checkAmber('npm ci'));
+  });
+  it('AMBER fires for pnpm add', () => {
+    assert.ok(checkAmber('pnpm add typosquat'));
+  });
+  it('AMBER fires for yarn add', () => {
+    assert.ok(checkAmber('yarn add typosquat'));
+  });
+  it('AMBER does NOT fire when --ignore-scripts is present', () => {
+    assert.equal(checkAmber('npm install --ignore-scripts'), null);
+  });
+  it('AMBER does NOT fire for npm run X (no install)', () => {
+    assert.equal(checkAmber('npm run build'), null);
+  });
+  it('AMBER does NOT fire for npm test', () => {
+    assert.equal(checkAmber('npm test'), null);
+  });
+});
+
 // ─── FP-LT-001 — narrow cmd `set` rule to allow assignment form ───────────────
 // The prior `set` rule was overbroad: any `set <ANYTHING>` form including the
 // legitimate assignment `set NODE_OPTIONS=--max-old-space-size=4096` was RED.
