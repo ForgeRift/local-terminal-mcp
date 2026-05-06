@@ -86,6 +86,12 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bchmod\b/i,                        category: 'permissions',    reason: 'File permission changes are prohibited.' },
   { pattern: /\bchown\b/i,                        category: 'permissions',    reason: 'File ownership changes are prohibited.' },
   { pattern: /\bchgrp\b/i,                        category: 'permissions',    reason: 'File group changes are prohibited.' },
+  // P1.12 (2026-05-04 bypass-review): chattr +i sets the immutable bit so
+  // even root cannot delete or modify the file. Used by ransomware to
+  // pin payload files in place; used by attackers to deny incident
+  // response. chattr +a (append-only) and lsattr discovery also belong
+  // in the same denial-of-administration class.
+  { pattern: /\bchattr\b/i,                       category: 'permissions',    reason: 'chattr (Linux extended attributes — +i immutable, +a append-only) is prohibited (P1.12).' },
   { pattern: /\bicacls\b/i,                       category: 'permissions',    reason: 'NTFS permission changes (icacls) are prohibited.' },
   { pattern: /\bcacls\b/i,                        category: 'permissions',    reason: 'NTFS permission changes (cacls) are prohibited.' },
   { pattern: /\btakeown\b/i,                      category: 'permissions',    reason: 'File ownership takeover is prohibited.' },

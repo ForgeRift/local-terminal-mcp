@@ -585,6 +585,18 @@ describe('P0.6: path-qualified binary invocations are blocked', () => {
     assertBlocked('./../../bin/rm -rf /tmp'));
 });
 
+// ── P1.12 — chattr immutable / append-only bit ──────────────────────────
+describe('P1.12: chattr +i / +a (denial-of-administration)', () => {
+  it('blocks chattr +i file', () =>
+    assertBlocked('chattr +i /etc/passwd'));
+  it('blocks chattr +a file (append-only)', () =>
+    assertBlocked('chattr +a /var/log/auth.log'));
+  it('blocks chattr -R +i /var/lib', () =>
+    assertBlocked('chattr -R +i /var/lib'));
+  it('blocks /usr/bin/chattr +i (path-qualified)', () =>
+    assertBlocked('/usr/bin/chattr +i /etc/passwd'));
+});
+
 // ── P1.6 — GIT_* env-var smuggling ──────────────────────────────────────
 describe('P1.6: GIT_DIR / GIT_INDEX_FILE / GIT_SSH_COMMAND env smuggling', () => {
   it('blocks GIT_DIR=/tmp/evil git commit', () =>
