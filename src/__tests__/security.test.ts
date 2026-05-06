@@ -475,6 +475,28 @@ describe('F-LT-83 â€” Windows symlink/junction/hardlink primitives', () => 
   it('regression: still blocks ln -s', () => assertBlocked('ln -s /etc/shadow /tmp/s'));
 });
 
+// ─── FP-LT-001 — narrow cmd `set` rule to allow assignment form ───────────────
+// The prior `set` rule was overbroad: any `set <ANYTHING>` form including the
+// legitimate assignment `set NODE_OPTIONS=--max-old-space-size=4096` was RED.
+// The narrowed rule blocks the env-dump forms (bare, prefix-dump, pipe-dump)
+// but allows the assignment form. buildSafeEnv() already strips real secrets
+// from any spawned child env, so the residual leak surface is minimal.
+describe('FP-LT-001 — narrowed cmd set rule', () => {
+  // Still BLOCKED: the env-dump forms.
+  it('blocks bare set (full env dump)', () => assertBlocked('set'));
+  it('blocks set | findstr (pipe dump)', () => assertBlocked('set | findstr GITHUB'));
+  it('blocks set > out.txt (redirect dump)', () => assertBlocked('set > out.txt'));
+  it('blocks set GITHUB_ (prefix dump, no =)', () => assertBlocked('set GITHUB_'));
+  it('blocks set FOO (single arg, no =)', () => assertBlocked('set FOO'));
+
+  // Now ALLOWED: the assignment form.
+  it('allows set NODE_OPTIONS=--max-old-space-size=4096', () =>
+    assertNotBlocked('set NODE_OPTIONS=--max-old-space-size=4096'));
+  it('allows set FOO=bar', () => assertNotBlocked('set FOO=bar'));
+  it('allows set TEMP=C:\\tmp', () => assertNotBlocked('set TEMP=C:\\tmp'));
+  it('allows set FOO= (empty value clear)', () => assertNotBlocked('set FOO='));
+});
+
 // â”€â”€â”€ Prior-pass smoke checks (not full coverage â€” ensures patches didn't regress) â”€
 
 describe('Prior-pass smoke: representative RED patterns still fire', () => {

@@ -247,9 +247,22 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /get-(childitem|item|content)\s+env:/i, category: 'info-leak',   reason: 'PowerShell environment variable enumeration is prohibited.' },
   // F-LT-26: PowerShell short-alias env reads: gc/gi/gci/cat/type/ls env: also dump environment.
   { pattern: /\b(gc|gi|gci|cat|type|ls)\s+env:/i,   category: 'info-leak',   reason: 'PowerShell env: provider read via alias is prohibited.' },
-  // F-LT-23: was set\s*(?:$|[|>&]) — missed `set <PREFIX>` forms like `set GITHUB_`.
-  // Fixed: \s|$ after `set` catches `set ` (space+anything), `set` at EOL, and `set|…`.
-  { pattern: /(?:^|[\s;&|])set(?:\s|$|[|>&])/i,  category: 'info-leak',      reason: 'cmd set (env dump) is prohibited.' },
+  // FP-LT-001 (2026-05): narrow the cmd `set` rule. The prior pattern
+  // `(?:^|[\s;&|])set(?:\s|$|[|>&])` matched the legitimate assignment form
+  // `set NODE_OPTIONS=--max-old-space-size=4096`, blocking a routine
+  // beginner workflow. Block only the env-dump and pipe-dump forms; allow
+  // `set NAME=VALUE`. Spawned children get buildSafeEnv() which already
+  // strips real secrets, so the residual leak surface is minimal.
+  // Matches:
+  //   set                  (bare, full env dump)        BLOCK
+  //   set | foo, set > x   (pipe / redirect dump)       BLOCK
+  //   set GITHUB_          (prefix dump, no =)          BLOCK
+  // Allows:
+  //   set NODE_OPTIONS=…   (assignment)                 ALLOW
+  //   set NAME=value       (assignment)                 ALLOW
+  // The lookahead (?!\w+=) only matches when what follows is NOT a
+  // valid env-name=value form.
+  { pattern: /(?:^|[\s;&|])set(?:\s*$|\s*[|>&]|\s+(?!\w+=))/i, category: 'info-leak', reason: 'cmd set without an explicit NAME=VALUE assignment is prohibited (env-dump form).' },
 
   // ── Persistence Mechanisms ────────────────────────────────────────────────
   { pattern: /\breg\s+(add|delete|import|export)\b/i, category: 'persistence', reason: 'Registry modification is prohibited.' },
