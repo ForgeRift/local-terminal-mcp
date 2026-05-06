@@ -522,6 +522,36 @@ describe('FN-LT-002 — poetry/uv/pipx/pdm install/add/update is blocked', () =>
   it('still allows uv --version', () => assertNotBlocked('uv --version'));
 });
 
+// ─── FN-LT-003 — tar extraction primitives that escape CWD or run shell ──────
+// `tar` was completely unhandled. --absolute-names/-P writes archive members
+// using the literal absolute path stored in the archive. --transform rewrites
+// every destination. --to-command and --use-compress-program execute shell
+// commands per archive member. bsdtar uses --absolute-paths.
+describe('FN-LT-003 — tar dangerous extraction flags blocked', () => {
+  it('blocks tar -xf payload.tar --absolute-names', () =>
+    assertBlocked('tar -xf payload.tar --absolute-names'));
+  it('blocks tar -xf payload.tar -P', () =>
+    assertBlocked('tar -xf payload.tar -P'));
+  it('blocks tar -xf payload.tar --transform "s,.*,/etc/cron.d/x,"', () =>
+    assertBlocked('tar -xf payload.tar --transform "s,.*,/etc/cron.d/x,"'));
+  it('blocks tar --use-compress-program=evil.sh -xf p.tar', () =>
+    assertBlocked('tar --use-compress-program=evil.sh -xf p.tar'));
+  it('blocks tar --to-command=evil.sh -xf p.tar', () =>
+    assertBlocked('tar --to-command=evil.sh -xf p.tar'));
+  it('blocks tar --checkpoint-action=exec=id -xf p.tar', () =>
+    assertBlocked('tar --checkpoint-action=exec=id -xf p.tar'));
+  it('blocks bsdtar --absolute-paths -xf p.tar', () =>
+    assertBlocked('bsdtar --absolute-paths -xf p.tar'));
+  it('blocks bsdtar -xf p.tar -P', () =>
+    assertBlocked('bsdtar -xf p.tar -P'));
+
+  // Read/list ops without dangerous flags still allowed.
+  it('still allows tar -tf foo.tar (list)', () =>
+    assertNotBlocked('tar -tf foo.tar'));
+  it('still allows tar -xf foo.tar (plain extract to cwd)', () =>
+    assertNotBlocked('tar -xf foo.tar'));
+});
+
 // ─── FP-LT-001 — narrow cmd `set` rule to allow assignment form ───────────────
 // The prior `set` rule was overbroad: any `set <ANYTHING>` form including the
 // legitimate assignment `set NODE_OPTIONS=--max-old-space-size=4096` was RED.

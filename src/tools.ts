@@ -332,6 +332,16 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /(?:^|[;&|\s|>])tee\b[^|&;]*\S+\.(ps1|psm1|bat|cmd|vbs|wsf|wsh|js|mjs|cjs|ts|mts|cts|tsx|jsx|py|pyw|pl|rb|php|lua|exe|dll|msi|reg|lnk|com|scr|hta|jar)\b/i,
                                                   category: 'file-write',     reason: 'tee to executable/script extension is prohibited (F-LT-66).' },
   { pattern: /\bcopy\s+con\b/i,                   category: 'file-write',     reason: 'cmd.exe copy con (console-input file write) is prohibited (F-LT-66).' },
+  // FN-LT-003 (2026-05): tar extraction primitives that escape CWD or invoke shell.
+  // --absolute-names / -P writes archive members using the literal absolute path
+  // they were stored with — `tar -xf payload.tar -P` writes /etc/cron.d/x.
+  // --transform 's,.*,/etc/cron.d/x,' rewrites every member into a destination
+  // path. --to-command=… and --use-compress-program=… execute arbitrary commands.
+  // bsdtar uses --absolute-paths instead of --absolute-names.
+  { pattern: /\btar\b[^|&;\n]*\s(--absolute-names|-P|--transform|--to-command=|--use-compress-program=|--checkpoint-action=)/i,
+                                                  category: 'file-write',     reason: 'tar extraction with --absolute-names/-P/--transform/--to-command/--use-compress-program/--checkpoint-action is prohibited (path-traversal extraction or shell exec).' },
+  { pattern: /\bbsdtar\b[^|&;\n]*\s(--absolute-paths|-P)/i,
+                                                  category: 'file-write',     reason: 'bsdtar extraction with --absolute-paths/-P is prohibited.' },
 
   // ── Environment Variable Manipulation ─────────────────────────────────────
   { pattern: /\bsetx\b/i,                         category: 'env-manip',      reason: 'Persistent environment variable modification (setx) is prohibited.' },
