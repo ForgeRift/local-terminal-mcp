@@ -559,6 +559,58 @@ describe('F-OP-66: M7-extended no-.. redirect to sensitive path (LT)', () => {
 // 2026-05-04 bypass-review round — P0/P1 closures
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── P0.2 — cmd.exe form variants (verifies F-LT-42 already covers) ──────
+describe('P0.2: cmd.exe /c bypasses (audit re-verification)', () => {
+  // The triage flagged `cmd.exe /c "..."` as a confirmed bypass against
+  // an older `\bcmd\s+/[ck]\b` rule. F-LT-42 already replaced that with
+  // `\bcmd(?:\.exe)?\b…`; these tests pin the closure under the 2026-05
+  // round naming so a future regex regression is caught with the right
+  // finding ID in the failure output.
+  it('blocks cmd.exe /c whoami', () => assertBlocked('cmd.exe /c whoami'));
+  it('blocks cmd.exe /k evil', () => assertBlocked('cmd.exe /k evil'));
+  it('blocks c:\\windows\\system32\\cmd.exe /c whoami', () =>
+    assertBlocked('c:\\windows\\system32\\cmd.exe /c whoami'));
+  it('blocks CMD.EXE /C (case-insensitive)', () =>
+    assertBlocked('CMD.EXE /C whoami'));
+  it('still allows cmd /? (regression)', () =>
+    assertNotBlocked('cmd /?'));
+});
+
+// ── P0.3 — pwsh alongside powershell (verifies parallel rules cover) ────
+describe('P0.3: pwsh (PowerShell Core) bypass-of-\\bpowershell\\b', () => {
+  // The triage noted that all PowerShell rules used \bpowershell\b which
+  // does not match `pwsh` (the cross-platform binary name). LT ships
+  // parallel `\bpwsh\b` rules at every relevant site (F-LT-36, F-LT-78,
+  // F-LT-80). Pin under the 2026-05 round naming.
+  it('blocks pwsh -c "evil"', () => assertBlocked("pwsh -c 'evil'"));
+  it('blocks pwsh.exe -EncodedCommand x', () =>
+    assertBlocked('pwsh.exe -EncodedCommand SQBuAA=='));
+  it('blocks pwsh -File evil.ps1', () => assertBlocked('pwsh -File evil.ps1'));
+  it('blocks pwsh -nop -c "..."', () => assertBlocked('pwsh -nop -c "Get-Process"'));
+  it('still blocks powershell baseline (regression)', () =>
+    assertBlocked('powershell -c "Get-Process"'));
+  it('allows pwsh --version', () => assertNotBlocked('pwsh --version'));
+});
+
+// ── P0.5 — -enc / -en / -e short-form (verifies C1 corpus already covers)
+describe('P0.5: PowerShell -EncodedCommand abbreviation forms', () => {
+  // C1 above already enumerates -e through -encodedcommand. Pin under
+  // 2026-05 round naming and verify the surrounding-flag form (which the
+  // triage suggested as a separate concern) also blocks.
+  it('blocks powershell -enc <b64>', () =>
+    assertBlocked('powershell -enc SQBuAHYAbwBrAGUA'));
+  it('blocks powershell -en <b64>', () =>
+    assertBlocked('powershell -en SQBuAHYAbwBrAGUA'));
+  it('blocks powershell -e <b64>', () =>
+    assertBlocked('powershell -e SQBuAHYAbwBrAGUA'));
+  it('blocks pwsh -enc <b64>', () =>
+    assertBlocked('pwsh -enc SQBuAHYAbwBrAGUA'));
+  it('blocks powershell -ep bypass -enc <b64> (with -ExecutionPolicy)', () =>
+    assertBlocked('powershell -ep bypass -enc SQBuAA=='));
+  it('blocks powershell -nologo -noprofile -enc <b64>', () =>
+    assertBlocked('powershell -nologo -noprofile -enc SQBuAA=='));
+});
+
 // ── P0.1 — PowerShell call operator with script-block or string ─────────
 describe('P0.1: PowerShell call operator (& {...}, & "...", & \'...\')', () => {
   it('blocks & { Write-Host evil }', () =>
