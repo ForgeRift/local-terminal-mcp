@@ -288,6 +288,16 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── Package Installation ──────────────────────────────────────────────────
   { pattern: /\bnpm\s+install\s+-g\b/i,           category: 'pkg-install',    reason: 'Global npm package installation is prohibited.' },
   { pattern: /\bpip\s+install\b/i,                category: 'pkg-install',    reason: 'pip package installation is prohibited.' },
+  // FN-LT-002 (2026-05): modern Python package managers were not covered. Each one
+  // executes pyproject.toml build scripts (`build-system.requires`, `tool.poetry.scripts`)
+  // on install — same RCE surface as `pip install -e .`. `poetry run` exec-of-script,
+  // `uv pip install`, `pipx install`, `pdm add`, and conda/mamba install all reach
+  // the same destructive primitive through different binaries.
+  { pattern: /\b(poetry|pipx|pdm|conda|mamba)\b[^|&;\n]*\b(install|add|update|sync|run)\b/i,
+                                                  category: 'pkg-install',    reason: 'Modern Python package manager (poetry/pipx/pdm/conda/mamba) install/add/update/sync/run is prohibited.' },
+  // uv has a sub-binary form: `uv pip install`, `uv add`, `uv sync`, `uv run`.
+  { pattern: /\buv\b[^|&;\n]*\b(pip|add|sync|run|install|tool)\b/i,
+                                                  category: 'pkg-install',    reason: 'uv package manager (pip/add/sync/run/install/tool) is prohibited.' },
   { pattern: /\bchoco\s+install\b/i,              category: 'pkg-install',    reason: 'Chocolatey package installation is prohibited.' },
   { pattern: /\bwinget\s+install\b/i,             category: 'pkg-install',    reason: 'winget package installation is prohibited.' },
   { pattern: /\bapt-get\s+install\b/i,            category: 'pkg-install',    reason: 'apt package installation is prohibited.' },

