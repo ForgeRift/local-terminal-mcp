@@ -217,6 +217,16 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bset-alias\b/i,                          category: 'code-exec', reason: 'PowerShell Set-Alias is prohibited (alias indirection bypass).' },
   { pattern: /\bnew-alias\b/i,                    category: 'code-exec',      reason: 'PowerShell New-Alias is prohibited.' },
   { pattern: /&\s*\$[A-Za-z_]/,                   category: 'code-exec',      reason: 'PowerShell call operator on variable (&$x) is prohibited.' },
+  // P0.1 (2026-05-04 bypass-review): PowerShell call operator with a script
+  // block or string. `& { ... }` / `& 'C:\evil.exe'` / `& "$path"` execute
+  // arbitrary PowerShell without invoking iex/Invoke-Expression and were
+  // only caught incidentally by the single-& chaining rule. Explicit rule
+  // surfaces a code-exec category instead of a confusing chaining error.
+  // The (?:^|[\s;|]) prefix avoids matching `git log -- 'foo & bar.txt'`
+  // (& inside a quoted argv value). The [{'"] suffix requires script-block
+  // or string form — `& $var` is already caught by the line above; bare
+  // `& cmd` is the chaining form caught elsewhere.
+  { pattern: /(?:^|[\s;|])\s*&\s*[\{'"]/,         category: 'code-exec',      reason: 'PowerShell call operator with script-block or string (`& { ... }`, `& "..."`, `& \'...\'`) is prohibited (P0.1).' },
 
   // ── .NET Type Accelerators (F-6 fix) ─────────────────────────────────────
   // Bypass all verb-based blocks via [IO.File]::Delete, [Net.WebClient]::new(), etc.

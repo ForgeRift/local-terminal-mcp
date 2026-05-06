@@ -559,6 +559,35 @@ describe('F-OP-66: M7-extended no-.. redirect to sensitive path (LT)', () => {
 // 2026-05-04 bypass-review round — P0/P1 closures
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── P0.1 — PowerShell call operator with script-block or string ─────────
+describe('P0.1: PowerShell call operator (& {...}, & "...", & \'...\')', () => {
+  it('blocks & { Write-Host evil }', () =>
+    assertBlocked('& { Write-Host "pwned" }'));
+  it('blocks & {Get-Process}', () =>
+    assertBlocked('& {Get-Process}'));
+  it('blocks & \'C:\\evil.exe\'', () =>
+    assertBlocked("& 'C:\\evil.exe'"));
+  it('blocks & "C:\\evil.exe"', () =>
+    assertBlocked('& "C:\\evil.exe"'));
+  it('blocks &"calc"', () =>
+    assertBlocked('&"calc"'));
+  it('blocks leading-pipe & { ... }', () =>
+    assertBlocked('whoami | & { Write-Host x }'));
+  it('blocks leading-semicolon & { ... }', () =>
+    assertBlocked('whoami; & { Write-Host x }'));
+  it('still blocks &$var (regression on existing rule)', () =>
+    assertBlocked('& $payload'));
+  // false-positive guards: the new pattern requires `&` followed by `{`/`'`/`"`,
+  // so `& $var` (legit PS variable-call) and bare `& cmd` are NOT matched by
+  // the new rule. (`& $var` is caught by the pre-existing &$var rule, and
+  // bare `& cmd` is caught by the single-& chaining rule — neither is a
+  // regression on the new P0.1 rule.)
+  it('benign cmd with no & or quotes still allowed', () =>
+    assertNotBlocked('echo hello'));
+  it('git status with no special chars still allowed', () =>
+    assertNotBlocked('git status'));
+});
+
 // ── P0.4 — sudoedit / doas / pkexec / runuser / gsudo bypass \bsudo\b ────
 describe('P0.4: sudoedit / doas / pkexec / runuser / gsudo are blocked', () => {
   // sudoedit was previously only caught when paired with a sensitive-path
