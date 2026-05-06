@@ -945,7 +945,11 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
 
   // ─── Base64 Decode-to-Exec ───────────────────────────────────────────────────
   { pattern: /\bcertutil\b.*-decode\b/i,                      category: 'base64-exec', reason: 'certutil -decode (base64 decode LOLBin) is prohibited.' },
-  { pattern: /\bbase64\b.*-d\b/i,                              category: 'base64-exec', reason: 'base64 -d (decode) is prohibited (obfuscation layer).' },
+  // P1.1 (2026-05-04 bypass-review): the prior pattern only caught -d.
+  // GNU coreutils base64 also accepts -D and --decode; busybox accepts
+  // --decode-line. Extend the alternation.
+  { pattern: /\bbase64\b[^|&;\n]*(?:-d\b|-D\b|--decode\b|--decode-line\b)/i,
+                                                                category: 'base64-exec', reason: 'base64 -d / -D / --decode / --decode-line is prohibited (obfuscation layer).' },
   { pattern: /\[convert\]::frombase64string/i,                 category: 'base64-exec', reason: '[Convert]::FromBase64String (base64 decode) is prohibited.' },
   { pattern: /\[system\.convert\]::frombase64string/i,         category: 'base64-exec', reason: '[System.Convert]::FromBase64String is prohibited.' },
   // H4: reg query / export expose sensitive key contents and can exfiltrate
