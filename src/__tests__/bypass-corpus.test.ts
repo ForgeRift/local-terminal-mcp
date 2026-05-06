@@ -559,6 +559,34 @@ describe('F-OP-66: M7-extended no-.. redirect to sensitive path (LT)', () => {
 // 2026-05-04 bypass-review round — P0/P1 closures
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── A1 — Binary-alias normalization ─────────────────────────────────────
+describe('A1: BINARY_ALIASES — pwsh/nodejs/ncat/python3/pip3 → canonical', () => {
+  // Each test exercises the architectural fix: the original argv[0] is an
+  // alias not in the canonical pattern set; the alias-normalized variant
+  // should fire the canonical pattern. A few of these would also have
+  // been caught by parallel hand-written rules (pwsh -c) — A1 adds the
+  // closure for the long tail (python3.11, /usr/bin/pwsh, etc).
+  it('blocks pwsh -c (canonical: powershell -c)', () =>
+    assertBlocked("pwsh -c 'Get-Process'"));
+  it('blocks /usr/bin/pwsh -c (path-qualified pwsh alias)', () =>
+    assertBlocked("/usr/bin/pwsh -c 'evil'"));
+  it('blocks nodejs -e "..."  (canonical: node -e)', () =>
+    assertBlocked('nodejs -e "console.log(1)"'));
+  it('blocks ncat -l 4444 (canonical: nc)', () =>
+    assertBlocked('ncat -l -p 4444'));
+  it('blocks netcat -l 4444 (canonical: nc)', () =>
+    assertBlocked('netcat -l -p 4444'));
+  it('blocks python3 -c "..." (canonical: python -c)', () =>
+    assertBlocked('python3 -c "print(1)"'));
+  it('blocks python3.12 -c "..." (version-suffixed)', () =>
+    assertBlocked('python3.12 -c "print(1)"'));
+  it('blocks pip3 install pkg (canonical: pip install)', () =>
+    assertBlocked('pip3 install requests'));
+  // false-positive guards
+  it('allows nodejs --version', () => assertNotBlocked('nodejs --version'));
+  it('allows pwsh --version', () => assertNotBlocked('pwsh --version'));
+});
+
 // ── P0.2 — cmd.exe form variants (verifies F-LT-42 already covers) ──────
 describe('P0.2: cmd.exe /c bypasses (audit re-verification)', () => {
   // The triage flagged `cmd.exe /c "..."` as a confirmed bypass against

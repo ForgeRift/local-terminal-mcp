@@ -611,6 +611,63 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\bntdsutil\b/i,                     category: 'data-destruction', reason: 'ntdsutil is prohibited (Active Directory database extraction, C10).' },
 ];
 
+// ─── A1 (2026-05-04 bypass-review): Binary-alias normalization ─────────────
+// The deny-list patterns are keyed to canonical binary names (powershell,
+// node, nc, python, pip). Cross-platform aliases and version-suffixed
+// binaries silently slip these patterns when the binary is invoked under a
+// different name (`pwsh` vs `powershell`, `nodejs` vs `node`, `ncat` vs
+// `nc`, `python3.12` vs `python`). The map below feeds aliasNormalize(),
+// which produces a second matchable string with argv[0] rewritten to its
+// canonical form so the existing pattern set fires once on the canonical
+// command. This closes a class of bypasses without touching every pattern.
+//
+// Coverage chosen to align with explicit P0 / P1 audit findings:
+//   P0.3            pwsh → powershell
+//   P1.16 / P1.17   pip3, nodejs, python3 → canonical
+//   P1.2            ncat / netcat → nc
+const BINARY_ALIASES: ReadonlyMap<string, string> = new Map([
+  ['pwsh',           'powershell'],
+  ['nodejs',         'node'],
+  ['ncat',           'nc'],
+  ['netcat',         'nc'],
+  ['nc.traditional', 'nc'],
+  ['nc.openbsd',     'nc'],
+  ['python3',        'python'],
+  ['python2',        'python'],
+  ['pythonw',        'python'],
+  ['py',             'python'],
+  ['pip3',           'pip'],
+]);
+
+// aliasNormalize: returns a copy of `cmd` with argv[0] rewritten to its
+// canonical form, or null if no alias applied. Strips path qualification
+// (`/usr/bin/pwsh` → `pwsh`) and `.exe` suffix before lookup. Returns null
+// (no rewrite needed) when the binary is already canonical.
+function aliasNormalize(cmd: string): string | null {
+  const argv = tokenizeCommand(cmd);
+  if (argv.length === 0) return null;
+  const orig = argv[0];
+  // Strip path prefix and .exe suffix for the lookup key.
+  let key = orig;
+  const sep = Math.max(key.lastIndexOf('/'), key.lastIndexOf('\\'));
+  if (sep >= 0) key = key.slice(sep + 1);
+  key = key.replace(/\.exe$/i, '').toLowerCase();
+  // Generic version-suffix collapse for python (python3.11, python3.12w).
+  if (/^python\d+(\.\d+)?w?$/.test(key)) key = 'python';
+  // Generic pipN → pip.
+  if (/^pip\d+$/.test(key)) key = 'pip';
+  const canonical = BINARY_ALIASES.get(key) ?? (key === 'python' || key === 'pip' ? key : undefined);
+  if (!canonical || canonical === orig) return null;
+  // Find the original argv[0] in the command string (it appears at the
+  // start, modulo leading whitespace) and replace just that span.
+  const trimmedStart = cmd.search(/\S/);
+  if (trimmedStart < 0) return null;
+  const after = cmd.slice(trimmedStart + orig.length);
+  // Sanity: confirm we're slicing the correct span before substituting.
+  if (cmd.slice(trimmedStart, trimmedStart + orig.length) !== orig) return null;
+  return cmd.slice(0, trimmedStart) + canonical + after;
+}
+
 export function checkBlocked(cmd: string): { blocked: true; category: string; reason: string } | { blocked: false } {
   // ── CRITICAL FIX (S35): Reject non-ASCII to prevent Unicode homoglyph bypass ──
   // Cyrillic/Greek lookalikes (e.g. Cyrillic 'р' for Latin 'r') defeat \b word boundaries.
@@ -629,7 +686,16 @@ export function checkBlocked(cmd: string): { blocked: true; category: string; re
   // ── CRITICAL FIX (S35): Check each line independently ──
   // Newlines break regex `.` matching, allowing chaining across lines.
   const lines = cmd.split(/\r?\n/).filter(l => l.trim().length > 0);
+  // A1 (2026-05-04): for each line, also produce an alias-normalized
+  // variant (pwsh→powershell, ncat→nc, python3→python, …) so canonical
+  // patterns fire on aliased binaries without duplicating every regex.
+  const matchables: string[] = [];
   for (const line of lines) {
+    matchables.push(line);
+    const normalized = aliasNormalize(line);
+    if (normalized !== null) matchables.push(normalized);
+  }
+  for (const line of matchables) {
     for (const { pattern, category, reason } of BLOCKED_PATTERNS) {
       if (pattern.test(line)) {
         return { blocked: true, category, reason };
@@ -643,6 +709,15 @@ export function checkBlocked(cmd: string): { blocked: true; category: string; re
       return { blocked: true, category, reason };
     }
   }
+  // A1: alias-normalized full-command check too.
+  const fullNorm = aliasNormalize(cmd);
+  if (fullNorm !== null) {
+    for (const { pattern, category, reason } of BLOCKED_PATTERNS) {
+      if (pattern.test(fullNorm)) {
+        return { blocked: true, category, reason };
+      }
+    }
+  }
 
   // HARD_BLOCKED_PATTERNS (Layer 1 of BLOCKED tier) — also enforce synchronously
   // so checkBlocked provides complete single-call safety coverage regardless of
@@ -654,6 +729,17 @@ export function checkBlocked(cmd: string): { blocked: true; category: string; re
       category: hardBlocked.category,
       reason: hardBlocked.reason ?? `Command matches a hard-blocked pattern (${hardBlocked.category}).`,
     };
+  }
+  // A1: alias-normalized hard-block check too.
+  if (fullNorm !== null) {
+    const hardBlockedNorm = checkHardBlocked(fullNorm);
+    if (hardBlockedNorm) {
+      return {
+        blocked: true,
+        category: hardBlockedNorm.category,
+        reason: hardBlockedNorm.reason ?? `Command matches a hard-blocked pattern (${hardBlockedNorm.category}).`,
+      };
+    }
   }
 
   return { blocked: false };
