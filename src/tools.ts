@@ -381,7 +381,15 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /\[environment\]::setenvironmentvariable/i, category: 'env-manip', reason: 'PowerShell environment variable persistence is prohibited.' },
 
   // ── Privilege Escalation ──────────────────────────────────────────────────
-  { pattern: /\bsudo\b/i,                         category: 'priv-esc',       reason: 'Privilege escalation (sudo) is prohibited.' },
+  // P0.4 (2026-05-04 bypass-review): \bsudo\b doesn't match between sudo and
+  // edit because both are word chars; sudoedit is a distinct binary with the
+  // same attack surface as `sudo vi`. doas/runuser/pkexec/gsudo are sudo
+  // alternatives that the bare \bsudo\b rule never matched.
+  { pattern: /\bsudo(?:edit)?\b/i,                category: 'priv-esc',       reason: 'Privilege escalation (sudo / sudoedit) is prohibited.' },
+  { pattern: /\bdoas\b/i,                         category: 'priv-esc',       reason: 'Privilege escalation (doas) is prohibited.' },
+  { pattern: /\bpkexec\b/i,                       category: 'priv-esc',       reason: 'Privilege escalation (pkexec) is prohibited.' },
+  { pattern: /\brunuser\b/i,                      category: 'priv-esc',       reason: 'Privilege escalation (runuser) is prohibited.' },
+  { pattern: /\bgsudo\b/i,                        category: 'priv-esc',       reason: 'Privilege escalation (gsudo, Windows sudo equivalent) is prohibited.' },
   { pattern: /\brunas\b/i,                        category: 'priv-esc',       reason: 'Privilege escalation (runas) is prohibited.' },
   { pattern: /(?:^|[;&|])\s*su\s/i,                           category: 'priv-esc',       reason: 'User switching (su) is prohibited.' },
 

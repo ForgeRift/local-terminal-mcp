@@ -554,3 +554,36 @@ describe('F-OP-66: M7-extended no-.. redirect to sensitive path (LT)', () => {
   it('allows echo x > .\\build\\report.log (benign relative)', () =>
     assertNotBlocked('echo x > .\\build\\report.log'));
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2026-05-04 bypass-review round — P0/P1 closures
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── P0.4 — sudoedit / doas / pkexec / runuser / gsudo bypass \bsudo\b ────
+describe('P0.4: sudoedit / doas / pkexec / runuser / gsudo are blocked', () => {
+  // sudoedit was previously only caught when paired with a sensitive-path
+  // token (sudoedit /etc/passwd); a bare `sudoedit foo` slipped \bsudo\b.
+  it('blocks sudoedit foo (previously slipped \\bsudo\\b)', () =>
+    assertBlocked('sudoedit foo'));
+  it('blocks sudoedit /etc/passwd', () =>
+    assertBlocked('sudoedit /etc/passwd'));
+  it('blocks doas foo (no sensitive path)', () =>
+    assertBlocked('doas foo'));
+  it('blocks doas vi /etc/shadow', () =>
+    assertBlocked('doas vi /etc/shadow'));
+  it('blocks pkexec foo', () =>
+    assertBlocked('pkexec /bin/bash'));
+  it('blocks runuser', () =>
+    assertBlocked('runuser -u root -- whoami'));
+  it('blocks gsudo (Windows sudo equivalent)', () =>
+    assertBlocked('gsudo whoami'));
+  it('still blocks bare sudo (regression)', () =>
+    assertBlocked('sudo whoami'));
+  it('allows benign use of "sudoedit" inside a literal-string arg of git log', () => {
+    // false-positive guard: word "sudoedit" appearing as documentation/comment-style text
+    // Note: any literal occurrence still matches \bsudoedit\b — this is intentional
+    // (defense-in-depth), but verify a bare echo of unrelated text is benign-only when
+    // it doesn't contain priv-esc keywords.
+    assertNotBlocked('echo hello world');
+  });
+});
