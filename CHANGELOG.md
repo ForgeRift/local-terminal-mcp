@@ -1,5 +1,89 @@
 # Changelog
 
+## [Unreleased] - 2026-05-06 (External-AI bypass-discovery round closeout — round 2)
+
+External multi-model adversarial bypass-discovery audit (DeepSeek + Grok +
+Gemini, 67 raw findings → 22 deduplicated unique) against existing Layer 1
+patterns. Six P0 (audit-claimed-uncovered) and five P1 findings closed,
+plus the A1 binary-alias normalization architectural improvement. Bundled
+with the prior NF-S69-A round (below) into the next version-archive bump.
+
+Full triage at `forgerift-license-api/docs/legal/external-ai-bypass-triage_2026-05.md`;
+per-finding dispositions in `ADVERSARIAL_REVIEW.md`.
+
+### Architectural
+
+- **A1 — binary-alias normalization** (commit `d5986dd`) -- new
+  `BINARY_ALIASES` map normalizes binary references to canonical forms
+  before pattern matching: `pwsh` → `powershell`, `cmd.exe` → `cmd`,
+  `pip3` → `pip`, `ncat`/`netcat` → `nc`, `nodejs` → `node`, and similar
+  variants. Closes a class of bypasses where alternative spellings of
+  allowlisted binaries slipped pattern matches that targeted only the
+  canonical name. 10 regression tests pinned.
+
+### Security (P0 -- audit-claimed coverage gaps)
+
+- **P0.1 / call operator** (commit `52f6245`) -- new explicit rule for
+  PowerShell call operator (`& { ... }`) and dot-sourcing
+  (`. ./script.ps1`). Genuinely uncovered before this round; the prior
+  `IEX` / `Invoke-Expression` rules did not extend to the call-operator
+  form. 10 regression tests.
+- **P0.4 / sudoedit + sister-binaries** (commit `b078f67`) -- new rules
+  for `sudoedit`, `doas`, `pkexec`, `runuser`, `gsudo` (Windows). The
+  prior `\bsudo\b` failed against `sudoedit` because `\b` requires a
+  non-word boundary between `sudo` and `edit`; the new pattern explicitly
+  enumerates priv-esc sister-binaries.
+- **P0.2 / P0.3 / P0.5 / P0.6 (regression pins)** (commits `4d3696c`,
+  `480e61d`) -- already incidentally caught by adjacent rules (F-LT-42,
+  F-LT-36/78, M7-extended); pinned via dedicated regression tests under
+  round-2 finding IDs so future regressions surface with the right
+  finding ID.
+
+### Security (P1)
+
+- **P1.1 / base64 long-form decode** (commit `3a395ef`) -- `base64 -D`
+  (uppercase), `--decode`, `--decode-line` covered. Prior
+  `\bbase64\b.*-d\b` only caught lowercase `-d`. 6 regression tests.
+- **P1.6 / GIT_* env-var smuggling** (commit `d443d9d`) -- `GIT_DIR`,
+  `GIT_INDEX_FILE`, `GIT_WORK_TREE`, `GIT_SSH_COMMAND`, `GIT_EDITOR`,
+  `GIT_EXEC_PATH`, `GIT_TEMPLATE_DIR`, `GIT_CEILING_DIRECTORIES`,
+  `GIT_CONFIG*`, `GIT_PAGER`, `GIT_ASKPASS`, `GIT_OBJECT_DIRECTORY`,
+  `GIT_NAMESPACE`, `GIT_SSH` env-var prefix smuggling. The prior
+  argv-walk caught `git -c key=val` flags; env-var prefix smuggling was
+  a separate vector. 8 regression tests.
+- **P1.7 / alternative downloaders** (commit `2393e2f`) -- `fetch`,
+  `axel`, `aria2c`, `httpie`, `http <METHOD>`, `https <METHOD>`. Prior
+  incidental block depended on URL ending in an executable extension
+  (`.com` / `.exe`); `.io` / `.org` / `.dev` URLs slipped. 7 regression
+  tests.
+- **P1.12 / chattr** (commit `c09aaa7`) -- file-attribute manipulation
+  including `chattr +i` (immutable) and `+a` (append-only). Used to lock
+  audit logs, block remediation, or freeze sensitive files post-write. 4
+  regression tests.
+
+### Tests
+
+- **513/513 → 593/593 pass.** 80 new regression tests added across this
+  round. Zero regressions on the prior 513.
+
+### Documentation
+
+- `ADVERSARIAL_REVIEW.md` updated with full disposition table (commit
+  `a0eb521`).
+- `SECURITY.md` updated with binary-alias canonicalization note.
+
+### Method note
+
+The triage doc claimed "5 of 6 P0-candidate bypasses verified real" against
+the literal regex pattern named, but the layered deny-list (BLOCKED +
+HARD_BLOCKED + chaining + obfuscation tiers) caught most of them via
+different rules. Each finding was re-verified against the live code;
+explicit rules were added even where an incidental match already existed,
+on the principle that the audit-claimed coverage should match the
+actually-firing rule.
+
+---
+
 ## [Unreleased] - 2026-05-05 (NF-S69-A deny-list audit closeout)
 
 Internal adversarial audit pass against `BLOCKED_PATTERNS`,
