@@ -809,6 +809,12 @@ const HARD_BLOCKED_PATTERNS: HardBlockedPattern[] = [
   // H10: Disabling Defender/EDR/AV defeats the security stack.
   { pattern: /\bset-mppreference\b[^|&;\n]*-disable/i,                             category: 'edr-disable' },
   { pattern: /\bset-mppreference\b[^|&;\n]*-tamperprotection\b[^|&;\n]*0\b/i,  category: 'edr-disable' },
+  // FN-LT-001 (2026-05): Add-MpPreference -ExclusionPath / -ExclusionProcess /
+  // -ExclusionExtension is the canonical attacker move (whitelist a path so a
+  // payload survives), as common as Set-MpPreference -Disable*. Same for
+  // Remove-MpPreference (used to undo defensive exclusions).
+  { pattern: /\b(add|remove)-mppreference\b/i,                                       category: 'edr-disable' },
+  { pattern: /\bset-mppreference\b[^|&;\n]*-attacksurfacereductionrules_actions\b[^|&;\n]*\b(disabled|0)\b/i, category: 'edr-disable' },
   { pattern: /\bdisable-windowsoptionalfeature\b[^|&;\n]*windows-defender/i,        category: 'edr-disable' },
   { pattern: /\bnet\b[^|&;\n]*\bstop\b[^|&;\n]*\b(windefend|mssense|sense)\b/i,   category: 'edr-disable' },
   { pattern: /\bsc\b[^|&;\n]*\b(stop|delete)\b[^|&;\n]*\b(windefend|mssense|sense)\b/i, category: 'edr-disable' },

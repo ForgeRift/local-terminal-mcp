@@ -475,6 +475,26 @@ describe('F-LT-83 â€” Windows symlink/junction/hardlink primitives', () => 
   it('regression: still blocks ln -s', () => assertBlocked('ln -s /etc/shadow /tmp/s'));
 });
 
+// ─── FN-LT-001 — Add-MpPreference / Remove-MpPreference Defender bypass ──────
+// Set-MpPreference -Disable* was caught; Add-MpPreference -ExclusionPath was
+// not. ExclusionPath/ExclusionProcess/ExclusionExtension is the canonical
+// attacker move: whitelist the path so a payload survives Defender scans.
+describe('FN-LT-001 — Add/Remove-MpPreference is blocked', () => {
+  it('blocks Add-MpPreference -ExclusionPath', () =>
+    assertBlocked('Add-MpPreference -ExclusionPath C:\\Users\\Public\\malware'));
+  it('blocks Add-MpPreference -ExclusionExtension', () =>
+    assertBlocked('Add-MpPreference -ExclusionExtension ".exe"'));
+  it('blocks Add-MpPreference -ExclusionProcess', () =>
+    assertBlocked('Add-MpPreference -ExclusionProcess "evil.exe"'));
+  it('blocks Remove-MpPreference -ExclusionPath', () =>
+    assertBlocked('Remove-MpPreference -ExclusionPath C:\\Defenses'));
+  it('blocks Set-MpPreference -AttackSurfaceReductionRules_Actions Disabled', () =>
+    assertBlocked('Set-MpPreference -AttackSurfaceReductionRules_Ids xxx -AttackSurfaceReductionRules_Actions Disabled'));
+  // Sanity: non-MpPreference verb forms still allowed.
+  it('still allows Get-MpPreference (read-only)', () =>
+    assertNotBlocked('Get-MpPreference'));
+});
+
 // ─── FP-LT-001 — narrow cmd `set` rule to allow assignment form ───────────────
 // The prior `set` rule was overbroad: any `set <ANYTHING>` form including the
 // legitimate assignment `set NODE_OPTIONS=--max-old-space-size=4096` was RED.
