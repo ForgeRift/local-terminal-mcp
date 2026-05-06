@@ -244,6 +244,17 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   // ── Data Exfiltration ─────────────────────────────────────────────────────
   { pattern: /\bcurl\b/i,                         category: 'data-exfil',     reason: 'curl is prohibited. Data cannot leave the machine via MCP.' },
   { pattern: /\bwget\b/i,                         category: 'data-exfil',     reason: 'wget is prohibited. Data cannot leave the machine via MCP.' },
+  // P1.7 (2026-05-04 bypass-review): alternative download primitives.
+  // fetch (FreeBSD/macOS), axel/aria2c (parallel downloaders), httpie
+  // (full name + short `http`/`https` verb forms). Were previously only
+  // caught incidentally when the URL ended in a blocked extension
+  // (`.com`/`.exe`); a `.io`/`.org` URL slipped.
+  { pattern: /\bfetch\b/i,                        category: 'data-exfil',     reason: 'fetch (FreeBSD/macOS downloader) is prohibited (P1.7).' },
+  { pattern: /\baxel\b/i,                         category: 'data-exfil',     reason: 'axel (parallel downloader) is prohibited (P1.7).' },
+  { pattern: /\baria2c\b/i,                       category: 'data-exfil',     reason: 'aria2c (parallel downloader) is prohibited (P1.7).' },
+  { pattern: /\bhttpie\b/i,                       category: 'data-exfil',     reason: 'httpie is prohibited (P1.7).' },
+  { pattern: /\bhttps?\b\s+(?:GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\b/i,
+                                                  category: 'data-exfil',     reason: 'httpie short-name `http`/`https` <METHOD> ... is prohibited (P1.7).' },
   { pattern: /invoke-webrequest/i,                category: 'data-exfil',     reason: 'PowerShell web requests are prohibited.' },
   { pattern: /invoke-restmethod/i,                category: 'data-exfil',     reason: 'PowerShell REST calls are prohibited.' },
   { pattern: /\bscp\b/i,                          category: 'data-exfil',     reason: 'SCP file transfer is prohibited.' },
