@@ -1,5 +1,86 @@
 # Changelog
 
+## [Unreleased] - 2026-05-05 (NF-S69-A deny-list audit closeout)
+
+Internal adversarial audit pass against `BLOCKED_PATTERNS`,
+`HARD_BLOCKED_PATTERNS`, and `AMBER_PATTERNS`
+(denylist_audit_triage_2026-05.md). Seven P1 findings + one FP-A
+(friction-killer) closed. No version-archive bump yet -- next
+release will package these together.
+
+### Security (P1 -- known categories of attack the deny-list claims
+to cover)
+
+- **NF-S69-A4 / FN-LT-001** (commit `1fee75b`) -- `Add-MpPreference`
+  / `Remove-MpPreference` Defender bypass. The verb-different sister
+  cmds of the previously caught `Set-MpPreference -Disable*` were
+  unblocked. `Add-MpPreference -ExclusionPath C:\Users\Public\malware`
+  whitelists a path so a payload survives Defender scans -- as common
+  as outright disabling. Also added: `Set-MpPreference
+  -AttackSurfaceReductionRules_Actions Disabled`.
+- **NF-S69-A5 / FN-LT-002** (commit `881ea83`) -- modern Python package
+  managers. `pip install` was caught; `poetry add`, `poetry install`,
+  `poetry run`, `pipx install`, `pdm add`, `conda install`,
+  `mamba install`, `uv pip install`, `uv add`, `uv sync`, `uv run`,
+  `uv tool install` were not. Each runs `pyproject.toml` build scripts
+  on install (same RCE surface as `pip install -e .`); supply-chain
+  typosquats landed silently.
+- **NF-S69-A6 / FN-LT-003** (commit `7c3e246`) -- `tar` extraction
+  primitives. `tar` was completely unhandled. New patterns block
+  `--absolute-names` / `-P` (writes literal absolute paths from the
+  archive), `--transform` (rewrites every member's destination),
+  `--to-command=`, `--use-compress-program=`,
+  `--checkpoint-action=exec=` (all run shell per archive member).
+  `bsdtar --absolute-paths` covered as a separate pattern. Plain
+  `tar -tf` (list) and `tar -xf` (plain extract to cwd) still allowed.
+- **NF-S69-A7 / FN-LT-004** (commit `e7e0153`) -- PuTTY family bypassed
+  the canonical ssh/scp/sftp regex via different binary names: `plink`
+  (remote command exec), `pscp`/`psftp` (file transfer), `putty.exe -m`
+  (remote-command file). KiTTY and MobaXterm have the same primitives.
+- **NF-S69-A8 / FN-LT-005** (commit `2688854`) -- cloud-CLI upload
+  primitives, the modern data-exfil surface. Added: `aws s3
+  cp/sync/mv/mb/presign`, `gcloud storage cp/rsync/mv`, `az storage
+  blob/file/share upload`, `gh release upload` / `gh gist create`,
+  `rclone copy/sync/copyto/copyurl/move/moveto`, `b2 upload-file`
+  (Backblaze), `mc cp/mirror` (MinIO). Read-only forms (`aws s3 ls`,
+  `gh repo view`) still allowed.
+- **NF-S69-A9 / FN-LT-010** (commit `d0d6691`) -- `git config core.<keys>`
+  writes. The command-line `-c key=value` injection was already in
+  `FORBIDDEN_GIT_FLAGS`; the persistent on-disk variant via
+  `git config <key> <value>` (subcommand) was unpoliced. Same kill
+  chain. Sensitive keys blocked: `core.hooksPath`/`editor`/`sshCommand`/
+  `fsmonitor`/`pager`/`askpass`, `credential.helper`, `protocol.ext.allow`/
+  `protocol.file.allow`, `alias.*`, `url.<base>.insteadOf`, `http.proxy`,
+  `https.proxy`, `uploadpack.packObjectsHook`. Plain non-sensitive writes
+  (`git config user.name "alice"`) still allowed.
+- **NF-S69-A10 / FN-LT-007** (commit `dd72246`) -- `npm install` /
+  `pnpm add` / `yarn add` / `npm ci` lifecycle-script AMBER warning.
+  Plain `npm install` runs `preinstall`/`install`/`postinstall` under
+  the user; a typosquat or compromised dep is the most common
+  real-world local-RCE vector for the dev persona. AMBER (not RED)
+  because plain install is routine. The lookahead skips the warning
+  when `--ignore-scripts` is explicitly passed.
+
+### UX (FP-A -- friction-killer)
+
+- **FP-LT-001** (commit `e29c94d`) -- narrow the cmd `set` rule.
+  The prior pattern blocked the legitimate assignment form
+  `set NODE_OPTIONS=--max-old-space-size=4096` (arguably the most
+  common Node-on-Windows idiom). New pattern uses a lookahead
+  `(?!\w+=)` that fires only when what follows `set ` is NOT a valid
+  `name=value` form, so dump forms (`set`, `set | foo`, `set > x`,
+  `set GITHUB_`) are still RED while assignments are GREEN.
+  `buildSafeEnv()` already strips real secrets from any spawned
+  child env, so the residual leak surface from a child `set` would
+  only see the 14-key allowlist (PATH, USERPROFILE, TEMP, etc.).
+
+### Tests
+
+- 513/513 pass (was 421 before this batch -- 92 new regression tests
+  across the eight findings, every one covering both the rejected
+  bypass attempt and a representative legitimate case to guard
+  against false positives).
+
 ## [1.13.1+nf-s69-5] - 2026-05-03 (post-release docs/UX)
 
 Independent reviewer pass after 1.13.1 surfaced one UX gap that
