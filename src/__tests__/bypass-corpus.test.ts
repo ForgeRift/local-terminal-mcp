@@ -585,6 +585,26 @@ describe('P0.6: path-qualified binary invocations are blocked', () => {
     assertBlocked('./../../bin/rm -rf /tmp'));
 });
 
+// ── P1.6 — GIT_* env-var smuggling ──────────────────────────────────────
+describe('P1.6: GIT_DIR / GIT_INDEX_FILE / GIT_SSH_COMMAND env smuggling', () => {
+  it('blocks GIT_DIR=/tmp/evil git commit', () =>
+    assertBlocked('GIT_DIR=/tmp/evil git commit'));
+  it('blocks GIT_INDEX_FILE=/tmp/evil git status', () =>
+    assertBlocked('GIT_INDEX_FILE=/tmp/evil git status'));
+  it('blocks GIT_WORK_TREE=/tmp git checkout', () =>
+    assertBlocked('GIT_WORK_TREE=/tmp git checkout HEAD'));
+  it('blocks GIT_SSH_COMMAND="ssh -o evil" git fetch', () =>
+    assertBlocked('GIT_SSH_COMMAND="ssh -o ProxyCommand=evil" git fetch'));
+  it('blocks GIT_EXEC_PATH=/tmp/evil git status', () =>
+    assertBlocked('GIT_EXEC_PATH=/tmp/evil git status'));
+  it('blocks GIT_CONFIG_GLOBAL=/tmp/evil git status', () =>
+    assertBlocked('GIT_CONFIG_GLOBAL=/tmp/evil git status'));
+  it('blocks export GIT_DIR=/tmp/evil', () =>
+    assertBlocked('export GIT_DIR=/tmp/evil'));
+  it('allows plain git status (no GIT_* prefix)', () =>
+    assertNotBlocked('git status'));
+});
+
 // ── P1.1 — base64 long-form decode flags ────────────────────────────────
 describe('P1.1: base64 -D / --decode / --decode-line bypass of -d', () => {
   it('blocks base64 -d (regression on existing rule)', () =>
