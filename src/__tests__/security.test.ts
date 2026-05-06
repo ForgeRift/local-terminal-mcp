@@ -588,6 +588,41 @@ describe('FN-LT-005 — cloud upload primitives blocked', () => {
   it('still allows gh repo view', () => assertNotBlocked('gh repo view'));
 });
 
+// ─── FN-LT-010 — git config <key> writes to sensitive keys ───────────────────
+// The command-line `-c key=value` injection is FORBIDDEN_GIT_FLAGS. The
+// persistent on-disk variant via `git config <key> <value>` (subcommand)
+// was unpoliced. Same kill chain.
+describe('FN-LT-010 — git config write to sensitive key blocked', () => {
+  it('blocks git config core.hooksPath C:\\evil', () =>
+    assertBlocked('git config core.hooksPath C:\\Users\\Public\\evilhooks'));
+  it('blocks git config --global core.hooksPath ~/evil', () =>
+    assertBlocked('git config --global core.hooksPath ~/evilhooks'));
+  it('blocks git config core.editor "cmd /c calc.exe"', () =>
+    assertBlocked('git config --global core.editor "cmd /c calc.exe"'));
+  it('blocks git config core.sshCommand', () =>
+    assertBlocked('git config --global core.sshCommand "/bin/sh"'));
+  it('blocks git config core.fsmonitor', () =>
+    assertBlocked('git config core.fsmonitor cmd'));
+  it('blocks git config core.pager', () =>
+    assertBlocked('git config --global core.pager "/bin/sh -c id"'));
+  it('blocks git config credential.helper', () =>
+    assertBlocked('git config --global credential.helper "/tmp/evil"'));
+  it('blocks git config protocol.ext.allow', () =>
+    assertBlocked('git config --global protocol.ext.allow always'));
+  it('blocks git config alias.x', () =>
+    assertBlocked('git config --global alias.x "!sh -c id"'));
+  it('blocks git config url.<base>.insteadOf', () =>
+    assertBlocked('git config --global url."http://attacker/".insteadOf "https://github.com/"'));
+  it('blocks git config http.proxy', () =>
+    assertBlocked('git config --global http.proxy http://attacker:8080'));
+  it('blocks git config uploadpack.packObjectsHook', () =>
+    assertBlocked('git config --global uploadpack.packObjectsHook /tmp/evil'));
+
+  // Plain non-sensitive read (config --get user.name) — allowed.
+  it('allows git config --get user.name', () => assertNotBlocked('git config --get user.name'));
+  it('allows git config user.name "alice"', () => assertNotBlocked('git config user.name "alice"'));
+});
+
 // ─── FP-LT-001 — narrow cmd `set` rule to allow assignment form ───────────────
 // The prior `set` rule was overbroad: any `set <ANYTHING>` form including the
 // legitimate assignment `set NODE_OPTIONS=--max-old-space-size=4096` was RED.

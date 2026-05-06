@@ -286,6 +286,18 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /(?:^|[\s;&|])set(?:\s*$|\s*[|>&]|\s+(?!\w+=))/i, category: 'info-leak', reason: 'cmd set without an explicit NAME=VALUE assignment is prohibited (env-dump form).' },
 
   // ── Persistence Mechanisms ────────────────────────────────────────────────
+  // FN-LT-010 (2026-05): `git config core.hooksPath C:\evil` is the canonical
+  // insider-persistence move — every subsequent commit/push runs the attacker's
+  // post-commit hook. The previously caught -c <key>=<val> form (FORBIDDEN_GIT_FLAGS)
+  // was the command-line override; this is the persistent on-disk variant via
+  // the `git config <key> <value>` subcommand. Same kill chain, different syntax.
+  // Keys: core.hooksPath (hook dir), core.editor (commit-msg editor),
+  // core.sshCommand (auth/transport), core.fsmonitor (status/diff hook),
+  // core.pager (output paging), core.askpass (creds), credential.helper,
+  // protocol.ext.allow / protocol.file.allow, alias.* (custom !shell aliases),
+  // url.<base>.insteadOf, http.proxy / https.proxy (MITM), uploadpack.packObjectsHook.
+  { pattern: /\bgit\b[^|&;\n]*\bconfig\b[^|&;\n]*\b(core\.(hookspath|editor|sshcommand|fsmonitor|pager|askpass)|credential\.|protocol\.(ext|file)\.allow|alias\.|url\.|http\.proxy|https\.proxy|uploadpack\.packobjectshook)\b/i,
+                                                  category: 'persistence',    reason: 'git config write to a sensitive key (core.hooksPath/editor/sshCommand/fsmonitor/pager/askpass, credential.*, protocol.ext.allow, alias.*, url.<base>.insteadOf, http.proxy, uploadpack.packObjectsHook) is prohibited.' },
   { pattern: /\breg\s+(add|delete|import|export)\b/i, category: 'persistence', reason: 'Registry modification is prohibited.' },
   { pattern: /set-itemproperty.*registry/i,       category: 'persistence',    reason: 'PowerShell registry modification is prohibited.' },
   { pattern: /new-itemproperty.*registry/i,       category: 'persistence',    reason: 'PowerShell registry creation is prohibited.' },
