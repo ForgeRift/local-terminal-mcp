@@ -241,6 +241,12 @@ export const BLOCKED_PATTERNS: BlockedPattern[] = [
   { pattern: /new-object\s+.*webclient/i,         category: 'data-exfil',     reason: 'PowerShell WebClient download is prohibited.' },
   { pattern: /\bssh\b/i,                          category: 'data-exfil',     reason: 'SSH connections are prohibited via MCP.' },
   { pattern: /\bmsbuild\b.*\.xml\b/i,             category: 'data-exfil',     reason: 'MSBuild inline task execution is prohibited (LOLBin).' },
+  // FN-LT-004 (2026-05): PuTTY family + KiTTY + MobaXterm bypass the canonical
+  // ssh/scp/sftp regex via different binary names. plink can run remote commands
+  // (plink user@host "cmd"); pscp/psftp transfer files. putty.exe -m runs a
+  // command-list file on the remote host. All are SSH-equivalent exfil and RCE.
+  { pattern: /\b(plink|pscp|psftp|putty(\.exe)?|kitty(\.exe)?|mobaxterm(\.exe)?)\b/i,
+                                                  category: 'data-exfil',     reason: 'PuTTY family (plink/pscp/psftp/putty/kitty/mobaxterm) is prohibited (SSH-equivalent exfil/RCE).' },
 
   // ── Environment Variable Enumeration (F-7 supplement) ────────────────────
   { pattern: /\$env:[A-Za-z_]/i,                  category: 'info-leak',      reason: 'PowerShell $env: variable access is prohibited.' },
