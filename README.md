@@ -6,9 +6,9 @@
 
 > **Built by [ForgeRift LLC](https://forgerift.io).** Claude is a product of Anthropic PBC. ForgeRift is an independent third-party developer and is not affiliated with, endorsed by, or sponsored by Anthropic.
 
-Give Claude controlled access to your local Windows machine — browse files, read code, run approved commands, and manage projects without leaving your AI workflow.
+Chat-first shell tooling for the Claude Desktop user. `local-terminal-mcp` extends your existing Claude Desktop conversation with audited shell access on your Windows machine — browse files, read code, run approved commands, and manage projects without leaving the chat. Built for users who want hard, deterministic guardrails on what an AI agent can do on their machine, not just confirmation prompts they have to evaluate.
 
-Installed as a Claude Desktop extension. Lifecycle managed by Claude Desktop — no terminal, no service install, no config files. Arbitrary shell commands pass through a three-tier security model (RED/AMBER/GREEN); structured tools (file ops, git read-ops, npm) bypass classification but enforce sensitive-file guards. Destructive patterns are hard-blocked at the plugin layer. Every call is audit-logged.
+Installed as a Claude Desktop extension. Lifecycle managed by Claude Desktop — no terminal, no service install, no config files. Arbitrary shell commands pass through a three-tier security model (RED/AMBER/GREEN) with 140+ permanently-blocked patterns; structured tools (file ops, git read-ops, npm) bypass classification but enforce sensitive-file guards. Destructive patterns are hard-blocked at the plugin layer. Optional AI-assisted second-pass classification (Layer 2 + Layer 3 board) when an Anthropic API key is configured. Every tool call is audit-logged with secret scrubbing.
 
 ![local-terminal tools panel](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_01_tools.gif)
 
