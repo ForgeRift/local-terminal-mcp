@@ -1,14 +1,14 @@
 # Getting Started with local-terminal-mcp
 
-> **You're in the right place if:** You've been using Claude for a few weeks, you keep copying and pasting commands back and forth, and you're tired of it. This plugin lets Claude work directly on your Windows machine — reading files, running commands, managing projects — without you acting as the middleman.
+> **You're in the right place if:** Your AI workflow happens in Claude Desktop's chat UI, you keep copying and pasting commands back and forth, and you're tired of it. This plugin lets Claude work directly on your Windows machine — reading files, running commands, managing projects — without you acting as the middleman, and without leaving the chat.
 
 ---
 
 ## What is this, exactly?
 
-local-terminal-mcp is a Claude Desktop extension that gives Claude audited, security-hardened access to your Windows shell. Once installed, Claude can see your files, run commands, and help you build and manage projects directly — instead of just telling you what to type.
+local-terminal-mcp is a Claude Desktop extension that gives Claude audited, security-hardened access to your Windows shell. Once installed, Claude can see your files, run commands, and help you build and manage projects directly — instead of just telling you what to type. It's chat-first shell tooling: built to extend the conversation you're already having with Claude, not to replace your terminal.
 
-Think of it like hiring an assistant who can actually sit at your computer, rather than one who has to shout instructions through a window.
+Think of it like hiring an assistant who can actually sit at your computer, rather than one who has to shout instructions through a window. The assistant has hard rules about what they're allowed to touch — 140+ kinds of dangerous commands they will not run, and an audit log of everything they did do.
 
 > **Where it works:** Local Terminal is loaded by Claude Desktop's standard chat sessions. Cowork (Anthropic's desktop-automation mode) and Claude in Chrome use a separate MCP pool and do not currently load `.mcpb` extensions, so Local Terminal is not available there. If you want Claude to use Local Terminal, use a regular chat in Claude Desktop.
 
@@ -55,7 +55,9 @@ After installation, Claude Desktop will prompt you for your ForgeRift license ke
 
 If you also have an Anthropic API key, enter it in the **Anthropic API Key** field. This is optional — the plugin works without it, but AI-assisted safety classification won't run for any `run_command` invocation.
 
-**Cost note:** When an Anthropic API key is configured, every shell command Claude runs through this plugin sends two parallel classification requests to Anthropic's API (Layer 2 safety check and Layer 3 board review), consuming tokens billed to your Anthropic account at standard API rates. Active developers typically see a few dollars per month; heavier workloads may cost more. The plugin is fully functional without this key — only the AI-assisted safety layer is skipped.
+**Cost note:** When an Anthropic API key is configured, **every `run_command` invocation** (the shell-command escape hatch — not every plugin tool) sends two parallel classification requests to Anthropic's API: a Layer 2 safety check using a Haiku-tier model and a Layer 3 multi-perspective board review using a Sonnet-tier model. These calls consume tokens billed to **your own Anthropic account** at standard API rates — ForgeRift is not the merchant of record and does not receive any portion of those charges. Active developers typically see a few dollars per month; heavier shell-heavy workloads may cost more. The plugin's other tools (`read_file`, `find_files`, `list_directory`, `run_npm_command`, `run_git_command`, etc.) do not call Anthropic's API and consume no tokens. The plugin is fully functional without this key — only the AI-assisted safety layer is skipped.
+
+**Important — intended security model:** The plugin's safety story is the combination of the deterministic deny-list (the 140+ HARD_BLOCKED patterns built into the plugin code, which always run locally and free) **and** the optional AI safety review (Layers 2 + 3, which require an Anthropic API key). Operating the plugin without the AI key is supported, and the deterministic deny-list continues to enforce the hard-blocked patterns — but you are operating in degraded mode, outside the intended security model. You accept the risk of any command that the deterministic layer alone fails to block, and ForgeRift's liability for damage arising in this configuration is limited per the EULA Section 11 and Section 6.1. Marketing language about "AI-assisted safety classification" describes the combined model, not the no-AI-key configuration. Deliberately disabling, modifying, or patching the deterministic deny-list itself (as opposed to simply not configuring an Anthropic key) is a violation of the EULA Section 3 and removes the liability protections you would otherwise have under this EULA. See the EULA at [forgerift.io/legal/mcp-eula](https://forgerift.io/legal/mcp-eula) for the full language.
 
 These are two different keys from two different companies. Your **ForgeRift license key** arrives in your welcome email and begins with a ForgeRift-specific prefix. Your **Anthropic API key** comes from [console.anthropic.com](https://console.anthropic.com) and starts with `sk-ant-`. Do not paste one into the other field.
 

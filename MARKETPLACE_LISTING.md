@@ -8,11 +8,11 @@
 
 *ForgeRift LLC is an independent third-party developer and is not affiliated with, endorsed by, or sponsored by Anthropic PBC.*
 
-Claude runs the safe tasks for you — you stay in control of the rest.
+**Built for the Claude Desktop chat user, not the terminal user.** local-terminal-mcp is a chat-first shell layer: it lives inside the Claude Desktop conversation you already use, and gives Claude the ability to read files, run approved commands, and operate on your project without you ever leaving the chat. If you live in a terminal, you have other options. If your AI workflow happens in Claude's chat UI and you want shell access without context-switching out of it, this is for you.
 
-Reading files, checking logs, running builds, searching your codebase — Claude handles those directly from the conversation, no copy-pasting required. High-risk operations (file deletion, software installs, registry changes, and more) stay permanently blocked and in your hands by design. When Claude hits one, it tells you exactly what to run yourself and why.
+**Hard guardrails, not soft prompts.** Reading files, checking logs, running builds, searching your codebase — Claude handles those directly from the conversation, no copy-pasting required. High-risk operations (file deletion, software installs, registry changes, and more) stay permanently blocked and in your hands by design. When Claude hits one, it tells you exactly what to run yourself and why. The plugin's safety story is *deterministic* — 140+ permanently-blocked patterns plus optional AI-assisted second-pass classification — built for users who want hard constraints on what an AI agent can do, not just confirmation prompts they have to evaluate.
 
-Secure, audited access to your local Windows shell. 140+ permanently blocked dangerous patterns. stdio transport — no inbound network socket, no inbound port exposure, no inbound surface. (Two outbound HTTPS flows documented in README.)
+Audited access to your local Windows shell. Every tool call written to a structured audit log with secret scrubbing. stdio transport — no inbound network socket, no inbound port exposure, no inbound surface. (Two outbound HTTPS flows documented in README.)
 
 ---
 
@@ -73,7 +73,7 @@ local-terminal-mcp gives Claude access to your Windows computer so it can do tha
 
 **Scope limitation by design:** No file writes outside `run_command` (which is itself filtered). The plugin surface is read + gated-execute only. Two narrow outbound flows exist: your license key is sent to ForgeRift at startup for subscription validation; and, if you supply an optional Anthropic API key, the command text and justification for every `run_command` invocation are sent to Anthropic's API for AI-assisted safety classification before execution.
 
-**AI layer fail-open:** Without an Anthropic API key, or if the Anthropic API call fails (network error, rate limit, invalid key), the AI safety classification layers (Layers 2–3) are silently skipped and the plugin falls back to the static RED hard-block list plus AMBER dry-run warnings only. Set `LAYER_STRICT_MODE=true` as an OS environment variable to make the plugin fail closed on API unavailability instead.
+**AI layer fail-open (and the intended security model):** Without an Anthropic API key, or if the Anthropic API call fails (network error, rate limit, invalid key), the AI safety classification layers (Layers 2–3) are silently skipped and the plugin falls back to the static RED hard-block list plus AMBER dry-run warnings only. Set `LAYER_STRICT_MODE=true` as an OS environment variable to make the plugin fail closed on API unavailability instead. **Important:** the plugin's safety story depends on the *combination* of the static deny-list and the AI classification. Operating without the AI key is supported, but it is "degraded mode" — outside the intended security model. Customers operating in degraded mode accept all risk for any command the static layer alone fails to block; ForgeRift's liability is limited per the [MCP EULA §§6.1, 10–12](https://forgerift.io/legal/mcp-eula). Deliberately disabling, patching, or replacing the static deny-list, validators, audit log, or secret-scrubbing pipeline is a EULA violation under §3.
 
 **License:** MIT. Full source at [github.com/ForgeRift/local-terminal-mcp](https://github.com/ForgeRift/local-terminal-mcp).
 
