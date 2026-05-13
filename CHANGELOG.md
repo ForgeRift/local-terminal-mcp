@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased] - 2026-05-13 (manifest schema bump for current DXT CLI)
+
+Updates `manifest.json` to match the current DXT spec recognized by
+`@anthropic-ai/dxt` v0.2.6. Runtime behaviour unchanged; the bump is
+purely so the .mcpb can be built and signed with the current tooling
+(`dxt pack` / `dxt sign`).
+
+### Manifest schema migration
+
+- `manifest_version` key renamed to `dxt_version` (and value updated
+  from `"0.4"` to `"0.1"` — the current DXT spec uses a different
+  version series for the manifest schema itself).
+- `privacy_policies` field removed — no longer recognized by the spec.
+  The privacy policy remains accessible via `homepage` → forgerift.io
+  → `/privacy.html`.
+
+`dxt validate manifest.json` now reports "Manifest is valid!" Required
+before `dxt pack` will produce a signable artifact.
+
 ## [Unreleased] - 2026-05-13 (MCP spec compliance: annotation hints + param naming)
 
 Audit pass against Anthropic's "Writing effective tools for agents"
