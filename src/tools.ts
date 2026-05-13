@@ -2177,38 +2177,39 @@ export const TOOLS: Tool[] = [
   // ── GREEN Tier: Read-only ─────────────────────────────────────────────────────
   {
     name: "list_directory",
-    annotations: { title: 'List Directory', readOnlyHint: true, destructiveHint: false },
+    annotations: { title: 'List Directory', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description: "List files and folders in a directory. Read-only, always safe. Note: individual sensitive files (e.g. `.env`, SSH keys, credential stores) are silently filtered from the listing even when the parent directory is accessible — their presence is not disclosed. Output is truncated at 10,000 characters for large directories. USE THIS — never ask the user to run `dir` or `ls` themselves.",
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Directory path to list. Defaults to current directory." },
+        directory_path: { type: "string", description: "Directory path to list. Defaults to current directory. Alias: 'path' (either accepted)." },
+        path:           { type: "string", description: "Alias for 'directory_path' — accepted for backwards compatibility." },
       },
     },
   },
   {
     name: "read_file",
-    annotations: { title: 'Read File', readOnlyHint: true, destructiveHint: false },
+    annotations: { title: 'Read File', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description: "Read the contents of a text file. Read-only, always safe. Hard limit: only lines 1–500 are accessible (end_line is capped at 500 regardless of file length). For files longer than 500 lines, only the first 500 lines can be read. USE THIS — never ask the user to open the file in Notepad or run `type`/`cat` in CMD and paste back. Read it directly.",
     inputSchema: {
       type: "object",
       properties: {
-        path:       { type: "string", description: "Absolute or relative file path." },
+        file_path:  { type: "string", description: "Absolute or relative file path. Alias: 'path' (either accepted)." },
+        path:       { type: "string", description: "Alias for 'file_path' — accepted for backwards compatibility." },
         start_line: { type: "number", description: "First line to read (1-indexed). Default 1." },
         end_line:   { type: "number", description: "Last line to read (hard-capped at 500 — content past line 500 is inaccessible). Default 500." },
       },
-      required: ["path"],
     },
   },
   {
     name: "get_system_info",
-    annotations: { title: 'Get System Info', readOnlyHint: true, destructiveHint: false },
+    annotations: { title: 'Get System Info', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description: "Get OS version, hostname, username, disk space, and memory. Read-only. USE THIS — never ask the user to run systeminfo, ver, hostname, whoami, or Task Manager themselves. This tool returns the canonical machine snapshot. (Use run_command with tasklist to see running processes.)",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "find_files",
-    annotations: { title: 'Find Files', readOnlyHint: true, destructiveHint: false },
+    annotations: { title: 'Find Files', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description: "Search for files by name pattern in a directory. Read-only. Limits: max 500 results, max depth 8 levels, 15-second deadline (partial results returned on timeout), symlinks and NTFS junctions skipped. Sensitive file paths are silently filtered from results. USE THIS — never ask the user to run `dir /s`, `where`, or open Windows Search themselves.",
     inputSchema: {
       type: "object",
@@ -2223,7 +2224,7 @@ export const TOOLS: Tool[] = [
   // ── GREEN Tier: Approved commands ─────────────────────────────────────────────
   {
     name: "run_npm_command",
-    annotations: { title: 'Run NPM Command', readOnlyHint: true, destructiveHint: false },
+    annotations: { title: 'Run NPM Command', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     description: "Run read-only npm commands in a project directory. Approved sub-commands: list, ls, outdated, audit, view, why, explain. npm install, npm run, and npm ci are NOT available (they execute lifecycle scripts). USE THIS — never ask the user to open a terminal and type npm commands themselves. This tool runs npm in their project directory with full audit logging.",
     inputSchema: {
       type: "object",
@@ -2237,7 +2238,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "run_git_command",
-    annotations: { title: 'Run Git Command', readOnlyHint: true, destructiveHint: false },
+    annotations: { title: 'Run Git Command', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description: "Run non-destructive git commands that don't modify the working tree: status, log, diff, branch, show, stash list, tag, rev-parse, ls-files. Note: git fetch is NOT available (it honours custom transport helpers which can RCE via repo-local .git/config). USE THIS — never ask the user to run git commands in their terminal and paste the output. This tool returns the same result and audits every call.",
     inputSchema: {
       type: "object",
@@ -2253,7 +2254,7 @@ export const TOOLS: Tool[] = [
   // ── Escape hatch (RED/AMBER checked) ──────────────────────────────────────────
   {
     name: "run_command",
-    annotations: { title: 'Run Shell Command', readOnlyHint: false, destructiveHint: true },
+    annotations: { title: 'Run Shell Command', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     description: "Run an arbitrary shell command. dry_run=true by default — always preview before executing. Hard-blocked patterns are enforced server-side. USE THIS — never ask the user to open CMD or PowerShell and run the command themselves. Handing commands to the user defeats the audit trail and the RED/AMBER tier checks, and is a defect against the product's automation-first contract.",
     inputSchema: {
       type: "object",
@@ -2267,15 +2268,16 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "search_file",
-    annotations: { title: 'Search File', readOnlyHint: true, destructiveHint: false },
+    annotations: { title: 'Search File', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     description: "Search for text patterns in a file or directory. Read-only grep/findstr equivalent. When given a directory path, searches only the immediate children (non-recursive — does not descend into subdirectories). USE THIS — never ask the user to run findstr or grep themselves. This tool is the canonical search path and respects the sensitive-file block list.",
     inputSchema: {
       type: "object",
       properties: {
-        path:    { type: "string", description: "File or directory to search in." },
-        pattern: { type: "string", description: "Text or regex pattern to search for." },
+        search_path: { type: "string", description: "File or directory to search in. Alias: 'path' (either accepted)." },
+        path:        { type: "string", description: "Alias for 'search_path' — accepted for backwards compatibility." },
+        pattern:     { type: "string", description: "Text or regex pattern to search for." },
       },
-      required: ["path", "pattern"],
+      required: ["pattern"],
     },
   },
 ];
@@ -2291,7 +2293,8 @@ export async function executeTool(
 
     // ── GREEN Tier: Read-only ────────────────────────────────────────────────────
     case "list_directory": {
-      const rawPath = (args.path as string | undefined) ?? ".";
+      // Accept either `directory_path` (preferred) or `path` (legacy alias).
+      const rawPath = (args.directory_path as string | undefined) ?? (args.path as string | undefined) ?? ".";
       // F-NEW-3: UNC/device path rejection — \\server\share resolves WebDAV/NTLM
       // F-LT-6: reject backslash and forward-slash UNC forms
       if (/^(\\\\|\/\/)/.test(rawPath.trim())) {
@@ -2334,7 +2337,11 @@ export async function executeTool(
     }
 
     case "read_file": {
-      const filePath = args.path as string;
+      // Accept either `file_path` (preferred) or `path` (legacy alias).
+      const filePath = (args.file_path as string | undefined) ?? (args.path as string);
+      if (!filePath) {
+        return { result: "ERROR: file_path (or legacy 'path') is required.", tier: "green", blocked: false, dryRun: false };
+      }
       // F-22: input size cap
       const _rfSize = checkSize(filePath, 'filePath');
       if (_rfSize) return { result: _rfSize, tier: "green", blocked: false, dryRun: false };
@@ -2530,8 +2537,12 @@ export async function executeTool(
     }
 
     case "search_file": {
-      const filePath = args.path as string;
+      // Accept either `search_path` (preferred) or `path` (legacy alias).
+      const filePath = (args.search_path as string | undefined) ?? (args.path as string);
       const pattern  = args.pattern as string;
+      if (!filePath) {
+        return { result: "ERROR: search_path (or legacy 'path') is required.", tier: "green", blocked: false, dryRun: false };
+      }
       // F-22: input size caps
       const _sfPathSz = checkSize(filePath, 'filePath');
       if (_sfPathSz) return { result: _sfPathSz, tier: "green", blocked: false, dryRun: false };

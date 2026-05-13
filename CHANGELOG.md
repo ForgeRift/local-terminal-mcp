@@ -1,5 +1,35 @@
 # Changelog
 
+## [Unreleased] - 2026-05-13 (MCP spec compliance: annotation hints + param naming)
+
+Audit pass against Anthropic's "Writing effective tools for agents"
+guidance and the MCP tool-annotations spec. Closes the two missing hint
+fields on every tool and aligns ambiguous parameter names with the
+spec's "be unambiguous" principle (`user_id` not `user`). All changes
+are additive — legacy parameter names continue to work via aliases.
+
+### Tool annotations (spec compliance)
+
+- **All 8 tools** now declare `idempotentHint` and `openWorldHint` in
+  addition to the existing `readOnlyHint` and `destructiveHint`. Read-only
+  local tools (`list_directory`, `read_file`, `get_system_info`,
+  `find_files`, `search_file`, `run_git_command`) set `idempotentHint:
+  true, openWorldHint: false`. `run_npm_command` hits the npm registry
+  on `outdated` / `audit` / `view`, so `openWorldHint: true`. `run_command`
+  executes arbitrary shell AND ships the command text + justification to
+  Anthropic's API for safety classification when configured →
+  `idempotentHint: false, openWorldHint: true`.
+
+### Parameter naming (backwards-compatible)
+
+- `list_directory.path` → `directory_path` (legacy `path` accepted as alias)
+- `read_file.path` → `file_path` (legacy `path` accepted as alias)
+- `search_file.path` → `search_path` (legacy `path` accepted as alias —
+  parameter is polymorphic, accepts either a file or directory)
+
+The executor reads the new name preferentially and falls back to `path`
+if a caller sends the legacy form. No breaking change.
+
 ## [Unreleased] - 2026-05-06 (External-AI bypass-discovery round closeout — round 2)
 
 External multi-model adversarial bypass-discovery audit (DeepSeek + Grok +
