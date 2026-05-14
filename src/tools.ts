@@ -2199,6 +2199,10 @@ export const TOOLS: Tool[] = [
         start_line: { type: "number", description: "First line to read (1-indexed). Default 1." },
         end_line:   { type: "number", description: "Last line to read (hard-capped at 500 — content past line 500 is inaccessible). Default 500." },
       },
+      anyOf: [
+        { required: ["file_path"] },
+        { required: ["path"] },
+      ],
     },
   },
   {
@@ -2278,6 +2282,10 @@ export const TOOLS: Tool[] = [
         pattern:     { type: "string", description: "Text or regex pattern to search for." },
       },
       required: ["pattern"],
+      anyOf: [
+        { required: ["search_path"] },
+        { required: ["path"] },
+      ],
     },
   },
 ];

@@ -12,7 +12,9 @@
 
 **Hard guardrails, not soft prompts.** Reading files, checking logs, running builds, searching your codebase — Claude handles those directly from the conversation, no copy-pasting required. High-risk operations (file deletion, software installs, registry changes, and more) stay permanently blocked and in your hands by design. When Claude hits one, it tells you exactly what to run yourself and why. The plugin's safety story is *deterministic* — 140+ permanently-blocked patterns plus optional AI-assisted second-pass classification — built for users who want hard constraints on what an AI agent can do, not just confirmation prompts they have to evaluate.
 
-Audited access to your local Windows shell. Every tool call written to a structured audit log with secret scrubbing. stdio transport — no inbound network socket, no inbound port exposure, no inbound surface. (Two outbound HTTPS flows documented in README.)
+Audited access to your local Windows shell. Every tool call written to a structured audit log with secret scrubbing. stdio transport — no inbound network socket, no inbound port exposure, no inbound surface.
+
+**Privacy:** Two narrow outbound flows are disclosed at install time (license-key validation to ForgeRift; optional Anthropic API safety classification when an `ANTHROPIC_API_KEY` is configured). Full privacy policy at <https://forgerift.io/privacy.html>.
 
 ---
 

@@ -1,5 +1,46 @@
 # Changelog
 
+## [Unreleased] - 2026-05-13 (schema hygiene + privacy disclosure restoration)
+
+Post-Phase-1 hygiene pass closing the two LOW/INFO items flagged by the
+internal security review of v1.13.4 + v1.13.5:
+
+### inputSchema — restore "at least one path form is required"
+
+`read_file` and `search_file` inputSchemas now declare an `anyOf` clause
+requiring one of the two accepted path forms (the new spec-aligned name
+or the legacy `path` alias). The v1.13.4 commit dropped these from
+`required:` because neither name is strictly required on its own — but
+that left the declared interface saying both were optional, even though
+the runtime check rejects calls with neither. The `anyOf` pattern
+expresses the actual contract:
+
+- `read_file`: `anyOf: [{ required: ["file_path"] }, { required: ["path"] }]`
+- `search_file`: `required: ["pattern"]` plus the same `anyOf` for the
+  path forms.
+
+Defense-in-depth: the runtime `if (!filePath) return ERROR` check still
+fires; this just gives MCP clients (and the model) a stricter declared
+contract to validate against before the call goes out.
+
+### Privacy disclosure surface
+
+The DXT v0.1 spec doesn't recognize the `privacy_policies` field that
+v1.13.5 dropped from `manifest.json`. Restored the explicit disclosure
+in two user-visible places:
+
+- `README.md` — new `## Privacy` section linking to
+  forgerift.io/privacy.html and listing the two narrow outbound flows
+  (license validation, optional Anthropic safety classification).
+- `MARKETPLACE_LISTING.md` — short privacy paragraph appended to the
+  product-overview block.
+
+The `long_description` in `manifest.json` already covered the two data
+flows; this just adds redundant, more discoverable disclosure for users
+who don't read the install dialog's long copy.
+
+Version: 1.13.5 -> 1.13.6.
+
 ## [Unreleased] - 2026-05-13 (manifest schema bump for current DXT CLI)
 
 Updates `manifest.json` to match the current DXT spec recognized by

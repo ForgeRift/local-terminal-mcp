@@ -1,6 +1,6 @@
 # local-terminal-mcp
 
-[![Version](https://img.shields.io/badge/version-1.13.3-blue.svg)](https://github.com/ForgeRift/local-terminal-mcp)
+[![Version](https://img.shields.io/badge/version-1.13.6-blue.svg)](https://github.com/ForgeRift/local-terminal-mcp)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Security](https://img.shields.io/badge/security-hardened-brightgreen.svg)](SECURITY.md)
 
@@ -35,6 +35,19 @@ These tools never modify your machine. Note: their output flows to Anthropic as 
 - `run_command` — arbitrary shell command. Requires a `justification` string describing the task intent. If an Anthropic API key is configured, the command text and justification are sent to Anthropic's API for AI-assisted safety classification on **every** `run_command` invocation (not only AMBER-tier) before execution. `dry_run=true` by default. Passes through RED → AMBER → GREEN pipeline before execution.
 
 ![Directory listing and file search demo](https://raw.githubusercontent.com/ForgeRift/local-terminal-mcp/main/docs/media/local-terminal_02_directory-listing.gif)
+
+---
+
+## Privacy
+
+Privacy policy: **<https://forgerift.io/privacy.html>**
+
+Two narrow outbound data flows leave your machine. Both are disclosed at install time in the plugin's `long_description`:
+
+1. **License key** — sent to `payments.forgerift.io` once per process startup for subscription validation. Required for the plugin to run.
+2. **Anthropic safety classification (optional)** — when an `ANTHROPIC_API_KEY` is configured, the `command` string and your `justification` text are sent to Anthropic's API on **every** `run_command` invocation (not only AMBER-tier) for AI-assisted safety classification. Disabled by default. When disabled, no command text or justification ever leaves your machine.
+
+No other outbound traffic. The MCP transport is stdio (no inbound listener). Tool output flows back to Claude over the same Claude Desktop conversation channel you already use — same trust boundary as anything you type into Claude.
 
 ---
 
